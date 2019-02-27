@@ -1,0 +1,13 @@
+defaults:
+  local: ../hpack.yaml
+
+name: aeson-schemas
+version: 0.1.0
+
+dependencies:
+- aeson
+- base
+- template-haskell
+
+library:
+  source-dirs: src
