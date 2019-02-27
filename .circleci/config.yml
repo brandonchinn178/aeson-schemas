@@ -1,0 +1,143 @@
+version: 2.1
+
+aliases:
+  - &param_stack_yaml
+    stack_yaml:
+      type: string
+      default: stack.yaml
+  - &param_latest
+    latest:
+      type: boolean
+      default: false
+
+  - &cache_key
+    v0-{{ checksum "cache-key.txt" }}
+
+executors:
+  centos7:
+    parameters:
+      <<: [*param_stack_yaml, *param_latest]
+
+    docker:
+      - image: centos:7
+    working_directory: /root/src
+    shell: /bin/bash -eux -o pipefail
+    environment:
+      STACK_YAML: << parameters.stack_yaml >>
+      CI_LATEST: <<# parameters.latest >>1<</ parameters.latest >>
+
+jobs:
+  run_build_and_test:
+    parameters:
+      <<: [*param_stack_yaml, *param_latest]
+
+    executor:
+      name: centos7
+      stack_yaml: << parameters.stack_yaml >>
+      latest: << parameters.latest >>
+
+    steps:
+      # init
+      - checkout
+      - run:
+          name: Build cache key
+          command: |
+            FILES=(
+              "${STACK_YAML}"
+              package.yaml
+            )
+            cat "${FILES[@]}" > cache-key.txt
+            curl -sSL https://get.haskellstack.org/ | sed -n 's/^STACK_VERSION="\(.*\)"/\1/p' >> cache-key.txt
+
+      # install stack and dependencies
+      - run:
+          name: Install stack
+          command: |
+            curl -sSL https://get.haskellstack.org/ | sh
+            stack --version
+      - restore_cache:
+          key: *cache_key
+      - run:
+          name: Build external dependencies
+          command: |
+            STACK_ARGS=(--test --only-dependencies)
+            if [[ -n "${CI_LATEST}" ]]; then
+                STACK_ARGS+=(--haddock)
+            fi
+
+            stack build "${STACK_ARGS[@]}"
+
+            # build hlint/stylish-haskell for cache
+            if [[ -n "${CI_LATEST}" ]]; then
+                stack build hlint stylish-haskell
+            fi
+      - save_cache:
+          key: *cache_key
+          paths:
+            - ~/.stack
+            - .stack-work
+
+      # lint, build, and test
+      - when:
+          condition: << parameters.latest >>
+          steps:
+            - run:
+                name: Lint
+                command: |
+                  set +e
+                  STATUS=0
+                  scripts/hlint.sh || STATUS=1
+                  scripts/stylish-haskell.sh || STATUS=1
+                  exit "${STATUS}"
+      - run:
+          name: Build
+          command: |
+            STACK_ARGS=(
+                --test
+                --no-run-tests
+                --ghc-options -Werror
+            )
+            if [[ -n "${CI_LATEST}" ]]; then
+                STACK_ARGS+=(--haddock)
+            fi
+
+            stack build "${STACK_ARGS[@]}"
+
+            if [[ -n "${CI_LATEST}" ]]; then
+              mkdir -p .ci/
+              tar czf .ci/haddock-docs.tar.gz -C "$(find .stack-work/dist -regex '.*/doc/html/[^/]*')" .
+            fi
+      - when:
+          condition: << parameters.latest >>
+          steps:
+            - store_artifacts:
+                path: .ci/
+      - run:
+          name: Test
+          command: stack test
+      - when:
+          condition: << parameters.latest >>
+          steps:
+            - run:
+                name: Test README Quickstart
+                command: |
+                  TESTDIR=$(mktemp -d)
+                  scripts/md_extract_code.py README.md 0 -o "${TESTDIR}/README_Quickstart.hs"
+                  stack runghc "${TESTDIR}/README_Quickstart.hs" | tee "${TESTDIR}/README_Quickstart.out"
+                  diff -u  "${TESTDIR}/README_Quickstart.out" test/goldens/README_Quickstart.golden
+
+workflows:
+  version: 2
+
+  build_and_test:
+    jobs:
+      - run_build_and_test:
+          name: test_ghc_8.6
+          stack_yaml: stack-ghc-8.6.yaml
+          latest: true
+      - run_build_and_test:
+          name: test_ghc_8.4
+          stack_yaml: stack-ghc-8.4.yaml
+      - run_build_and_test:
+          name: test_ghc_8.2
+          stack_yaml: stack-ghc-8.2.yaml

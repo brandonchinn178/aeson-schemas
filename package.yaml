@@ -1,0 +1,63 @@
+name: aeson-schemas
+version: 0.1.0
+verbatim:
+  cabal-version: '>= 1.10'
+license: BSD3
+license-file: LICENSE
+author:
+  - Brandon Chinn <brandon@leapyear.io>
+maintainer:
+  - Brandon Chinn <brandon@leapyear.io>
+category: JSON
+synopsis: Easily consume JSON data on-demand with type-safety
+description: |
+  Parse JSON data easily and safely without defining new data types. Useful
+  for deeply nested JSON data, which is difficult to parse using the default
+  FromJSON instances.
+extra-source-files:
+  - README.md
+  - CHANGELOG.md
+
+github: LeapYear/aeson-schemas
+
+ghc-options: -Wall
+when:
+  - condition: impl(ghc >= 8.0)
+    ghc-options:
+      - -Wcompat
+      - -Wincomplete-record-updates
+      - -Wincomplete-uni-patterns
+      - -Wnoncanonical-monad-instances
+      - -Wnoncanonical-monadfail-instances
+
+dependencies:
+- aeson >= 1.1.2.0 && < 1.5
+- base >= 4.9 && < 5
+- bytestring >= 0.10.8.1 && < 0.11
+- first-class-families >= 0.3.0.0 && < 0.6
+- megaparsec >= 6.0.0 && < 7.1
+- template-haskell >= 2.12.0.0 && < 2.15
+- text >= 1.2.2.2 && < 1.3
+- unordered-containers >= 0.2.8.0 && < 0.3
+
+library:
+  source-dirs: src
+  other-modules:
+    - Data.Aeson.Schema.TH.Enum
+    - Data.Aeson.Schema.TH.Get
+    - Data.Aeson.Schema.TH.Getter
+    - Data.Aeson.Schema.TH.Parse
+    - Data.Aeson.Schema.TH.Schema
+    - Data.Aeson.Schema.TH.Unwrap
+    - Data.Aeson.Schema.TH.Utils
+
+tests:
+  aeson-schemas-test:
+    source-dirs:  test
+    main:         Main.hs
+    dependencies:
+      - aeson-schemas
+      - raw-strings-qq >= 1.1 && < 1.2
+      - tasty >= 0.11.3 && < 1.3
+      - tasty-golden >= 2.3.1.2 && < 2.4
+      - th-test-utils >= 1.0.0 && < 1.1

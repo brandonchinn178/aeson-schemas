@@ -1,0 +1,8 @@
+resolver: lts-11.22
+
+packages:
+  - .
+
+extra-deps:
+  - first-class-families-0.3.0.0
+  - th-test-utils-1.0.0
