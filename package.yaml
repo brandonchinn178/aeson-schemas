@@ -7,7 +7,11 @@ version: 0.1.0
 dependencies:
 - aeson
 - base
+- bytestring
+- first-class-families
 - template-haskell
+- text
+- unordered-containers
 
 library:
   source-dirs: src
