@@ -28,7 +28,7 @@ module Data.Aeson.Schema.Internal where
 
 import Data.Aeson (FromJSON(..), Value(..))
 import Data.Aeson.Types (parseEither)
-import Data.Bifunctor (first)
+import Data.Bifunctor (bimap, first)
 import Data.Dynamic (Dynamic, fromDyn, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
@@ -120,7 +120,7 @@ instance FromSchema inner => FromSchema ('SchemaMaybe inner) where
 
   parseValue path value = case value of
     Null -> Right Nothing
-    _ -> first (const errMsg) $ parseValue path value
+    _ -> bimap (const errMsg) Just $ parseValue @inner path value
     where
       errMsg = mkErrMsg @('SchemaMaybe inner) path value
 
@@ -128,7 +128,7 @@ instance FromSchema inner => FromSchema ('SchemaList inner) where
   type SchemaResult ('SchemaList inner) = [SchemaResult inner]
 
   parseValue path value = case value of
-    Array a -> first (const errMsg) $ traverse (parseValue path) $ toList a
+    Array a -> first (const errMsg) $ traverse (parseValue @inner path) $ toList a
     _ -> Left errMsg
     where
       errMsg = mkErrMsg @('SchemaList inner) path value
