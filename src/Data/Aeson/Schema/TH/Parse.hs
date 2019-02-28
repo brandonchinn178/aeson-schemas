@@ -66,11 +66,32 @@ parseGetterOp = choice
       ]
   ]
 
+parseSchemaDef :: Parser SchemaDef
+parseSchemaDef = choice
+  [ between (lexeme "{") (lexeme "}") parseSchemaDefObj
+  , choice (map lexeme' mods) >>= parseSchemaDefMod
+  , SchemaDefType <$> identifier upperChar
+  ]
+  where
+    mods = ["Maybe", "List"]
+    parseSchemaDefMod s = SchemaDefMod s <$> parseSchemaDef
+    parseSchemaDefObj = SchemaDefObj <$> parseSchemaDefObjPair `sepEndBy1` lexeme ","
+    parseSchemaDefObjPair = do
+      key <- quotedString
+      lexeme ":"
+      value <- parseSchemaDef
+      space
+      return (key, value)
+
+-- | A Haskell identifier, with the given first character.
 identifier :: Parser Char -> Parser String
 identifier start = (:) <$> start <*> many (alphaNumChar <|> char '\'')
 
 lexeme :: String -> Parser ()
-lexeme = void . L.lexeme (L.space space1 empty empty) . string
+lexeme = void . lexeme'
+
+lexeme' :: String -> Parser String
+lexeme' = L.lexeme (L.space space1 empty empty) . string
 
 -- | Parses `identifier`, but if parentheses are provided, parses a namespaced identifier.
 namespacedIdentifier :: Parser Char -> Parser String
@@ -82,6 +103,25 @@ namespacedIdentifier start = choice [lexeme "(" *> namespaced <* lexeme ")", ide
       [ try $ p >>= \x -> (x:) <$> manyAndEnd p end
       , (:[]) <$> end
       ]
+
+quotedString :: Parser String
+quotedString = between (char '"') (char '"') $ many alphaNumChar
+
+{- SchemaDef -}
+
+data SchemaDef
+  = SchemaDefType String
+  | SchemaDefMod String SchemaDef
+  | SchemaDefObj [(String, SchemaDef)]
+  deriving (Show)
+
+schemaDef :: Parser SchemaDef
+schemaDef = do
+  space
+  def <- parseSchemaDef
+  space
+  void eof
+  return def
 
 {- GetterExp -}
 

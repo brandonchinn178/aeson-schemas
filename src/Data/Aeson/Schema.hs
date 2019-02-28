@@ -16,6 +16,7 @@ module Data.Aeson.Schema
   , SchemaType
   , IsSchemaObject
     -- * Quasiquoters for extracting JSON data
+  , schema
   , get
   , unwrap
     -- * Magic type classes
