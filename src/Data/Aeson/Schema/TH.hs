@@ -22,9 +22,11 @@ use these QuasiQuoters:
 -}
 
 module Data.Aeson.Schema.TH
-  ( get
+  ( schema
+  , get
   , unwrap
   ) where
 
 import Data.Aeson.Schema.TH.Get
+import Data.Aeson.Schema.TH.Schema
 import Data.Aeson.Schema.TH.Unwrap

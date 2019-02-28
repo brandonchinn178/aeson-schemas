@@ -22,28 +22,21 @@ import Data.Aeson.Schema.TH.Parse
 
 -- | Defines a QuasiQuoter to extract a schema within the given schema.
 --
--- For example, the following code
+-- For example:
 --
--- > type MySchema = 'SchemaObject
--- >   '[ '("foo", 'SchemaList ('SchemaObject
--- >        '[ '("bar", 'SchemaText)
--- >         ]
--- >       ))
--- >    ]
--- >
--- > type MyFoo = [unwrap| MySchema.foo[] |]
+-- > -- | MyFoo ~ 'SchemaObject '[ '("b", 'SchemaMaybe 'SchemaBool) ]
+-- > type MyFoo = [unwrap| MySchema.foo.nodes[] |]
 --
--- defines @MyFoo@ to be @'SchemaObject '[ '("bar", 'SchemaText) ]@. If the schema is imported
--- qualified, you can use parentheses to distinguish:
+-- If the schema is imported qualified, you can use parentheses to distinguish:
 --
--- > type MyFoo = [unwrap| (MyModule.Schema).foo[] |]
+-- > type MyFoo = [unwrap| (MyModule.Schema).foo.nodes[] |]
 --
 -- You can then use the type alias as usual:
 --
--- > parseBar :: Object MyFoo -> [Text]
--- > parseBar = Text.splitOn "," . [get| .bar |]
+-- > parseBar :: Object MyFoo -> String
+-- > parseBar = maybe "null" show . [get| .b |]
 -- >
--- > foo = map parseBar [get| result.foo[] |]
+-- > foo = map parseBar [get| result.foo.nodes[] |]
 --
 -- The available operations mostly correspond to 'get', except the operations are on the schema
 -- itself instead of the values:
@@ -54,8 +47,7 @@ import Data.Aeson.Schema.TH.Parse
 --     * @SchemaInt@ returns an 'Int'
 --     * @SchemaDouble@ returns a 'Double'
 --     * @SchemaText@ returns a 'Text.Text'
---     * @SchemaScalar name@ returns a value of the type associated with the given name
---     * @SchemaEnum name@ returns a value of the type associated with the given name
+--     * @SchemaCustom name@ returns a value of the type associated with the given name
 --     * @SchemaMaybe schema@ returns a 'Maybe' value wrapping the value returned by the inner schema
 --     * @SchemaList schema@ returns a list of values, whose type is determined by the inner schema
 --     * @SchemaObject fields@ returns an 'Data.Aeson.Schema.Object'

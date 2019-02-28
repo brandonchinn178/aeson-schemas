@@ -23,7 +23,7 @@ import Data.Aeson.Schema.TH.Parse
 -- | Defines a QuasiQuoter for expressions.
 --
 -- > doFoo = do
--- >   result <- runQuery ...
+-- >   result :: Object MySchema <- runQuery ...
 -- >
 -- >   [get| result.foo.a |]          :: Int
 -- >   [get| result.foo.nodes |]      :: [Object (..)]
@@ -46,8 +46,7 @@ import Data.Aeson.Schema.TH.Parse
 --     * @SchemaInt@ returns an 'Int'
 --     * @SchemaDouble@ returns a 'Double'
 --     * @SchemaText@ returns a 'Text.Text'
---     * @SchemaScalar name@ returns a value of the type associated with the given name
---     * @SchemaEnum name@ returns a value of the type associated with the given name
+--     * @SchemaCustom name@ returns a value of the type associated with the given name
 --     * @SchemaMaybe schema@ returns a 'Maybe' value wrapping the value returned by the inner schema
 --     * @SchemaList schema@ returns a list of values, whose type is determined by the inner schema
 --     * @SchemaObject fields@ returns an 'Data.Aeson.Schema.Object'
