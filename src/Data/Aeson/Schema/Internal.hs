@@ -47,7 +47,9 @@ import GHC.TypeLits
 
 -- | The object containing JSON data and its schema.
 newtype Object (schema :: SchemaType) = UnsafeObject (HashMap Text Dynamic)
-  deriving (Show)
+
+instance (FromSchema schema, SchemaResult schema ~ Object schema) => Show (Object schema) where
+  show = showValue @schema
 
 {- Type-level schema definitions -}
 
@@ -103,6 +105,10 @@ class Typeable schema => FromSchema (schema :: SchemaType) where
     where
       errMsg = mkErrMsg @schema path value
 
+  showValue :: SchemaResult schema -> String
+  default showValue :: Show (SchemaResult schema) => SchemaResult schema -> String
+  showValue = show
+
 instance FromSchema 'SchemaBool where
   type SchemaResult 'SchemaBool = Bool
 
@@ -115,7 +121,7 @@ instance FromSchema 'SchemaDouble where
 instance FromSchema 'SchemaText where
   type SchemaResult 'SchemaText = Text
 
-instance FromSchema inner => FromSchema ('SchemaMaybe inner) where
+instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaMaybe inner) where
   type SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
 
   parseValue path value = case value of
@@ -124,7 +130,7 @@ instance FromSchema inner => FromSchema ('SchemaMaybe inner) where
     where
       errMsg = mkErrMsg @('SchemaMaybe inner) path value
 
-instance FromSchema inner => FromSchema ('SchemaList inner) where
+instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaList inner) where
   type SchemaResult ('SchemaList inner) = [SchemaResult inner]
 
   parseValue path value = case value of
@@ -140,9 +146,12 @@ instance FromSchema ('SchemaObject '[]) where
     Object _ -> Right $ UnsafeObject mempty
     value -> Left $ mkErrMsg @('SchemaObject '[]) path value
 
+  showValue _ = "{}"
+
 instance
   ( KnownSymbol key
   , FromSchema inner
+  , Show (SchemaResult inner)
   , Typeable (SchemaResult inner)
   , FromSchema ('SchemaObject rest)
   , SchemaResult ('SchemaObject rest) ~ Object ('SchemaObject rest)
@@ -160,6 +169,15 @@ instance
 
       return $ UnsafeObject $ HashMap.insert key (toDyn inner) rest
     _ -> Left $ mkErrMsg @('SchemaObject ('(key, inner) ': rest)) path value
+
+  showValue (UnsafeObject hm) = case showValue @('SchemaObject rest) (UnsafeObject hm) of
+    "{}" -> "{" ++ pair ++ "}"
+    '{':s -> "{" ++ pair ++ ", " ++ s
+    s -> error $ "Unknown result when showing Object: " ++ s
+    where
+      key = symbolVal $ Proxy @key
+      value = fromDyn @(SchemaResult inner) (hm ! Text.pack key) $ error $ "Could not load key: " ++ key
+      pair = "\"" ++ key ++ "\": " ++ show value
 
 mkErrMsg :: forall (schema :: SchemaType). Typeable schema => [Text] -> Value -> String
 mkErrMsg path value =
