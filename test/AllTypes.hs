@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -44,39 +45,36 @@ instance FromSchema ('SchemaCustom "Coordinate") where
 
 {- AllTypes result -}
 
-type Schema = 'SchemaObject
-  '[ '("bool", 'SchemaBool)
-   , '("int", 'SchemaInt)
-   , '("int2", 'SchemaInt)
-   , '("double", 'SchemaDouble)
-   , '("text", 'SchemaText)
-   , '("scalar", 'SchemaCustom "Coordinate")
-   , '("enum", 'SchemaCustom "Greeting")
-   , '("maybeObject", 'SchemaMaybe ('SchemaObject
-        '[ '("text", 'SchemaText)
-         ]
-      ))
-   , '("maybeObjectNull", 'SchemaMaybe ('SchemaObject
-        '[ '("text", 'SchemaText)
-         ]
-      ))
-   , '("maybeList", 'SchemaMaybe ('SchemaList ('SchemaObject
-        '[ '("text", 'SchemaText)
-         ]
-      )))
-   , '("maybeListNull", 'SchemaMaybe ('SchemaList ('SchemaObject
-        '[ '("text", 'SchemaText)
-         ]
-      )))
-   , '("list", 'SchemaList ('SchemaObject
-        '[ '("type", 'SchemaText)
-         , '("maybeBool", 'SchemaMaybe 'SchemaBool)
-         , '("maybeInt", 'SchemaMaybe 'SchemaInt)
-         , '("maybeNull", 'SchemaMaybe 'SchemaBool)
-         ]
-      ))
-   , '("nonexistent", 'SchemaMaybe 'SchemaText)
-   ]
+type Schema = [schema|
+  {
+    "bool": Bool,
+    "int": Int,
+    "int2": Int,
+    "double": Double,
+    "text": Text,
+    "scalar": Coordinate,
+    "enum": Greeting,
+    "maybeObject": Maybe {
+      "text": Text,
+    },
+    "maybeObjectNull": Maybe {
+      "text": Text,
+    },
+    "maybeList": Maybe List {
+      "text": Text,
+    },
+    "maybeListNull": Maybe List {
+      "text": Text,
+    },
+    "list": List {
+      "type": Text,
+      "maybeBool": Maybe Bool,
+      "maybeInt": Maybe Int,
+      "maybeNull": Maybe Bool,
+    },
+    "nonexistent": Maybe Text,
+  }
+|]
 
 result :: Object Schema
 result = $(getMockedResult "test/all_types.json")

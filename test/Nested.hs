@@ -1,22 +1,23 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Nested where
 
-import Data.Aeson.Schema (Object, SchemaGraph(..))
+import Data.Aeson.Schema
 
 import Util (getMockedResult)
 
-type Schema = 'SchemaObject
-  '[ '("list", 'SchemaList ('SchemaObject
-        '[ '("a", 'SchemaMaybe ('SchemaObject
-              '[ '("b", 'SchemaInt)
-               ]
-            ))
-         , '("b", 'SchemaInt)
-         ]
-      ))
-   ]
+type Schema = [schema|
+  {
+    "list": List {
+      "a": Maybe {
+        "b": Int,
+      },
+      "b": Int,
+    },
+  }
+|]
 
 result :: Object Schema
 result = $(getMockedResult "test/nested.json")
