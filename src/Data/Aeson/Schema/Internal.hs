@@ -187,13 +187,14 @@ instance
       pair = "\"" ++ key ++ "\": " ++ show value
 
 parseFail :: forall (schema :: SchemaType) m a. (Monad m, Typeable schema) => [Text] -> Value -> m a
-parseFail path value = fail $
-  "Could not parse " ++ quotedValue ++ path' ++ " with schema: " ++ prettyShow @schema
+parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
   where
-    quotedValue = "`" ++ show value ++ "`"
-    path' = if null path
-      then ""
-      else " at path '" ++ Text.unpack (Text.intercalate "." $ reverse path) ++ "'"
+    msg = if null path
+      then "Could not parse schema " ++ schema'
+      else "Could not parse path '" ++ path' ++ "' with schema " ++ schema'
+    path' = Text.unpack . Text.intercalate "." $ reverse path
+    schema' = "`" ++ prettyShow @schema ++ "`"
+    ellipses n s = if length s > n then take n s ++ "..." else s
 
 {- Lookups within SchemaObject -}
 
