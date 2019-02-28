@@ -9,6 +9,7 @@ dependencies:
 - base
 - bytestring
 - first-class-families
+- megaparsec
 - template-haskell
 - text
 - unordered-containers
