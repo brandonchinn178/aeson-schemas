@@ -1,5 +1,5 @@
 {-|
-Module      :  Data.Aeson.Schema.QuasiQuoters.Parse
+Module      :  Data.Aeson.Schema.TH.Parse
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
@@ -12,7 +12,7 @@ Definitions for parsing input text in QuasiQuoters.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Data.Aeson.Schema.QuasiQuoters.Parse where
+module Data.Aeson.Schema.TH.Parse where
 
 import Control.Monad (void)
 import Data.Functor (($>))
@@ -28,6 +28,8 @@ type Parser = Parsec Void String
 parse :: Monad m => Parser a -> String -> m a
 parse parser s = either (fail . errorBundlePretty) return $ runParser parser s s
 
+{- GetterOps -}
+
 type GetterOps = [GetterOperation]
 
 data GetterOperation
@@ -38,6 +40,19 @@ data GetterOperation
   | GetterMapList
   | GetterMapMaybe
   deriving (Show,Lift)
+
+showGetterOps :: GetterOps -> String
+showGetterOps = concatMap showGetterOp
+  where
+    showGetterOp = \case
+      GetterKey key -> '.':key
+      GetterList elems -> ".[" ++ intercalate "," (map showGetterOps elems) ++ "]"
+      GetterTuple elems -> ".(" ++ intercalate "," (map showGetterOps elems) ++ ")"
+      GetterBang -> "!"
+      GetterMapList -> "[]"
+      GetterMapMaybe -> "?"
+
+{- Parser primitives -}
 
 parseGetterOp :: Parser GetterOperation
 parseGetterOp = choice
@@ -50,17 +65,6 @@ parseGetterOp = choice
       , fmap GetterTuple $ between (lexeme "(") (lexeme ")") $ some parseGetterOp `sepBy1` lexeme ","
       ]
   ]
-
-showGetterOps :: GetterOps -> String
-showGetterOps = concatMap showGetterOp
-  where
-    showGetterOp = \case
-      GetterKey key -> '.':key
-      GetterList elems -> ".[" ++ intercalate "," (map showGetterOps elems) ++ "]"
-      GetterTuple elems -> ".(" ++ intercalate "," (map showGetterOps elems) ++ ")"
-      GetterBang -> "!"
-      GetterMapList -> "[]"
-      GetterMapMaybe -> "?"
 
 identifier :: Parser Char -> Parser String
 identifier start = (:) <$> start <*> many (alphaNumChar <|> char '\'')
