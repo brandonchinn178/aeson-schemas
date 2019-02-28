@@ -1,0 +1,36 @@
+{
+    "bool": true,
+    "int": 1,
+    "int2": 2,
+    "double": 2.5,
+    "text": "asdf",
+    "scalar": "12,34",
+    "enum": "HELLO",
+    "maybeObject": {
+        "text": "foo"
+    },
+    "maybeObjectNull": null,
+    "maybeList": [
+        {
+            "text": "foo"
+        },
+        {
+            "text": "bar"
+        }
+    ],
+    "maybeListNull": null,
+    "list": [
+        {
+            "type": "bool",
+            "maybeBool": true
+        },
+        {
+            "type": "int",
+            "maybeInt": 2
+        },
+        {
+            "type": "null",
+            "maybeNull": null
+        }
+    ]
+}
