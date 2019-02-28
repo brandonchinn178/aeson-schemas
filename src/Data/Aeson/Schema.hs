@@ -14,9 +14,6 @@ module Data.Aeson.Schema
     Object
   , SchemaGraph(..)
   , SchemaType
-    -- * Functions for loading JSON data with a schema
-  , parseSchema
-  , decodeWithSchema
     -- * Quasiquoters for extracting JSON data
   , get
   , unwrap
@@ -25,5 +22,4 @@ module Data.Aeson.Schema
   ) where
 
 import Data.Aeson.Schema.Internal
-import Data.Aeson.Schema.Parse
 import Data.Aeson.Schema.TH

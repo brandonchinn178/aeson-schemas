@@ -26,9 +26,9 @@ Internal definitions for declaring JSON schemas.
 
 module Data.Aeson.Schema.Internal where
 
+import Control.Applicative ((<|>))
 import Data.Aeson (FromJSON(..), Value(..))
-import Data.Aeson.Types (parseEither)
-import Data.Bifunctor (bimap, first)
+import Data.Aeson.Types (Parser)
 import Data.Dynamic (Dynamic, fromDyn, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
@@ -46,10 +46,17 @@ import GHC.TypeLits
 {- Schema-validated JSON object -}
 
 -- | The object containing JSON data and its schema.
+--
+-- Has a 'FromJSON' instance, so you can use the usual 'Data.Aeson' decoding functions.
+--
+-- > obj = decode "{\"a\": 1}" :: Maybe (Object ('SchemaObject '[ '("a", 'SchemaInt) ]))
 newtype Object (schema :: SchemaType) = UnsafeObject (HashMap Text Dynamic)
 
 instance (FromSchema schema, SchemaResult schema ~ Object schema) => Show (Object schema) where
   show = showValue @schema
+
+instance (FromSchema schema, SchemaResult schema ~ Object schema) => FromJSON (Object schema) where
+  parseJSON = parseValue @schema []
 
 {- Type-level schema definitions -}
 
@@ -99,11 +106,9 @@ prettyShow = showSchemaType $ typeRep (Proxy @a)
 class Typeable schema => FromSchema (schema :: SchemaType) where
   type SchemaResult schema = result | result -> schema
 
-  parseValue :: [Text] -> Value -> Either String (SchemaResult schema)
-  default parseValue :: FromJSON (SchemaResult schema) => [Text] -> Value -> Either String (SchemaResult schema)
-  parseValue path value = first (const errMsg) $ parseEither parseJSON value
-    where
-      errMsg = mkErrMsg @schema path value
+  parseValue :: [Text] -> Value -> Parser (SchemaResult schema)
+  default parseValue :: FromJSON (SchemaResult schema) => [Text] -> Value -> Parser (SchemaResult schema)
+  parseValue path value = parseJSON value <|> parseFail @schema path value
 
   showValue :: SchemaResult schema -> String
   default showValue :: Show (SchemaResult schema) => SchemaResult schema -> String
@@ -124,27 +129,25 @@ instance FromSchema 'SchemaText where
 instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaMaybe inner) where
   type SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
 
-  parseValue path value = case value of
-    Null -> Right Nothing
-    _ -> bimap (const errMsg) Just $ parseValue @inner path value
-    where
-      errMsg = mkErrMsg @('SchemaMaybe inner) path value
+  parseValue path = \case
+    Null -> return Nothing
+    value -> (Just <$> parseValue @inner path value) <|> parseFail @('SchemaMaybe inner) path value
 
 instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaList inner) where
   type SchemaResult ('SchemaList inner) = [SchemaResult inner]
 
   parseValue path value = case value of
-    Array a -> first (const errMsg) $ traverse (parseValue @inner path) $ toList a
-    _ -> Left errMsg
+    Array a -> traverse (parseValue @inner path) (toList a) <|> fail'
+    _ -> fail'
     where
-      errMsg = mkErrMsg @('SchemaList inner) path value
+      fail' = parseFail @('SchemaList inner) path value
 
 instance FromSchema ('SchemaObject '[]) where
   type SchemaResult ('SchemaObject '[]) = Object ('SchemaObject '[])
 
   parseValue path = \case
-    Object _ -> Right $ UnsafeObject mempty
-    value -> Left $ mkErrMsg @('SchemaObject '[]) path value
+    Object _ -> return $ UnsafeObject mempty
+    value -> parseFail @('SchemaObject '[]) path value
 
   showValue _ = "{}"
 
@@ -168,7 +171,7 @@ instance
       UnsafeObject rest <- parseValue @('SchemaObject rest) path value
 
       return $ UnsafeObject $ HashMap.insert key (toDyn inner) rest
-    _ -> Left $ mkErrMsg @('SchemaObject ('(key, inner) ': rest)) path value
+    _ -> parseFail @('SchemaObject ('(key, inner) ': rest)) path value
 
   showValue (UnsafeObject hm) = case showValue @('SchemaObject rest) (UnsafeObject hm) of
     "{}" -> "{" ++ pair ++ "}"
@@ -179,8 +182,8 @@ instance
       value = fromDyn @(SchemaResult inner) (hm ! Text.pack key) $ error $ "Could not load key: " ++ key
       pair = "\"" ++ key ++ "\": " ++ show value
 
-mkErrMsg :: forall (schema :: SchemaType). Typeable schema => [Text] -> Value -> String
-mkErrMsg path value =
+parseFail :: forall (schema :: SchemaType) m a. (Monad m, Typeable schema) => [Text] -> Value -> m a
+parseFail path value = fail $
   "Could not parse " ++ quotedValue ++ path' ++ " with schema: " ++ prettyShow @schema
   where
     quotedValue = "`" ++ show value ++ "`"
