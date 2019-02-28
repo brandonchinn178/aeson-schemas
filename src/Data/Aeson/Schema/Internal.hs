@@ -94,7 +94,7 @@ prettyShow = showSchemaType $ typeRep (Proxy @a)
 
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
 class Typeable schema => FromSchema (schema :: SchemaType) where
-  type SchemaResult schema
+  type SchemaResult schema = result | result -> schema
 
   parseValue :: [Text] -> Value -> Either String (SchemaResult schema)
   default parseValue :: FromJSON (SchemaResult schema) => [Text] -> Value -> Either String (SchemaResult schema)

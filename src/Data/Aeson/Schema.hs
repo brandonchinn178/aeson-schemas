@@ -20,6 +20,8 @@ module Data.Aeson.Schema
     -- * Quasiquoters for extracting JSON data
   , get
   , unwrap
+    -- * Magic type classes
+  , FromSchema(..)
   ) where
 
 import Data.Aeson.Schema.Internal
