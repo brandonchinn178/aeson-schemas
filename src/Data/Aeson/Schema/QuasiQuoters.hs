@@ -122,19 +122,16 @@ generateGetterExp GetterExp{..} =
         GetterTuple elems -> do
           val <- newName "v"
           lamE [varP val] (tupE $ applyValToOps val elems)
-        GetterBang -> [| $(next) . fromJust $(lift start) $(lift $ reverse history) |]
+        GetterBang -> [| $(next) . fromJust $(lift $ mkFromJustMsg history) |]
         GetterMapMaybe -> [| ($(next) <$?>) |]
         GetterMapList -> [| ($(next) <$:>) |]
+    mkFromJustMsg history = Maybe.fromMaybe "" start ++ showGetterOps (reverse history)
 
 -- | fromJust with helpful error message
-fromJust :: Maybe String -> GetterOps -> Maybe a -> a
-fromJust start ops =
-  if null start' && null ops
-    then fromJust' ""
-    else fromJust' $ ": " ++ start' ++ showGetterOps ops
+fromJust :: String -> Maybe a -> a
+fromJust msg = Maybe.fromMaybe (error errMsg)
   where
-    start' = Maybe.fromMaybe "" start
-    fromJust' = Maybe.fromMaybe . error . ("Called 'fromJust on null expression" ++)
+    errMsg = "Called 'fromJust' on null expression" ++ if null msg then "" else ": " ++ msg
 
 -- | fmap specialized to Maybe
 (<$?>) :: (a -> b) -> Maybe a -> Maybe b
