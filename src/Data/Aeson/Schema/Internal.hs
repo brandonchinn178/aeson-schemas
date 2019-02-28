@@ -39,6 +39,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable, splitTyConApp, tyConName, typeRep, typeRepTyCon)
 import Fcf (type (<=<), type (=<<), Eval, Find, FromMaybe, Fst, Snd, TyEq)
+import GHC.Exts (toList)
 import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
 
@@ -114,11 +115,23 @@ instance FromSchema 'SchemaDouble where
 instance FromSchema 'SchemaText where
   type SchemaResult 'SchemaText = Text
 
-instance (FromSchema inner, FromJSON (SchemaResult inner)) => FromSchema ('SchemaMaybe inner) where
+instance FromSchema inner => FromSchema ('SchemaMaybe inner) where
   type SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
 
-instance (FromSchema inner, FromJSON (SchemaResult inner)) => FromSchema ('SchemaList inner) where
+  parseValue path value = case value of
+    Null -> Right Nothing
+    _ -> first (const errMsg) $ parseValue path value
+    where
+      errMsg = mkErrMsg @('SchemaMaybe inner) path value
+
+instance FromSchema inner => FromSchema ('SchemaList inner) where
   type SchemaResult ('SchemaList inner) = [SchemaResult inner]
+
+  parseValue path value = case value of
+    Array a -> first (const errMsg) $ traverse (parseValue path) $ toList a
+    _ -> Left errMsg
+    where
+      errMsg = mkErrMsg @('SchemaList inner) path value
 
 instance FromSchema ('SchemaObject '[]) where
   type SchemaResult ('SchemaObject '[]) = Object ('SchemaObject '[])
