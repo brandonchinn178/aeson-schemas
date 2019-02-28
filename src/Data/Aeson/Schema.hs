@@ -26,4 +26,4 @@ module Data.Aeson.Schema
 
 import Data.Aeson.Schema.Internal
 import Data.Aeson.Schema.Parse
-import Data.Aeson.Schema.QuasiQuoters
+import Data.Aeson.Schema.TH

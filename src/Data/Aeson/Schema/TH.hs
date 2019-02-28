@@ -1,10 +1,10 @@
 {-|
-Module      :  Data.Aeson.Schema.QuasiQuoters
+Module      :  Data.Aeson.Schema.TH
 Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 
-Definitions for querying JSON data using quasiquoters.
+Template Haskell definitions for doing various @aeson-schemas@ operations.
 
 'Data.Aeson.Schema.SchemaGraph' defines the shape of the JSON object stored in
 'Data.Aeson.Schema.Object', and we can use 'Data.Aeson.Schema.Internal.getKey' to lookup a key that
@@ -24,7 +24,7 @@ use these QuasiQuoters:
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Data.Aeson.Schema.QuasiQuoters
+module Data.Aeson.Schema.TH
   ( get
   , unwrap
   ) where
