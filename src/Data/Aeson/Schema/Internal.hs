@@ -7,6 +7,7 @@ Portability :  portable
 Internal definitions for declaring JSON schemas.
 -}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ExplicitNamespaces #-}
@@ -52,10 +53,13 @@ import GHC.TypeLits
 -- > obj = decode "{\"a\": 1}" :: Maybe (Object ('SchemaObject '[ '("a", 'SchemaInt) ]))
 newtype Object (schema :: SchemaType) = UnsafeObject (HashMap Text Dynamic)
 
-instance (FromSchema schema, SchemaResult schema ~ Object schema) => Show (Object schema) where
+-- | A constraint that checks if the given schema is a 'SchemaObject.
+type IsSchemaObject schema = (FromSchema schema, SchemaResult schema ~ Object schema)
+
+instance IsSchemaObject schema => Show (Object schema) where
   show = showValue @schema
 
-instance (FromSchema schema, SchemaResult schema ~ Object schema) => FromJSON (Object schema) where
+instance IsSchemaObject schema => FromJSON (Object schema) where
   parseJSON = parseValue @schema []
 
 {- Type-level schema definitions -}

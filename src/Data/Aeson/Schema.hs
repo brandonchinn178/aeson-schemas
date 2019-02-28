@@ -14,6 +14,7 @@ module Data.Aeson.Schema
     Object
   , SchemaGraph(..)
   , SchemaType
+  , IsSchemaObject
     -- * Quasiquoters for extracting JSON data
   , get
   , unwrap
