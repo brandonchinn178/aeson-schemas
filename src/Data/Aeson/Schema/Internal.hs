@@ -8,10 +8,14 @@ Internal definitions for declaring JSON schemas.
 -}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -22,10 +26,14 @@ Internal definitions for declaring JSON schemas.
 
 module Data.Aeson.Schema.Internal where
 
-import Data.Aeson (FromJSON(..))
-import Data.Dynamic (Dynamic, fromDyn)
+import Data.Aeson (FromJSON(..), Value(..))
+import Data.Aeson.Types (parseEither)
+import Data.Bifunctor (first)
+import Data.Dynamic (Dynamic, fromDyn, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
+import qualified Data.HashMap.Strict as HashMap
 import Data.List (intercalate, isPrefixOf)
+import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -85,29 +93,69 @@ prettyShow = showSchemaType $ typeRep (Proxy @a)
 {- Conversions from schema types into Haskell types -}
 
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
-class HasSchema result where
-  type ToSchema result = (schema :: SchemaType) | schema -> result
+class Typeable schema => FromSchema (schema :: SchemaType) where
+  type SchemaResult schema
 
-instance HasSchema Bool where
-  type ToSchema Bool = 'SchemaBool
+  parseValue :: [Text] -> Value -> Either String (SchemaResult schema)
+  default parseValue :: FromJSON (SchemaResult schema) => [Text] -> Value -> Either String (SchemaResult schema)
+  parseValue path value = first (const errMsg) $ parseEither parseJSON value
+    where
+      errMsg = mkErrMsg @schema path value
 
-instance HasSchema Int where
-  type ToSchema Int = 'SchemaInt
+instance FromSchema 'SchemaBool where
+  type SchemaResult 'SchemaBool = Bool
 
-instance HasSchema Double where
-  type ToSchema Double = 'SchemaDouble
+instance FromSchema 'SchemaInt where
+  type SchemaResult 'SchemaInt = Int
 
-instance HasSchema Text.Text where
-  type ToSchema Text.Text = 'SchemaText
+instance FromSchema 'SchemaDouble where
+  type SchemaResult 'SchemaDouble = Double
 
-instance HasSchema inner => HasSchema (Maybe inner) where
-  type ToSchema (Maybe inner) = 'SchemaMaybe (ToSchema inner)
+instance FromSchema 'SchemaText where
+  type SchemaResult 'SchemaText = Text
 
-instance HasSchema inner => HasSchema [inner] where
-  type ToSchema [inner] = 'SchemaList (ToSchema inner)
+instance (FromSchema inner, FromJSON (SchemaResult inner)) => FromSchema ('SchemaMaybe inner) where
+  type SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
 
-instance HasSchema (Object ('SchemaObject inner)) where
-  type ToSchema (Object ('SchemaObject inner)) = 'SchemaObject inner
+instance (FromSchema inner, FromJSON (SchemaResult inner)) => FromSchema ('SchemaList inner) where
+  type SchemaResult ('SchemaList inner) = [SchemaResult inner]
+
+instance FromSchema ('SchemaObject '[]) where
+  type SchemaResult ('SchemaObject '[]) = Object ('SchemaObject '[])
+
+  parseValue path = \case
+    Object _ -> Right $ UnsafeObject mempty
+    value -> Left $ mkErrMsg @('SchemaObject '[]) path value
+
+instance
+  ( KnownSymbol key
+  , FromSchema inner
+  , Typeable (SchemaResult inner)
+  , FromSchema ('SchemaObject rest)
+  , SchemaResult ('SchemaObject rest) ~ Object ('SchemaObject rest)
+  , Typeable rest
+  ) => FromSchema ('SchemaObject ('(key, inner) ': rest)) where
+  type SchemaResult ('SchemaObject ('(key, inner) ': rest)) = Object ('SchemaObject ('(key, inner) ': rest))
+
+  parseValue path value = case value of
+    Object o -> do
+      let key = Text.pack $ symbolVal $ Proxy @key
+          innerVal = fromMaybe Null $ HashMap.lookup key o
+
+      inner <- parseValue @inner (key:path) innerVal
+      UnsafeObject rest <- parseValue @('SchemaObject rest) path value
+
+      return $ UnsafeObject $ HashMap.insert key (toDyn inner) rest
+    _ -> Left $ mkErrMsg @('SchemaObject ('(key, inner) ': rest)) path value
+
+mkErrMsg :: forall (schema :: SchemaType). Typeable schema => [Text] -> Value -> String
+mkErrMsg path value =
+  "Could not parse " ++ quotedValue ++ path' ++ " with schema: " ++ prettyShow @schema
+  where
+    quotedValue = "`" ++ show value ++ "`"
+    path' = if null path
+      then ""
+      else " at path '" ++ Text.unpack (Text.intercalate "." $ reverse path) ++ "'"
 
 {- Lookups within SchemaObject -}
 
@@ -149,9 +197,8 @@ type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType wh
 --
 getKey
   :: forall key schema endSchema result
-   . ( endSchema ~ LookupSchema key schema    -- lookup key in schema for resulting schema
-     , ToSchema result ~ endSchema            -- the final result type's associated schema should
-                                              -- match resulting schema
+   . ( endSchema ~ LookupSchema key schema
+     , result ~ SchemaResult endSchema
      , KnownSymbol key
      , Typeable result
      , Typeable endSchema
