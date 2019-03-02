@@ -9,12 +9,12 @@ Definitions for parsing input text in QuasiQuoters.
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Data.Aeson.Schema.TH.Parse where
 
 import Control.Monad (void)
+import Data.Either (partitionEithers)
 import Data.Functor (($>))
 import Data.List (intercalate)
 import Data.Void (Void)
@@ -68,20 +68,25 @@ parseGetterOp = choice
 
 parseSchemaDef :: Parser SchemaDef
 parseSchemaDef = choice
-  [ between (lexeme "{") (lexeme "}") parseSchemaDefObj
+  [ between (lexeme "{") (lexeme "}") $ uncurry SchemaDefObj <$> parseSchemaDefObjItems
   , choice (map lexeme' mods) >>= parseSchemaDefMod
   , SchemaDefType <$> identifier upperChar
+  , SchemaDefInclude <$> parseSchemaReference
   ]
   where
     mods = ["Maybe", "List"]
     parseSchemaDefMod s = SchemaDefMod s <$> parseSchemaDef
-    parseSchemaDefObj = SchemaDefObj <$> parseSchemaDefObjPair `sepEndBy1` lexeme ","
-    parseSchemaDefObjPair = do
+    parseSchemaDefObjItems = partitionEithers <$> parseSchemaDefObjItem `sepEndBy1` lexeme ","
+    parseSchemaDefObjItem = choice
+      [ Left <$> parseSchemaDefPair
+      , Right <$> parseSchemaReference
+      ] <* space -- allow any trailing spaces
+    parseSchemaDefPair = do
       key <- quotedString
       lexeme ":"
       value <- parseSchemaDef
-      space
       return (key, value)
+    parseSchemaReference = char '#' *> namespacedIdentifier upperChar
 
 -- | A Haskell identifier, with the given first character.
 identifier :: Parser Char -> Parser String
@@ -105,14 +110,15 @@ namespacedIdentifier start = choice [lexeme "(" *> namespaced <* lexeme ")", ide
       ]
 
 quotedString :: Parser String
-quotedString = between (char '"') (char '"') $ many alphaNumChar
+quotedString = between (char '"') (char '"') $ many $ noneOf "\""
 
 {- SchemaDef -}
 
 data SchemaDef
   = SchemaDefType String
   | SchemaDefMod String SchemaDef
-  | SchemaDefObj [(String, SchemaDef)]
+  | SchemaDefInclude String
+  | SchemaDefObj [(String, SchemaDef)] [String]
   deriving (Show)
 
 schemaDef :: Parser SchemaDef

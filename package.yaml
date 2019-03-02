@@ -27,5 +27,6 @@ tests:
     main:         Main.hs
     dependencies:
       - aeson-schemas
+      - raw-strings-qq
       - tasty
       - tasty-golden

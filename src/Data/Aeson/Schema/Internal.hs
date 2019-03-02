@@ -92,7 +92,7 @@ prettyShow = showSchemaType $ typeRep (Proxy @a)
     getSchemaObjectPairs tyRep = case splitTypeRep tyRep of
       ("'[]", []) -> []
       ("':", [x, rest]) -> case splitTypeRep x of
-        ("'(,)", [key, val]) -> (typeRepName key, typeRepName val) : getSchemaObjectPairs rest
+        ("'(,)", [key, val]) -> (typeRepName key, showSchemaType val) : getSchemaObjectPairs rest
         _ -> error $ "Unknown pair when showing SchemaType: " ++ show x
       _ -> error $ "Unknown list when showing SchemaType: " ++ show tyRep
     showPairs l =
