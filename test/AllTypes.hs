@@ -5,7 +5,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module AllTypes where
 
@@ -26,9 +25,6 @@ instance FromJSON Greeting where
     "GOODBYE" -> pure GOODBYE
     t -> fail $ "Bad Greeting: " ++ Text.unpack t
 
-instance FromSchema ('SchemaCustom "Greeting") where
-  type SchemaResult ('SchemaCustom "Greeting") = Greeting
-
 {- Coordinate scalar -}
 
 newtype Coordinate = Coordinate (Int, Int)
@@ -39,9 +35,6 @@ instance FromJSON Coordinate where
     case map (read . Text.unpack) $ Text.splitOn "," s of
       [x, y] -> return $ Coordinate (x, y)
       _ -> fail $ "Bad Coordinate: " ++ Text.unpack s
-
-instance FromSchema ('SchemaCustom "Coordinate") where
-  type SchemaResult ('SchemaCustom "Coordinate") = Coordinate
 
 {- AllTypes result -}
 

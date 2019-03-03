@@ -20,14 +20,14 @@ import Control.Monad ((>=>))
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema.Internal (SchemaGraph(..))
+import Data.Aeson.Schema.Internal (SchemaType(..))
 import Data.Aeson.Schema.TH.Parse
 
 -- | Defines a QuasiQuoter for writing schemas.
 --
 -- Example:
 --
--- > import Data.Aeson.Schema (SchemaGraph(..))
+-- > import Data.Aeson.Schema (SchemaType(..))
 -- > import Data.Aeson.Schema.TH (schema)
 -- >
 -- > -- | MySchema ~ 'SchemaObject
@@ -82,11 +82,11 @@ generateSchema = \case
   SchemaDefType "Int"        -> [t| 'SchemaInt |]
   SchemaDefType "Double"     -> [t| 'SchemaDouble |]
   SchemaDefType "Text"       -> [t| 'SchemaText |]
-  SchemaDefType other        -> [t| 'SchemaCustom $(strLitT other) |]
+  SchemaDefType other        -> [t| 'SchemaCustom $(getType other) |]
   SchemaDefMod "Maybe" inner -> [t| 'SchemaMaybe $(generateSchema inner) |]
   SchemaDefMod "List" inner  -> [t| 'SchemaList $(generateSchema inner) |]
   SchemaDefMod other _       -> fail $ "Invalid schema modification: " ++ other
-  SchemaDefInclude other     -> conT =<< getName other
+  SchemaDefInclude other     -> getType other
   SchemaDefObj pairs extends ->
     let pairs' = foldr (\pair rest -> fromPair pair `consT` rest) promotedNilT pairs
         extends' = flip map extends $ \other -> do
@@ -100,6 +100,7 @@ generateSchema = \case
     pairT (a, b) = [t| '($a, $b) |]
     consT x xs = [t| $x ': $xs |]
     fromPair (k, v) = pairT (strLitT k, generateSchema v)
+    getType = getName >=> conT
     getName ty = maybe (fail $ "Unknown type: " ++ ty) return =<< lookupTypeName ty
 
 {- Helpers -}

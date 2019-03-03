@@ -33,6 +33,7 @@ import Data.Aeson.Types (Parser)
 import Data.Dynamic (Dynamic, fromDyn, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
+import Data.Kind (Type)
 import Data.List (intercalate, isPrefixOf)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy(..))
@@ -65,23 +66,19 @@ instance IsSchemaObject schema => FromJSON (Object schema) where
 {- Type-level schema definitions -}
 
 -- | The schema definition for JSON data.
-data SchemaGraph s
+data SchemaType
   = SchemaBool
   | SchemaInt
   | SchemaDouble
   | SchemaText
-  | SchemaCustom s
-  | SchemaMaybe (SchemaGraph s)
-  | SchemaList (SchemaGraph s)
-  | SchemaObject [(s, SchemaGraph s)]
-  deriving (Show)
-
--- | A 'SchemaGraph' at the kind level.
-type SchemaType = SchemaGraph Symbol
+  | SchemaCustom Type
+  | SchemaMaybe SchemaType
+  | SchemaList SchemaType
+  | SchemaObject [(Symbol, SchemaType)]
 
 -- | Pretty show the given SchemaType.
-prettyShow :: forall (a :: SchemaType). Typeable a => String
-prettyShow = showSchemaType $ typeRep (Proxy @a)
+showSchema :: forall (a :: SchemaType). Typeable a => String
+showSchema = showSchemaType $ typeRep (Proxy @a)
   where
     showSchemaType tyRep = case splitTypeRep tyRep of
       ("'SchemaObject", [pairs]) ->
@@ -108,7 +105,7 @@ prettyShow = showSchemaType $ typeRep (Proxy @a)
 
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
 class Typeable schema => FromSchema (schema :: SchemaType) where
-  type SchemaResult schema = result | result -> schema
+  type SchemaResult schema
 
   parseValue :: [Text] -> Value -> Parser (SchemaResult schema)
   default parseValue :: FromJSON (SchemaResult schema) => [Text] -> Value -> Parser (SchemaResult schema)
@@ -129,6 +126,9 @@ instance FromSchema 'SchemaDouble where
 
 instance FromSchema 'SchemaText where
   type SchemaResult 'SchemaText = Text
+
+instance (Show inner, Typeable inner, FromJSON inner) => FromSchema ('SchemaCustom inner) where
+  type SchemaResult ('SchemaCustom inner) = inner
 
 instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaMaybe inner) where
   type SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
@@ -193,7 +193,7 @@ parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
       then "Could not parse schema " ++ schema'
       else "Could not parse path '" ++ path' ++ "' with schema " ++ schema'
     path' = Text.unpack . Text.intercalate "." $ reverse path
-    schema' = "`" ++ prettyShow @schema ++ "`"
+    schema' = "`" ++ showSchema @schema ++ "`"
     ellipses n s = if length s > n then take n s ++ "..." else s
 
 {- Lookups within SchemaObject -}

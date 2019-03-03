@@ -6,7 +6,7 @@ Portability :  portable
 
 Template Haskell definitions for doing various @aeson-schemas@ operations.
 
-'Data.Aeson.Schema.SchemaGraph' defines the shape of the JSON object stored in
+'Data.Aeson.Schema.SchemaType' defines the shape of the JSON object stored in
 'Data.Aeson.Schema.Object', and we can use 'Data.Aeson.Schema.Internal.getKey' to lookup a key that
 is checked at compile-time to exist in the object.
 

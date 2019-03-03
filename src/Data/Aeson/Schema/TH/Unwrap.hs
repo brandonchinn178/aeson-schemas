@@ -17,7 +17,7 @@ import Data.Text (Text)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema.Internal (Object, SchemaGraph(..), SchemaResult)
+import Data.Aeson.Schema.Internal (Object, SchemaResult, SchemaType(..))
 import Data.Aeson.Schema.TH.Parse
 
 -- | Defines a QuasiQuoter to extract a schema within the given schema.
