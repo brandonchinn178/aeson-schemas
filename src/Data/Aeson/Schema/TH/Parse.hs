@@ -14,7 +14,6 @@ Definitions for parsing input text in QuasiQuoters.
 module Data.Aeson.Schema.TH.Parse where
 
 import Control.Monad (void)
-import Data.Either (partitionEithers)
 import Data.Functor (($>))
 import Data.List (intercalate)
 import Data.Void (Void)
@@ -68,7 +67,7 @@ parseGetterOp = choice
 
 parseSchemaDef :: Parser SchemaDef
 parseSchemaDef = choice
-  [ between (lexeme "{") (lexeme "}") $ uncurry SchemaDefObj <$> parseSchemaDefObjItems
+  [ between (lexeme "{") (lexeme "}") $ SchemaDefObj <$> parseSchemaDefObjItems
   , choice (map lexeme' mods) >>= parseSchemaDefMod
   , SchemaDefType <$> identifier upperChar
   , SchemaDefInclude <$> parseSchemaReference
@@ -76,10 +75,10 @@ parseSchemaDef = choice
   where
     mods = ["Maybe", "List"]
     parseSchemaDefMod s = SchemaDefMod s <$> parseSchemaDef
-    parseSchemaDefObjItems = partitionEithers <$> parseSchemaDefObjItem `sepEndBy1` lexeme ","
+    parseSchemaDefObjItems = parseSchemaDefObjItem `sepEndBy1` lexeme ","
     parseSchemaDefObjItem = choice
-      [ Left <$> parseSchemaDefPair
-      , Right <$> parseSchemaReference
+      [ SchemaDefObjPair <$> parseSchemaDefPair
+      , SchemaDefObjExtend <$> parseSchemaReference
       ] <* space -- allow any trailing spaces
     parseSchemaDefPair = do
       key <- quotedString
@@ -118,7 +117,12 @@ data SchemaDef
   = SchemaDefType String
   | SchemaDefMod String SchemaDef
   | SchemaDefInclude String
-  | SchemaDefObj [(String, SchemaDef)] [String]
+  | SchemaDefObj [SchemaDefObjItem]
+  deriving (Show)
+
+data SchemaDefObjItem
+  = SchemaDefObjPair (String, SchemaDef)
+  | SchemaDefObjExtend String
   deriving (Show)
 
 schemaDef :: Parser SchemaDef

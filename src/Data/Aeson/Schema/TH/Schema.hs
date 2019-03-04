@@ -16,7 +16,7 @@ The 'schema' quasiquoter.
 
 module Data.Aeson.Schema.TH.Schema (schema) where
 
-import Control.Monad ((>=>))
+import Control.Monad ((<=<), (>=>))
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
@@ -87,29 +87,37 @@ generateSchema = \case
   SchemaDefMod "List" inner  -> [t| 'SchemaList $(generateSchema inner) |]
   SchemaDefMod other _       -> fail $ "Invalid schema modification: " ++ other
   SchemaDefInclude other     -> getType other
-  SchemaDefObj pairs extends ->
-    let pairs' = foldr (\pair rest -> fromPair pair `consT` rest) promotedNilT pairs
-        extends' = flip map extends $ \other -> do
-          name <- getName other
-          reify name >>= \case
-            TyConI (TySynD _ _ (AppT (PromotedT ty) inner)) | ty == 'SchemaObject -> pure inner
-            info -> fail $ "'" ++ show name ++ "' is not a SchemaObject: " ++ show info
-    in [t| 'SchemaObject $(concatT pairs' extends') |]
-  where
-    strLitT = litT . strTyLit
-    pairT (a, b) = [t| '($a, $b) |]
-    consT x xs = [t| $x ': $xs |]
-    fromPair (k, v) = pairT (strLitT k, generateSchema v)
-    getType = getName >=> conT
-    getName ty = maybe (fail $ "Unknown type: " ++ ty) return =<< lookupTypeName ty
+  SchemaDefObj items         -> [t| 'SchemaObject $(fromItems items) |]
 
 {- Helpers -}
 
--- | Type level list concatenation
-type family Concat (xs :: [k]) (ys :: [k]) :: [k] where
-  Concat x '[] = x
-  Concat '[] y = y
-  Concat (x ': xs) ys = x ': Concat xs ys
+getName :: String -> Q Name
+getName ty = maybe (fail $ "Unknown type: " ++ ty) return =<< lookupTypeName ty
 
-concatT :: TypeQ -> [TypeQ] -> TypeQ
-concatT = foldl (\x y -> [t| Concat $x $y |])
+getType :: String -> TypeQ
+getType = getName >=> conT
+
+-- | Parse a list of SchemaDefObjItems into a a type-level list for 'SchemaObject.
+fromItems :: [SchemaDefObjItem] -> TypeQ
+fromItems = toTypeList . concat <=< mapM toParts
+  where
+    pairT (a, b) = [t| '($a, $b) |]
+    toParts = \case
+      SchemaDefObjPair (k, v) -> pure [pairT (litT $ strTyLit k, generateSchema v)]
+      SchemaDefObjExtend other -> do
+        name <- getName other
+        reify name >>= \case
+          TyConI (TySynD _ _ (AppT (PromotedT ty) inner)) | ty == 'SchemaObject -> pure $ fromTypeList inner
+          _ -> fail $ "'" ++ show name ++ "' is not a SchemaObject"
+
+fromTypeList :: Type -> [TypeQ]
+fromTypeList = \case
+  PromotedNilT -> []
+  AppT (AppT PromotedConsT x) xs -> pure x : fromTypeList xs
+  SigT ty _ -> fromTypeList ty
+  ty -> error $ "Not a type-level list: " ++ show ty
+
+toTypeList :: [TypeQ] -> TypeQ
+toTypeList = foldr consT promotedNilT
+  where
+    consT x xs = [t| $x ': $xs |]
