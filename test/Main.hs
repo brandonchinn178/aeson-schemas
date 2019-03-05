@@ -127,4 +127,5 @@ testSchemaDef = testGroup "Test generating schema definitions"
   , goldens' "schema_def_list_obj" $(showSchema [r| { "a": List { "b": Int } } |])
   , goldens' "schema_def_import_user" $(showSchema [r| { "user": #UserSchema } |])
   , goldens' "schema_def_extend" $(showSchema [r| { "a": Int, #(Schema.MySchema) } |])
+  , goldens' "schema_def_shadow" $(showSchema [r| { "extra": Bool, #(Schema.MySchema) } |])
   ]
