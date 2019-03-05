@@ -30,7 +30,7 @@ module Data.Aeson.Schema.Internal where
 import Control.Applicative ((<|>))
 import Data.Aeson (FromJSON(..), Value(..))
 import Data.Aeson.Types (Parser)
-import Data.Dynamic (Dynamic, fromDyn, toDyn)
+import Data.Dynamic (Dynamic, fromDyn, fromDynamic, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
 import Data.Kind (Type)
@@ -160,8 +160,7 @@ instance
   , FromSchema inner
   , Show (SchemaResult inner)
   , Typeable (SchemaResult inner)
-  , FromSchema ('SchemaObject rest)
-  , SchemaResult ('SchemaObject rest) ~ Object ('SchemaObject rest)
+  , IsSchemaObject ('SchemaObject rest)
   , Typeable rest
   ) => FromSchema ('SchemaObject ('(key, inner) ': rest)) where
   type SchemaResult ('SchemaObject ('(key, inner) ': rest)) = Object ('SchemaObject ('(key, inner) ': rest))
@@ -183,8 +182,10 @@ instance
     s -> error $ "Unknown result when showing Object: " ++ s
     where
       key = symbolVal $ Proxy @key
-      value = fromDyn @(SchemaResult inner) (hm ! Text.pack key) $ error $ "Could not load key: " ++ key
-      pair = "\"" ++ key ++ "\": " ++ show value
+      value =
+        let dynValue = hm ! Text.pack key
+        in maybe (show dynValue) show $ fromDynamic @(SchemaResult inner) dynValue
+      pair = "\"" ++ key ++ "\": " ++ value
 
 parseFail :: forall (schema :: SchemaType) m a. (Monad m, Typeable schema) => [Text] -> Value -> m a
 parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
