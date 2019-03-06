@@ -59,7 +59,7 @@ parseGetterOp = choice
   , lexeme "[]" $> GetterMapList
   , lexeme "?" $> GetterMapMaybe
   , optional (lexeme ".") *> choice
-      [ GetterKey <$> identifier lowerChar
+      [ GetterKey <$> jsonKey
       , fmap GetterList $ between (lexeme "[") (lexeme "]") $ some parseGetterOp `sepBy1` lexeme ","
       , fmap GetterTuple $ between (lexeme "(") (lexeme ")") $ some parseGetterOp `sepBy1` lexeme ","
       ]
@@ -81,7 +81,7 @@ parseSchemaDef = choice
       , SchemaDefObjExtend <$> parseSchemaReference
       ] <* space -- allow any trailing spaces
     parseSchemaDefPair = do
-      key <- quotedString
+      key <- quotedJsonKey
       lexeme ":"
       value <- parseSchemaDef
       return (key, value)
@@ -108,8 +108,15 @@ namespacedIdentifier start = choice [lexeme "(" *> namespaced <* lexeme ")", ide
       , (:[]) <$> end
       ]
 
-quotedString :: Parser String
-quotedString = between (char '"') (char '"') $ many $ noneOf "\""
+-- | A string that can be used as a JSON key.
+--
+-- Disallows any character that could cause ambiguity when parsing expressions; e.g. the 'get'
+-- quasiquoter.
+jsonKey :: Parser String
+jsonKey = some $ noneOf "\"!?[](),. "
+
+quotedJsonKey :: Parser String
+quotedJsonKey = between (char '"') (char '"') jsonKey
 
 {- SchemaDef -}
 

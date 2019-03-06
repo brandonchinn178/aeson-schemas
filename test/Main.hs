@@ -117,7 +117,7 @@ testSchemaDef :: TestTree
 testSchemaDef = testGroup "Test generating schema definitions"
   [ goldens' "schema_def_bool" $(showSchema [r| { "a": Bool } |])
   , goldens' "schema_def_int" $(showSchema [r| { "a": Int } |])
-  , goldens' "schema_def_double" $(showSchema [r| { "foo!": Double } |])
+  , goldens' "schema_def_double" $(showSchema [r| { "foo123": Double } |])
   , goldens' "schema_def_text" $(showSchema [r| { "some_text": Text } |])
   , goldens' "schema_def_custom" $(showSchema [r| { "status": Status } |])
   , goldens' "schema_def_maybe" $(showSchema [r| { "a": Maybe Int } |])
