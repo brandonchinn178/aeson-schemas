@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -9,6 +8,7 @@ import Data.Aeson.Schema (Object, get, unwrap)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
+import Language.Haskell.TH.TestUtils (tryQErr')
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
 import Text.RawString.QQ (r)
@@ -77,7 +77,7 @@ testFromObjectAllTypes :: TestTree
 testFromObjectAllTypes =
   goldens "from_object_all_types" $ map fromObj [get| allTypes.list |]
   where
-    fromObj o = case [get| o.type |] of
+    fromObj o = case Text.unpack [get| o.type |] of
       "bool" -> show [get| o.maybeBool! |]
       "int"  -> show [get| o.maybeInt!  |]
       "null" -> show [get| o.maybeNull  |]
@@ -128,4 +128,9 @@ testSchemaDef = testGroup "Test generating schema definitions"
   , goldens' "schema_def_import_user" $(showSchema [r| { "user": #UserSchema } |])
   , goldens' "schema_def_extend" $(showSchema [r| { "a": Int, #(Schema.MySchema) } |])
   , goldens' "schema_def_shadow" $(showSchema [r| { "extra": Bool, #(Schema.MySchema) } |])
+  -- bad schema definitions
+  , goldens' "schema_def_duplicate" $(tryQErr' $ showSchema [r| { "a": Int, "a": Bool } |])
+  , goldens' "schema_def_duplicate_extend" $(tryQErr' $ showSchema [r| { #MySchema, #MySchema2 } |])
+  , goldens' "schema_def_unknown_type" $(tryQErr' $ showSchema [r| HelloWorld |])
+  , goldens' "schema_def_invalid_extend" $(tryQErr' $ showSchema [r| { #Int } |])
   ]

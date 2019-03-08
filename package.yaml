@@ -30,3 +30,4 @@ tests:
       - raw-strings-qq
       - tasty
       - tasty-golden
+      - template-haskell-test-utils
