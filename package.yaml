@@ -17,6 +17,7 @@ dependencies:
 library:
   source-dirs: src
   other-modules:
+    - Data.Aeson.Schema.TH.Enum
     - Data.Aeson.Schema.TH.Get
     - Data.Aeson.Schema.TH.Schema
     - Data.Aeson.Schema.TH.Unwrap
