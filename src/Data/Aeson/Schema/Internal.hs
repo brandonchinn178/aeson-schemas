@@ -140,16 +140,14 @@ instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaMay
 
   parseValue path = \case
     Null -> return Nothing
-    value -> (Just <$> parseValue @inner path value) <|> parseFail @('SchemaMaybe inner) path value
+    value -> (Just <$> parseValue @inner path value)
 
 instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaList inner) where
   type SchemaResult ('SchemaList inner) = [SchemaResult inner]
 
   parseValue path value = case value of
-    Array a -> traverse (parseValue @inner path) (toList a) <|> fail'
-    _ -> fail'
-    where
-      fail' = parseFail @('SchemaList inner) path value
+    Array a -> traverse (parseValue @inner path) (toList a)
+    _ -> parseFail @('SchemaList inner) path value
 
 instance FromSchema ('SchemaObject '[]) where
   type SchemaResult ('SchemaObject '[]) = Object ('SchemaObject '[])
