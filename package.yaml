@@ -21,6 +21,7 @@ library:
     - Data.Aeson.Schema.TH.Get
     - Data.Aeson.Schema.TH.Schema
     - Data.Aeson.Schema.TH.Unwrap
+    - Data.Aeson.Schema.TH.Utils
 
 tests:
   aeson-schemas-test:

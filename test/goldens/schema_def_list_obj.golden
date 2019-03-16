@@ -1,1 +1,1 @@
-SchemaObject [("a", SchemaList (SchemaObject [("b", SchemaInt)]))]
+SchemaObject {"a": List {"b": Int}}

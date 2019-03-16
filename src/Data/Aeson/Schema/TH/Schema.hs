@@ -24,6 +24,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.Internal (SchemaType(..))
 import Data.Aeson.Schema.TH.Parse
+import Data.Aeson.Schema.TH.Utils (fromTypeList, toTypeList)
 
 -- | Defines a QuasiQuoter for writing schemas.
 --
@@ -145,30 +146,3 @@ resolveParts parts = do
       in if resolvedSource == source
         then Just (name, ty)
         else Nothing
-
-fromTypeList :: Type -> Q [(String, TypeQ)]
-fromTypeList = \case
-  PromotedNilT -> return []
-  AppT (AppT PromotedConsT x) xs ->
-    case x of
-      AppT (AppT (PromotedTupleT 2) (LitT (StrTyLit k))) v ->
-        let pair = (k, pure $ stripSigs v)
-        in (pair :) <$> fromTypeList xs
-      _ -> fail $ "Not a type-level tuple: " ++ show x
-  SigT ty _ -> fromTypeList ty
-  ty -> fail $ "Not a type-level list: " ++ show ty
-  where
-    stripSigs = \case
-      ForallT tyVars ctx ty -> ForallT tyVars ctx (stripSigs ty)
-      AppT ty1 ty2 -> AppT (stripSigs ty1) (stripSigs ty2)
-      SigT ty _ -> stripSigs ty
-      InfixT ty1 name ty2 -> InfixT (stripSigs ty1) name (stripSigs ty2)
-      UInfixT ty1 name ty2 -> UInfixT (stripSigs ty1) name (stripSigs ty2)
-      ParensT ty -> ParensT (stripSigs ty)
-      ty -> ty
-
-toTypeList :: [(String, TypeQ)] -> TypeQ
-toTypeList = foldr (consT . pairT) promotedNilT
-  where
-    pairT (k, v) = [t| '( $(litT $ strTyLit k), $v) |]
-    consT x xs = [t| $x ': $xs |]

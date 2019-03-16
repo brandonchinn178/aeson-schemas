@@ -30,11 +30,11 @@ module Data.Aeson.Schema.Internal where
 import Control.Applicative ((<|>))
 import Data.Aeson (FromJSON(..), Value(..))
 import Data.Aeson.Types (Parser)
+import Data.Bifunctor (first)
 import Data.Dynamic (Dynamic, fromDyn, fromDynamic, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
 import Data.Kind (Type)
-import Data.List (intercalate, isPrefixOf)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
@@ -44,6 +44,8 @@ import Fcf (type (<=<), type (=<<), Eval, Find, FromMaybe, Fst, Snd, TyEq)
 import GHC.Exts (toList)
 import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
+
+import qualified Data.Aeson.Schema.Show as SchemaShow
 
 {- Schema-validated JSON object -}
 
@@ -76,30 +78,33 @@ data SchemaType
   | SchemaList SchemaType
   | SchemaObject [(Symbol, SchemaType)]
 
--- | Pretty show the given SchemaType.
-showSchema :: forall (a :: SchemaType). Typeable a => String
-showSchema = showSchemaType $ typeRep (Proxy @a)
+toSchemaTypeShow :: forall (a :: SchemaType). Typeable a => SchemaShow.SchemaType
+toSchemaTypeShow = cast $ typeRep (Proxy @a)
   where
-    showSchemaType tyRep = case splitTypeRep tyRep of
-      ("'SchemaObject", [pairs]) ->
-        unwords ["SchemaObject", showPairs $ getSchemaObjectPairs pairs]
-      (con, args) | "'Schema" `isPrefixOf` con ->
-        unwords $ tail con : map (wrap . showSchemaType) args
-      (con, _) -> con
+    cast tyRep = case splitTypeRep tyRep of
+      ("'SchemaBool", _) -> SchemaShow.SchemaBool
+      ("'SchemaInt", _) -> SchemaShow.SchemaInt
+      ("'SchemaDouble", _) -> SchemaShow.SchemaDouble
+      ("'SchemaText", _) -> SchemaShow.SchemaText
+      ("'SchemaCustom", [inner]) -> SchemaShow.SchemaCustom $ typeRepName inner
+      ("'SchemaMaybe", [inner]) -> SchemaShow.SchemaMaybe $ cast inner
+      ("'SchemaList", [inner]) -> SchemaShow.SchemaList $ cast inner
+      ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ getSchemaObjectPairs pairs
+      _ -> error $ "Unknown schema type: " ++ show tyRep
     getSchemaObjectPairs tyRep = case splitTypeRep tyRep of
       ("'[]", []) -> []
       ("':", [x, rest]) -> case splitTypeRep x of
-        ("'(,)", [key, val]) -> (typeRepName key, showSchemaType val) : getSchemaObjectPairs rest
-        _ -> error $ "Unknown pair when showing SchemaType: " ++ show x
-      _ -> error $ "Unknown list when showing SchemaType: " ++ show tyRep
-    showPairs l =
-      let showPair (a, b) = "(" ++ a ++ ", " ++ b ++ ")"
-      in "[" ++ intercalate ", " (map showPair l) ++ "]"
-    wrap s = if ' ' `elem` s then "(" ++ s ++ ")" else s
-    splitTypeRep rep =
-      let (con, args) = splitTyConApp rep
-      in (tyConName con, args)
+        ("'(,)", [key, val]) ->
+          let key' = tail . init . typeRepName $ key -- strip leading + trailing quote
+          in (key', cast val) : getSchemaObjectPairs rest
+        _ -> error $ "Unknown pair: " ++ show x
+      _ -> error $ "Unknown list: " ++ show tyRep
+    splitTypeRep = first tyConName . splitTyConApp
     typeRepName = tyConName . typeRepTyCon
+
+-- | Pretty show the given SchemaType.
+showSchema :: forall (a :: SchemaType). Typeable a => String
+showSchema = SchemaShow.showSchemaType $ toSchemaTypeShow @a
 
 {- Conversions from schema types into Haskell types -}
 

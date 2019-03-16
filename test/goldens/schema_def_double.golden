@@ -1,1 +1,1 @@
-SchemaObject [("foo123", SchemaDouble)]
+SchemaObject {"foo123": Double}

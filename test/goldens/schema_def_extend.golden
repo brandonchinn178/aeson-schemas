@@ -1,1 +1,1 @@
-SchemaObject [("a", SchemaInt), ("extra", SchemaText)]
+SchemaObject {"a": Int, "extra": Text}

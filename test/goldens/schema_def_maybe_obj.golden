@@ -1,1 +1,1 @@
-SchemaObject [("a", SchemaMaybe (SchemaObject [("b", SchemaInt)]))]
+SchemaObject {"a": Maybe {"b": Int}}

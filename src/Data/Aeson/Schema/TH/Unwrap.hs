@@ -19,6 +19,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.Internal (Object, SchemaResult, SchemaType(..))
 import Data.Aeson.Schema.TH.Parse
+import Data.Aeson.Schema.TH.Utils (showSchemaType, stripSigs)
 
 -- | Defines a QuasiQuoter to extract a schema within the given schema.
 --
@@ -77,46 +78,43 @@ generateUnwrapSchema :: UnwrapSchema -> TypeQ
 generateUnwrapSchema UnwrapSchema{..} = do
   startSchemaName <- maybe (fail $ "Unknown schema: " ++ startSchema) return =<< lookupTypeName startSchema
   startSchemaType <- reify startSchemaName >>= \case
-    TyConI (TySynD _ _ ty) -> return ty
+    TyConI (TySynD _ _ ty) -> return $ stripSigs ty
     info -> fail $ "Unknown type to unwrap: " ++ show info
   getType startSchemaType getterOps
   where
-    unSig = \case
-      SigT ty _ -> ty
-      ty -> ty
     getType schema [] = fromSchemaType schema
-    getType schema (op:ops) = case unSig schema of
+    getType schema (op:ops) = case schema of
       AppT (PromotedT ty) inner ->
         case op of
           GetterKey key | ty == 'SchemaObject ->
             case lookup key (getObjectSchema inner) of
               Just schema' -> getType schema' ops
-              Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ show schema
-          GetterKey key -> fail $ "Cannot get key '" ++ key ++ "' in schema: " ++ show schema
+              Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ showSchemaType schema
+          GetterKey key -> fail $ "Cannot get key '" ++ key ++ "' in schema: " ++ showSchemaType schema
           GetterList elems | ty == 'SchemaObject -> do
             (elem':rest) <- mapM (getType schema) elems
             if all (== elem') rest
               then getType elem' ops
-              else fail $ "List contains different types with schema: " ++ show schema
-          GetterList _ -> fail $ "Cannot get keys in schema: " ++ show schema
+              else fail $ "List contains different types with schema: " ++ showSchemaType schema
+          GetterList _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
           GetterTuple elems | ty == 'SchemaObject ->
             foldl appT (tupleT $ length elems) $ map (getType schema) elems
-          GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ show schema
+          GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
           GetterBang | ty == 'SchemaMaybe -> getType inner ops
-          GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ show schema
+          GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ showSchemaType schema
           GetterMapMaybe | ty == 'SchemaMaybe -> getType inner ops
-          GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ show schema
+          GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
           GetterMapList | ty == 'SchemaList -> getType inner ops
-          GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ show schema
-      _ -> fail $ unlines ["Cannot get type:", show schema, show op]
-    getObjectSchema schema = case unSig schema of
+          GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
+      _ -> fail $ unlines ["Cannot get type:", showSchemaType schema, show op]
+    getObjectSchema schema = case schema of
       AppT (AppT PromotedConsT t1) t2 ->
-        case unSig t1 of
+        case t1 of
           AppT (AppT (PromotedTupleT 2) (LitT (StrTyLit key))) ty -> (key, ty) : getObjectSchema t2
           _ -> error $ "Could not parse a (key, schema) tuple: " ++ show t1
       PromotedNilT -> []
       t -> error $ "Could not get object schema: " ++ show t
-    fromSchemaType schema = case unSig schema of
+    fromSchemaType schema = case schema of
       schema'@(AppT (PromotedT ty) inner)
         | ty == 'SchemaCustom -> [t| SchemaResult $(pure schema') |]
         | ty == 'SchemaMaybe -> [t| Maybe $(fromSchemaType inner) |]
@@ -129,4 +127,4 @@ generateUnwrapSchema UnwrapSchema{..} = do
         | ty == 'SchemaText -> [t| Text |]
       AppT t1 t2 -> appT (fromSchemaType t1) (fromSchemaType t2)
       TupleT _ -> pure schema
-      _ -> fail $ "Could not convert schema: " ++ show schema
+      _ -> fail $ "Could not convert schema: " ++ showSchemaType schema

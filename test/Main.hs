@@ -111,6 +111,11 @@ testUnwrapSchema = testGroup "Test unwrapping schemas"
   [ goldens' "unwrap_schema" $(showUnwrap "(Nested.Schema).list[]")
   , goldens "unwrap_schema_nested_list" nestedList
   , goldens "unwrap_schema_nested_object" $ map parseNestedObject nestedList
+  -- bad unwrap types
+  , goldens' "unwrap_schema_bad_bang" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list[]!")
+  , goldens' "unwrap_schema_bad_question" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list[]?")
+  , goldens' "unwrap_schema_bad_list" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list[][]")
+  , goldens' "unwrap_schema_bad_key" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list.a")
   ]
 
 testSchemaDef :: TestTree

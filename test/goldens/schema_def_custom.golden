@@ -1,1 +1,1 @@
-SchemaObject [("status", SchemaCustom Status)]
+SchemaObject {"status": Status}
