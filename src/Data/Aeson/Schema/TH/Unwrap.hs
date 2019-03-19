@@ -34,7 +34,7 @@ import Data.Aeson.Schema.TH.Utils (showSchemaType, stripSigs)
 --
 -- You can then use the type alias as usual:
 --
--- > parseBar :: Object MyFoo -> String
+-- > parseBar :: MyFoo -> String
 -- > parseBar = maybe "null" show . [get| .b |]
 -- >
 -- > foo = map parseBar [get| result.foo.nodes[] |]
@@ -106,7 +106,9 @@ generateUnwrapSchema UnwrapSchema{..} = do
           GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
           GetterMapList | ty == 'SchemaList -> getType inner ops
           GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
-      _ -> fail $ unlines ["Cannot get type:", showSchemaType schema, show op]
+      -- allow starting from (Object schema)
+      AppT (ConT ty) inner | ty == ''Object -> getType inner (op:ops)
+      _ -> fail $ unlines ["Cannot get type:", show schema, show op]
     getObjectSchema schema = case schema of
       AppT (AppT PromotedConsT t1) t2 ->
         case t1 of
