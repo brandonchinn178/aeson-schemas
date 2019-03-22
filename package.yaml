@@ -19,6 +19,8 @@ library:
   other-modules:
     - Data.Aeson.Schema.TH.Enum
     - Data.Aeson.Schema.TH.Get
+    - Data.Aeson.Schema.TH.Getter
+    - Data.Aeson.Schema.TH.Parse
     - Data.Aeson.Schema.TH.Schema
     - Data.Aeson.Schema.TH.Unwrap
     - Data.Aeson.Schema.TH.Utils

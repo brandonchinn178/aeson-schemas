@@ -78,6 +78,7 @@ data SchemaType
   | SchemaList SchemaType
   | SchemaObject [(Symbol, SchemaType)]
 
+-- | Convert 'SchemaType' into 'SchemaShow.SchemaType'.
 toSchemaTypeShow :: forall (a :: SchemaType). Typeable a => SchemaShow.SchemaType
 toSchemaTypeShow = cast $ typeRep (Proxy @a)
   where
@@ -190,6 +191,7 @@ instance
         in maybe (show dynValue) show $ fromDynamic @(SchemaResult inner) dynValue
       pair = "\"" ++ key ++ "\": " ++ value
 
+-- | A helper for creating fail messages when parsing a schema.
 parseFail :: forall (schema :: SchemaType) m a. (Monad m, Typeable schema) => [Text] -> Value -> m a
 parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
   where
@@ -221,7 +223,8 @@ type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType wh
     ':$$: 'ShowType schema
     )
 
--- | Get a key from the given 'Object', returned as the type encoded in its schema.
+-- | Get a key from the given 'Data.Aeson.Schema.Internal.Object', returned as the type encoded in
+-- its schema.
 --
 -- > let o = .. :: Object
 -- >             ( 'SchemaObject

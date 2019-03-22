@@ -14,10 +14,11 @@ module Data.Aeson.Schema
     Object
   , SchemaType(..)
   , IsSchemaObject
-    -- * Quasiquoters for extracting JSON data
+    -- * Quasiquoters for extracting or manipulating JSON data or schemas
   , schema
   , get
   , unwrap
+  , mkGetter
     -- * Magic type classes
   , FromSchema(..)
   ) where

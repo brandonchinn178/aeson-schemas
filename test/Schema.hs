@@ -10,6 +10,6 @@ import Data.Aeson.Schema (schema)
 newtype Status = Status Int
   deriving (Show,FromJSON)
 
-type UserSchema = [schema| { "name": Text } |]
-type MySchema = [schema| { "extra": Text } |]
-type MySchema2 = [schema| { "extra": Maybe Text } |]
+type UserSchema = [schema| { name: Text } |]
+type MySchema = [schema| { extra: Text } |]
+type MySchema2 = [schema| { extra: Maybe Text } |]

@@ -1,0 +1,4 @@
+Called 'fromJust' on null expression: (AllTypes.result).maybeListNull
+CallStack (from HasCallStack):
+  error, called at src/Data/Aeson/Schema/TH/Get.hs:121:33 in aeson-schemas-0.1.0-8cB2Uvjew8r32lGZuaEal4:Data.Aeson.Schema.TH.Get
+  fromJust, called at test/Main.hs:76:51 in main:Main

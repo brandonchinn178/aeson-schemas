@@ -45,14 +45,15 @@ import Data.Aeson.Schema.TH.Utils (fromTypeList, toTypeList)
 -- > --      ]
 -- > type MySchema = [schema|
 -- >   {
--- >     "foo": {
--- >        "a": Int,
--- >        "nodes": Maybe List {
--- >           "b": Maybe Bool,
--- >        },
--- >        "c": Text,
--- >        "d": Text,
--- >        "e": MyType,
+-- >     foo: {
+-- >       a: Int,
+-- >       // you can add comments like this
+-- >       nodes: Maybe List {
+-- >         b: Maybe Bool,
+-- >       },
+-- >       c: Text,
+-- >       d: Text,
+-- >       e: MyType,
 -- >     },
 -- >   }
 -- > |]
@@ -81,16 +82,15 @@ schema = QuasiQuoter
 
 generateSchema :: SchemaDef -> TypeQ
 generateSchema = \case
-  SchemaDefType "Bool"       -> [t| 'SchemaBool |]
-  SchemaDefType "Int"        -> [t| 'SchemaInt |]
-  SchemaDefType "Double"     -> [t| 'SchemaDouble |]
-  SchemaDefType "Text"       -> [t| 'SchemaText |]
-  SchemaDefType other        -> [t| 'SchemaCustom $(getType other) |]
-  SchemaDefMod "Maybe" inner -> [t| 'SchemaMaybe $(generateSchema inner) |]
-  SchemaDefMod "List" inner  -> [t| 'SchemaList $(generateSchema inner) |]
-  SchemaDefMod other _       -> fail $ "Invalid schema modification: " ++ other
-  SchemaDefInclude other     -> getType other
-  SchemaDefObj items         -> [t| 'SchemaObject $(fromItems items) |]
+  SchemaDefType "Bool"   -> [t| 'SchemaBool |]
+  SchemaDefType "Int"    -> [t| 'SchemaInt |]
+  SchemaDefType "Double" -> [t| 'SchemaDouble |]
+  SchemaDefType "Text"   -> [t| 'SchemaText |]
+  SchemaDefType other    -> [t| 'SchemaCustom $(getType other) |]
+  SchemaDefMaybe inner   -> [t| 'SchemaMaybe $(generateSchema inner) |]
+  SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
+  SchemaDefInclude other -> getType other
+  SchemaDefObj items     -> [t| 'SchemaObject $(fromItems items) |]
 
 {- Helpers -}
 

@@ -7,7 +7,7 @@ module AllTypes where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema
-import Data.Aeson.Schema.TH (mkEnum)
+import Data.Aeson.Schema.TH (mkEnum, mkGetter)
 import qualified Data.Text as Text
 
 import Util (getMockedResult)
@@ -31,34 +31,40 @@ instance FromJSON Coordinate where
 
 type Schema = [schema|
   {
-    "bool": Bool,
-    "int": Int,
-    "int2": Int,
-    "double": Double,
-    "text": Text,
-    "scalar": Coordinate,
-    "enum": Greeting,
-    "maybeObject": Maybe {
-      "text": Text,
+    bool: Bool,
+    int: Int,
+    int2: Int,
+    double: Double,
+    text: Text,
+    scalar: Coordinate,
+    enum: Greeting,
+    maybeObject: Maybe {
+      text: Text,
     },
-    "maybeObjectNull": Maybe {
-      "text": Text,
+    maybeObjectNull: Maybe {
+      text: Text,
     },
-    "maybeList": Maybe List {
-      "text": Text,
+    maybeList: Maybe List {
+      text: Text,
     },
-    "maybeListNull": Maybe List {
-      "text": Text,
+    maybeListNull: Maybe List {
+      text: Text,
     },
-    "list": List {
-      "type": Text,
-      "maybeBool": Maybe Bool,
-      "maybeInt": Maybe Int,
-      "maybeNull": Maybe Bool,
+    // this is a comment
+    list: List {
+      type: Text,
+      maybeBool: Maybe Bool,
+      maybeInt: Maybe Int,
+      maybeNull: Maybe Bool,
     },
-    "nonexistent": Maybe Text,
+    nonexistent: Maybe Text,
+    // future_key: Int,
   }
 |]
 
 result :: Object Schema
 result = $(getMockedResult "test/all_types.json")
+
+{- AllTypes getters -}
+
+mkGetter "ListItem" "getList" ''AllTypes.Schema ".list[]"

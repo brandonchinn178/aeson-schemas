@@ -15,7 +15,7 @@ module Data.Aeson.Schema.Show
 
 import Data.List (intercalate)
 
--- | 'SchemaType', but for printing.
+-- | 'Data.Aeson.Schema.Internal.SchemaType', but for printing.
 data SchemaType
   = SchemaBool
   | SchemaInt

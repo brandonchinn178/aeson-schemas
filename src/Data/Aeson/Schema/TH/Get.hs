@@ -6,19 +6,23 @@ Portability :  portable
 
 The 'get' quasiquoter.
 -}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Data.Aeson.Schema.TH.Get (get) where
+module Data.Aeson.Schema.TH.Get where
 
-import Control.Monad ((>=>))
+import Control.Monad (unless, (>=>))
 import qualified Data.Maybe as Maybe
+import GHC.Stack (HasCallStack)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.Syntax (lift)
 
 import Data.Aeson.Schema.Internal (getKey)
-import Data.Aeson.Schema.TH.Parse
+import Data.Aeson.Schema.TH.Parse (GetterExp(..), getterExp, parse)
+import Data.Aeson.Schema.TH.Utils (GetterOperation(..), showGetterOps)
 
 -- | Defines a QuasiQuoter for expressions.
 --
@@ -51,13 +55,15 @@ import Data.Aeson.Schema.TH.Parse
 --     * @SchemaList schema@ returns a list of values, whose type is determined by the inner schema
 --     * @SchemaObject fields@ returns an 'Data.Aeson.Schema.Object'
 --
--- * @x.y@ is only valid if @x@ is a @SchemaObject@. Returns the value of the key @y@ in the 'Object'.
+-- * @x.y@ is only valid if @x@ is a @SchemaObject@. Returns the value of the key @y@ in the
+--   'Data.Aeson.Schema.Object'.
 --
 -- * @x.[y,z.a]@ is only valid if @x@ is a @SchemaObject@, and if @y@ and @z.a@ have the same schema.
---   Returns the value of the operations @y@ and @z.a@ in the 'Object' as a list.
+--   Returns the value of the operations @y@ and @z.a@ in the 'Data.Aeson.Schema.Object' as a list.
+--   MUST be the last operation.
 --
 -- * @x.(y,z.a)@ is only valid if @x@ is a @SchemaObject@. Returns the value of the operations @y@
---   and @z.a@ in the 'Object' as a tuple.
+--   and @z.a@ in the 'Data.Aeson.Schema.Object' as a tuple. MUST be the last operation.
 --
 -- * @x!@ is only valid if @x@ is a @SchemaMaybe@. Unwraps the value of @x@ from a 'Just' value and
 --   errors (at runtime!) if @x@ is 'Nothing'.
@@ -79,35 +85,39 @@ get = QuasiQuoter
   }
 
 generateGetterExp :: GetterExp -> ExpQ
-generateGetterExp GetterExp{..} =
-  case start of
-    Nothing -> do
-      arg <- newName "x"
-      lamE [varP arg] (apply arg)
-    Just arg -> apply $ mkName arg
+generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
   where
-    apply = appE (mkGetter [] getterOps) . varE
-    mkGetter _ [] = [| id |]
-    mkGetter history (op:ops) =
-      let next = mkGetter (op : history) ops
-          applyValToOps val = map ((`appE` varE val) . mkGetter history)
-      in case op of
-        GetterKey key ->
-          let getKey' = appTypeE [|getKey|] (litT $ strTyLit key)
-          in [| $(next) . $(getKey') |]
-        GetterList elems -> do
-          val <- newName "v"
-          lamE [varP val] (listE $ applyValToOps val elems)
-        GetterTuple elems -> do
-          val <- newName "v"
-          lamE [varP val] (tupE $ applyValToOps val elems)
-        GetterBang -> [| $(next) . fromJust $(lift $ mkFromJustMsg history) |]
-        GetterMapMaybe -> [| ($(next) <$?>) |]
-        GetterMapList -> [| ($(next) <$:>) |]
-    mkFromJustMsg history = Maybe.fromMaybe "" start ++ showGetterOps (reverse history)
+    startDisplay = case start of
+      Nothing -> ""
+      Just s -> if '.' `elem` s then "(" ++ s ++ ")" else s
+    expr = mkGetterExp [] getterOps
+
+    applyToNext next = \case
+      Right f -> [| $next . $f |]
+      Left f -> infixE (Just next) f Nothing
+
+    applyToEach history fromElems elems = do
+      val <- newName "v"
+      let mkElem ops = appE (mkGetterExp history ops) (varE val)
+      lamE [varP val] $ fromElems $ map mkElem elems
+
+    mkGetterExp history = \case
+      [] -> [| id |]
+      op:ops ->
+        let applyToNext' = applyToNext $ mkGetterExp (op:history) ops
+            applyToEach' = applyToEach history
+            checkLast label = unless (null ops) $ fail $ label ++ " operation MUST be last."
+            fromJustMsg = startDisplay ++ showGetterOps (reverse history)
+        in case op of
+          GetterKey key     -> applyToNext' $ Right $ appTypeE [| getKey |] (litT $ strTyLit key)
+          GetterList elems  -> checkLast ".[*]" >> applyToEach' listE elems
+          GetterTuple elems -> checkLast ".(*)" >> applyToEach' tupE elems
+          GetterBang        -> applyToNext' $ Right [| fromJust $(lift fromJustMsg) |]
+          GetterMapMaybe    -> applyToNext' $ Left [| (<$?>) |]
+          GetterMapList     -> applyToNext' $ Left [| (<$:>) |]
 
 -- | fromJust with helpful error message
-fromJust :: String -> Maybe a -> a
+fromJust :: HasCallStack => String -> Maybe a -> a
 fromJust msg = Maybe.fromMaybe (error errMsg)
   where
     errMsg = "Called 'fromJust' on null expression" ++ if null msg then "" else ": " ++ msg

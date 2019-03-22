@@ -10,11 +10,11 @@ import Util (getMockedResult)
 
 type Schema = [schema|
   {
-    "list": List {
-      "a": Maybe {
-        "b": Int,
+    list: List {
+      a: Maybe {
+        b: Int,
       },
-      "b": Int,
+      b: Int,
     },
   }
 |]

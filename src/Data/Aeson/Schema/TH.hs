@@ -25,6 +25,8 @@ module Data.Aeson.Schema.TH
   ( schema
   , get
   , unwrap
+  -- * Utilities
+  , mkGetter
   -- * Helpers for Enum types
   , mkEnum
   , genFromJSONEnum
@@ -32,5 +34,6 @@ module Data.Aeson.Schema.TH
 
 import Data.Aeson.Schema.TH.Enum
 import Data.Aeson.Schema.TH.Get
+import Data.Aeson.Schema.TH.Getter
 import Data.Aeson.Schema.TH.Schema
 import Data.Aeson.Schema.TH.Unwrap

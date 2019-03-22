@@ -29,6 +29,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testFromObjectNamespaced
   , testUnwrapSchema
   , testSchemaDef
+  , testMkGetter
   ]
 
 goldens' :: String -> String -> TestTree
@@ -71,6 +72,12 @@ testGetterExp = testGroup "Test getter expressions"
   , goldens "list_maybeBool"           [get| allTypes.list[].maybeBool      |]
   , goldens "list_maybeInt"            [get| allTypes.list[].maybeInt       |]
   , goldens "nonexistent"              [get| allTypes.nonexistent           |]
+  -- bad 'get' expressions
+  , goldens' "maybeListNull_bang" $(getError [get| (AllTypes.result).maybeListNull! |])
+  , goldens' "get_empty" $(tryQErr' $ showGet "")
+  , goldens' "get_just_start" $(tryQErr' $ showGet "allTypes")
+  , goldens' "get_ops_after_tuple" $(tryQErr' $ showGet "allTypes.(bool,int).foo")
+  , goldens' "get_ops_after_list" $(tryQErr' $ showGet "allTypes.[int,int2].foo")
   ]
 
 testFromObjectAllTypes :: TestTree
@@ -120,22 +127,34 @@ testUnwrapSchema = testGroup "Test unwrapping schemas"
 
 testSchemaDef :: TestTree
 testSchemaDef = testGroup "Test generating schema definitions"
-  [ goldens' "schema_def_bool" $(showSchema [r| { "a": Bool } |])
-  , goldens' "schema_def_int" $(showSchema [r| { "a": Int } |])
-  , goldens' "schema_def_double" $(showSchema [r| { "foo123": Double } |])
-  , goldens' "schema_def_text" $(showSchema [r| { "some_text": Text } |])
-  , goldens' "schema_def_custom" $(showSchema [r| { "status": Status } |])
-  , goldens' "schema_def_maybe" $(showSchema [r| { "a": Maybe Int } |])
-  , goldens' "schema_def_list" $(showSchema [r| { "a": List Int } |])
-  , goldens' "schema_def_obj" $(showSchema [r| { "a": { "b": Int } } |])
-  , goldens' "schema_def_maybe_obj" $(showSchema [r| { "a": Maybe { "b": Int } } |])
-  , goldens' "schema_def_list_obj" $(showSchema [r| { "a": List { "b": Int } } |])
-  , goldens' "schema_def_import_user" $(showSchema [r| { "user": #UserSchema } |])
-  , goldens' "schema_def_extend" $(showSchema [r| { "a": Int, #(Schema.MySchema) } |])
-  , goldens' "schema_def_shadow" $(showSchema [r| { "extra": Bool, #(Schema.MySchema) } |])
+  [ goldens' "schema_def_bool" $(showSchema [r| { a: Bool } |])
+  , goldens' "schema_def_int" $(showSchema [r| { a: Int } |])
+  , goldens' "schema_def_double" $(showSchema [r| { foo123: Double } |])
+  , goldens' "schema_def_text" $(showSchema [r| { some_text: Text } |])
+  , goldens' "schema_def_custom" $(showSchema [r| { status: Status } |])
+  , goldens' "schema_def_maybe" $(showSchema [r| { a: Maybe Int } |])
+  , goldens' "schema_def_list" $(showSchema [r| { a: List Int } |])
+  , goldens' "schema_def_obj" $(showSchema [r| { a: { b: Int } } |])
+  , goldens' "schema_def_maybe_obj" $(showSchema [r| { a: Maybe { b: Int } } |])
+  , goldens' "schema_def_list_obj" $(showSchema [r| { a: List { b: Int } } |])
+  , goldens' "schema_def_import_user" $(showSchema [r| { user: #UserSchema } |])
+  , goldens' "schema_def_extend" $(showSchema [r| { a: Int, #(Schema.MySchema) } |])
+  , goldens' "schema_def_shadow" $(showSchema [r| { extra: Bool, #(Schema.MySchema) } |])
   -- bad schema definitions
-  , goldens' "schema_def_duplicate" $(tryQErr' $ showSchema [r| { "a": Int, "a": Bool } |])
+  , goldens' "schema_def_duplicate" $(tryQErr' $ showSchema [r| { a: Int, a: Bool } |])
   , goldens' "schema_def_duplicate_extend" $(tryQErr' $ showSchema [r| { #MySchema, #MySchema2 } |])
   , goldens' "schema_def_unknown_type" $(tryQErr' $ showSchema [r| HelloWorld |])
   , goldens' "schema_def_invalid_extend" $(tryQErr' $ showSchema [r| { #Int } |])
   ]
+
+testMkGetter :: TestTree
+testMkGetter = testGroup "Test the mkGetter helper"
+  [ goldens "getter_all_types_list" list
+  , goldens "getter_all_types_list_item" $ map getType list
+  ]
+  where
+    list :: [AllTypes.ListItem]
+    list = AllTypes.getList AllTypes.result
+
+    getType :: AllTypes.ListItem -> Text.Text
+    getType = [get| .type |]
