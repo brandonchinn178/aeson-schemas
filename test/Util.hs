@@ -9,6 +9,7 @@ import Control.Monad ((<=<))
 import Data.Aeson (eitherDecode)
 import qualified Data.ByteString.Lazy as ByteStringL
 import qualified Data.ByteString.Lazy.Char8 as Char8L
+import Data.List (isPrefixOf)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.Syntax (lift)
@@ -45,4 +46,9 @@ showSchemaType = appTypeE [| Internal.showSchema |] . pure
 getError :: a -> ExpQ
 getError x = runIO (try $ x `seq` pure ()) >>= \case
   Right _ -> fail "'getError' expression unexpectedly succeeded"
-  Left e -> lift $ show (e :: SomeException)
+  Left e -> lift . unlines . stripCallStack . lines . show $ (e :: SomeException)
+  where
+    stripCallStack [] = []
+    stripCallStack (l:ls) = if "CallStack" `isPrefixOf` l
+      then []
+      else l : stripCallStack ls
