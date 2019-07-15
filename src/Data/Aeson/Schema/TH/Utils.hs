@@ -44,14 +44,14 @@ showSchemaType = SchemaShow.showSchemaType . fromSchemaType
 fromTypeList' :: Type -> [(String, Type)]
 fromTypeList' = \case
   PromotedNilT -> []
-  AppT (AppT PromotedConsT x) xs ->
-    case x of
-      AppT (AppT (PromotedTupleT 2) (LitT (StrTyLit k))) v ->
-        let pair = (k, stripSigs v)
-        in pair : fromTypeList' xs
-      _ -> error $ "Not a type-level tuple: " ++ show x
+  AppT (AppT PromotedConsT x) xs -> fromTypeTuple x : fromTypeList' xs
   SigT ty _ -> fromTypeList' ty
   ty -> error $ "Not a type-level list: " ++ show ty
+  where
+    fromTypeTuple = \case
+      AppT (AppT (PromotedTupleT 2) (LitT (StrTyLit k))) v -> (k, stripSigs v)
+      SigT ty _ -> fromTypeTuple ty
+      x -> error $ "Not a type-level tuple: " ++ show x
 
 fromTypeList :: Type -> Q [(String, TypeQ)]
 fromTypeList = pure . map (second pure) . fromTypeList'
@@ -60,7 +60,8 @@ toTypeList :: [(String, TypeQ)] -> TypeQ
 toTypeList = foldr (consT . pairT) promotedNilT
   where
     pairT (k, v) = [t| '( $(litT $ strTyLit k), $v) |]
-    consT x xs = [t| $x ': $xs |]
+    -- nb. https://stackoverflow.com/a/34457936
+    consT x xs = appT (appT promotedConsT x) xs
 
 -- | Strip all kind signatures from the given type.
 stripSigs :: Type -> Type

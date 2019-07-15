@@ -6,11 +6,15 @@ Portability :  portable
 
 Definitions for parsing input text in QuasiQuoters.
 -}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Data.Aeson.Schema.TH.Parse where
 
+#if !MIN_VERSION_megaparsec(6,4,0)
+import Control.Applicative (empty)
+#endif
 import Control.Monad (void)
 import Data.Functor (($>))
 import Data.List (intercalate)
@@ -22,6 +26,11 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import Data.Aeson.Schema.TH.Utils (GetterOperation(..), GetterOps)
 
 type Parser = Parsec Void String
+
+#if !MIN_VERSION_megaparsec(7,0,0)
+errorBundlePretty :: (Ord t, ShowToken t, ShowErrorComponent e) => ParseError t e -> String
+errorBundlePretty = parseErrorPretty
+#endif
 
 parse :: Monad m => Parser a -> String -> m a
 parse parser s = either (fail . errorBundlePretty) return $ runParser parser s s

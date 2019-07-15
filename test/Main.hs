@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -74,8 +75,10 @@ testGetterExp = testGroup "Test getter expressions"
   , goldens "nonexistent"              [get| allTypes.nonexistent           |]
   -- bad 'get' expressions
   , goldens' "maybeListNull_bang" $(getError [get| (AllTypes.result).maybeListNull! |])
+#if MIN_VERSION_megaparsec(7,0,0)
   , goldens' "get_empty" $(tryQErr' $ showGet "")
   , goldens' "get_just_start" $(tryQErr' $ showGet "allTypes")
+#endif
   , goldens' "get_ops_after_tuple" $(tryQErr' $ showGet "allTypes.(bool,int).foo")
   , goldens' "get_ops_after_list" $(tryQErr' $ showGet "allTypes.[int,int2].foo")
   ]
