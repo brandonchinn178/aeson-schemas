@@ -19,8 +19,6 @@ module Data.Aeson.Schema
   , get
   , unwrap
   , mkGetter
-    -- * Magic type classes
-  , FromSchema(..)
   ) where
 
 import Data.Aeson.Schema.Internal
