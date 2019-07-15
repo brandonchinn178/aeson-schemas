@@ -111,6 +111,7 @@ showSchema = SchemaShow.showSchemaType $ toSchemaTypeShow @a
 
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
 class Typeable schema => FromSchema (schema :: SchemaType) where
+  -- | A type family mapping SchemaType to the corresponding Haskell type.
   type SchemaResult schema
 
   parseValue :: [Text] -> Value -> Parser (SchemaResult schema)
