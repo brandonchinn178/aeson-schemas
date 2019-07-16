@@ -12,7 +12,7 @@ valid at compile-time.
 module Data.Aeson.Schema
   ( -- * Types
     Object
-  , SchemaType(..)
+  , SchemaType
   , IsSchemaObject
   , SchemaResult
     -- * Quasiquoters for extracting or manipulating JSON data or schemas

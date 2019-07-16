@@ -53,7 +53,7 @@ import qualified Data.Aeson.Schema.Show as SchemaShow
 --
 -- Has a 'FromJSON' instance, so you can use the usual 'Data.Aeson' decoding functions.
 --
--- > obj = decode "{\"a\": 1}" :: Maybe (Object ('SchemaObject '[ '("a", 'SchemaInt) ]))
+-- > obj = decode "{\"a\": 1}" :: Maybe (Object [schema| { a: Int } |])
 newtype Object (schema :: SchemaType) = UnsafeObject (HashMap Text Dynamic)
 
 -- | A constraint that checks if the given schema is a 'SchemaObject.
@@ -67,7 +67,9 @@ instance IsSchemaObject schema => FromJSON (Object schema) where
 
 {- Type-level schema definitions -}
 
--- | The schema definition for JSON data.
+-- | The type-level schema definition for JSON data.
+--
+-- To view a schema for debugging, use 'showSchema'.
 data SchemaType
   = SchemaBool
   | SchemaInt

@@ -30,48 +30,42 @@ import Data.Aeson.Schema.TH.Utils (fromTypeList, toTypeList)
 --
 -- Example:
 --
--- > import Data.Aeson.Schema (SchemaType(..))
--- > import Data.Aeson.Schema.TH (schema)
+-- > import Data.Aeson.Schema (schema)
 -- >
--- > -- | MySchema ~ 'SchemaObject
--- > --     '[ '("a", 'SchemaInt)
--- > --      , '("nodes", 'SchemaMaybe (SchemaList ('SchemaObject
--- > --           '[ '("b", 'SchemaMaybe 'SchemaBool)
--- > --            ]
--- > --         )))
--- > --      , '("c", 'SchemaText)
--- > --      , '("d", 'SchemaText)
--- > --      , '("e", 'SchemaCustom "MyType")
--- > --      ]
 -- > type MySchema = [schema|
 -- >   {
 -- >     foo: {
 -- >       a: Int,
 -- >       // you can add comments like this
--- >       nodes: Maybe List {
+-- >       nodes: List {
 -- >         b: Maybe Bool,
 -- >       },
 -- >       c: Text,
 -- >       d: Text,
 -- >       e: MyType,
+-- >       f: Maybe List {
+-- >         name: Text,
+-- >       },
 -- >     },
 -- >   }
 -- > |]
 --
--- The schema definition accepts the following syntax:
+-- Syntax:
 --
--- * @Bool@ corresponds to @'SchemaBool@, and similarly for @Int@, @Double@, and @Text@
+-- * @{ key: \<schema\>, ... }@ corresponds to a JSON 'Object' with the given key mapping to the
+--   given schema.
 --
--- * @Maybe x@ and @List x@ correspond to @'SchemaMaybe x@ and @'SchemaList x@, respectively. (no
---   parentheses needed)
+-- * @Bool@, @Int@, @Double@, and @Text@ correspond to the usual Haskell values.
 --
--- * Any other uppercase identifier corresponds to @'SchemaCustom ident@
+-- * @Maybe \<schema\>@ and @List \<schema\>@ correspond to @Maybe@ and @[]@, containing values
+--   specified by the provided schema (no parentheses needed).
 --
--- * @{ "key": schema, ... }@ corresponds to @'SchemaObject '[ '("key", schema), ... ]@
+-- * Any other uppercase identifier corresponds to the respective type in scope -- requires a
+--   FromJSON instance.
 --
--- * @{ "key": #Other }@ includes @Other@ as a schema
+-- * @{ key: #Other, ... }@ maps the given key to the @Other@ schema.
 --
--- * @{ "key": schema, #Other }@ extends this schema with @Other@
+-- * @{ #Other, ... }@ extends this schema with the @Other@ schema.
 schema :: QuasiQuoter
 schema = QuasiQuoter
   { quoteExp = error "Cannot use `schema` for Exp"
@@ -110,7 +104,7 @@ getType = getName >=> conT
 data KeySource = Provided | Imported
   deriving (Show,Eq)
 
--- | Parse SchemaDefObjItem into a list of tuples, each containing the key to add to the schema,
+-- | Parse SchemaDefObjItem into a list of tuples, each containing a key to add to the schema,
 -- the value for the key, and the source of the key.
 toParts :: SchemaDefObjItem -> Q [(String, TypeQ, KeySource)]
 toParts = \case

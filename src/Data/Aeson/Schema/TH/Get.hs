@@ -24,58 +24,48 @@ import Data.Aeson.Schema.Internal (getKey)
 import Data.Aeson.Schema.TH.Parse (GetterExp(..), getterExp, parse)
 import Data.Aeson.Schema.TH.Utils (GetterOperation(..), showGetterOps)
 
--- | Defines a QuasiQuoter for expressions.
+-- | Defines a QuasiQuoter for extracting JSON data.
 --
--- > doFoo = do
--- >   result :: Object MySchema <- runQuery ...
+-- Example:
+--
+-- > let Just result = decode ... :: Maybe (Object MySchema)
 -- >
--- >   [get| result.foo.a |]          :: Int
--- >   [get| result.foo.nodes |]      :: [Object (..)]
--- >   [get| result.foo.nodes[] |]    :: [Object (..)]
--- >   [get| result.foo.nodes[].b |]  :: [Maybe Bool]
--- >   [get| result.foo.nodes[].b! |] :: [Bool] -- runtime error if any "b" values are null
--- >   [get| result.foo.c |]          :: Text
--- >   [get| result.foo.(a,c) |]      :: (Int, Text)
--- >   [get| result.foo.[c,d] |]      :: [Text]
+-- > [get| result.foo.a |]          :: Int
+-- > [get| result.foo.nodes |]      :: [Object (..)]
+-- > [get| result.foo.nodes[] |]    :: [Object (..)]
+-- > [get| result.foo.nodes[].b |]  :: [Maybe Bool]
+-- > [get| result.foo.nodes[].b! |] :: [Bool] -- runtime error if any values are Nothing
+-- > [get| result.foo.c |]          :: Text
+-- > [get| result.foo.(a,c) |]      :: (Int, Text)
+-- > [get| result.foo.[c,d] |]      :: [Text]
 -- >
--- >   let nodes = [get| result.foo.nodes |]
--- >   flip map nodes $ \node -> fromMaybe ([get| node.num |] == 0) [get| node.b |]
--- >   map [get| .num |] nodes
+-- > let nodes = [get| result.foo.nodes |]
+-- > flip map nodes $ \node -> fromMaybe ([get| node.num |] == 0) [get| node.b |]
+-- > map [get| .num |] nodes
 --
--- These "getter" expressions follow the given rules:
+-- Syntax:
 --
--- * @x@ returns the value of @x@ with the given type:
+-- * @x.y@ is only valid if @x@ is an 'Object'. Returns the value of the key @y@.
 --
---     * @SchemaBool@ returns a 'Bool'
---     * @SchemaInt@ returns an 'Int'
---     * @SchemaDouble@ returns a 'Double'
---     * @SchemaText@ returns a 'Text.Text'
---     * @SchemaCustom name@ returns a value of the type associated with the given name
---     * @SchemaMaybe schema@ returns a 'Maybe' value wrapping the value returned by the inner schema
---     * @SchemaList schema@ returns a list of values, whose type is determined by the inner schema
---     * @SchemaObject fields@ returns an 'Data.Aeson.Schema.Object'
+-- * @.y@ returns a function that takes in an 'Object' and returns the value of the key @y@.
 --
--- * @x.y@ is only valid if @x@ is a @SchemaObject@. Returns the value of the key @y@ in the
---   'Data.Aeson.Schema.Object'.
+-- * @x.[y,z.a]@ is only valid if @x@ is an 'Object', and if @y@ and @z.a@ have the same type.
+--   Returns the value of the operations @y@ and @z.a@ as a list. MUST be the last operation.
 --
--- * @x.[y,z.a]@ is only valid if @x@ is a @SchemaObject@, and if @y@ and @z.a@ have the same schema.
---   Returns the value of the operations @y@ and @z.a@ in the 'Data.Aeson.Schema.Object' as a list.
---   MUST be the last operation.
+-- * @x.(y,z.a)@ is only valid if @x@ is an 'Object'. Returns the value of the operations @y@
+--   and @z.a@ as a tuple. MUST be the last operation.
 --
--- * @x.(y,z.a)@ is only valid if @x@ is a @SchemaObject@. Returns the value of the operations @y@
---   and @z.a@ in the 'Data.Aeson.Schema.Object' as a tuple. MUST be the last operation.
---
--- * @x!@ is only valid if @x@ is a @SchemaMaybe@. Unwraps the value of @x@ from a 'Just' value and
+-- * @x!@ is only valid if @x@ is a 'Maybe'. Unwraps the value of @x@ from a 'Just' value and
 --   errors (at runtime!) if @x@ is 'Nothing'.
 --
--- * @x[]@ is only valid if @x@ is a @SchemaList@. Applies the remaining rules as an 'fmap' over the
---   values in the list.
+-- * @x[]@ is only valid if @x@ is a list. Applies the remaining rules as an 'fmap' over the
+--   values in the list, e.g.
 --
 --     * @x[]@ without anything after is equivalent to @x@
 --     * @x[].y@ gets the key @y@ in all the Objects in @x@
 --     * @x[]!@ unwraps all 'Just' values in @x@ (and errors if any 'Nothing' values exist in @x@)
 --
--- * @x?@ follows the same rules as @x[]@ except it's only valid if @x@ is a @SchemaMaybe@.
+-- * @x?@ follows the same rules as @x[]@ except it's only valid if @x@ is a 'Maybe'.
 get :: QuasiQuoter
 get = QuasiQuoter
   { quoteExp = parse getterExp >=> generateGetterExp
