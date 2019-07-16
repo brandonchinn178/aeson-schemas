@@ -9,7 +9,7 @@ author:
 maintainer:
   - Brandon Chinn <brandon@leapyear.io>
 category: JSON
-synopsis: Parse JSON data easily and safely without defining new data types
+synopsis: Easily consume JSON data on-demand with type-safety
 description: |
   Parse JSON data easily and safely without defining new data types. Useful
   for deeply nested JSON data, which is difficult to parse using the default
