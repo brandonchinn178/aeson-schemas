@@ -146,6 +146,7 @@ testSchemaDef = testGroup "Test generating schema definitions"
   -- bad schema definitions
   , goldens' "schema_def_duplicate" $(tryQErr' $ showSchema [r| { a: Int, a: Bool } |])
   , goldens' "schema_def_duplicate_extend" $(tryQErr' $ showSchema [r| { #MySchema, #MySchema2 } |])
+  , goldens' "schema_def_not_object" $(tryQErr' $ showSchema [r| List { a: Int } |])
   , goldens' "schema_def_unknown_type" $(tryQErr' $ showSchema [r| HelloWorld |])
   , goldens' "schema_def_invalid_extend" $(tryQErr' $ showSchema [r| { #Int } |])
   ]

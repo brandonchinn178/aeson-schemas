@@ -16,7 +16,7 @@ The 'schema' quasiquoter.
 
 module Data.Aeson.Schema.TH.Schema (schema) where
 
-import Control.Monad ((>=>))
+import Control.Monad ((<=<), (>=>))
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
 import Language.Haskell.TH
@@ -76,9 +76,16 @@ schema :: QuasiQuoter
 schema = QuasiQuoter
   { quoteExp = error "Cannot use `schema` for Exp"
   , quoteDec = error "Cannot use `schema` for Dec"
-  , quoteType = parse schemaDef >=> generateSchema
+  , quoteType = parse schemaDef >=> \case
+      SchemaDefObj items -> generateSchemaObject items
+      _ -> fail "`schema` definition must be an object"
   , quotePat = error "Cannot use `schema` for Pat"
   }
+
+generateSchemaObject :: [SchemaDefObjItem] -> TypeQ
+generateSchemaObject items = [t| 'SchemaObject $(fromItems items) |]
+  where
+    fromItems = toTypeList <=< resolveParts . concat <=< mapM toParts
 
 generateSchema :: SchemaDef -> TypeQ
 generateSchema = \case
@@ -90,7 +97,7 @@ generateSchema = \case
   SchemaDefMaybe inner   -> [t| 'SchemaMaybe $(generateSchema inner) |]
   SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
   SchemaDefInclude other -> getType other
-  SchemaDefObj items     -> [t| 'SchemaObject $(fromItems items) |]
+  SchemaDefObj items     -> generateSchemaObject items
 
 {- Helpers -}
 
@@ -99,10 +106,6 @@ getName ty = maybe (fail $ "Unknown type: " ++ ty) return =<< lookupTypeName ty
 
 getType :: String -> TypeQ
 getType = getName >=> conT
-
--- | Parse a list of SchemaDefObjItems into a a type-level list for 'SchemaObject.
-fromItems :: [SchemaDefObjItem] -> TypeQ
-fromItems items = toTypeList =<< resolveParts . concat =<< mapM toParts items
 
 data KeySource = Provided | Imported
   deriving (Show,Eq)
