@@ -109,11 +109,19 @@ showSchema = SchemaShow.showSchemaType $ toSchemaTypeShow @a
 
 {- Conversions from schema types into Haskell types -}
 
+-- | A type family mapping SchemaType to the corresponding Haskell type.
+type family SchemaResult (schema :: SchemaType) where
+  SchemaResult 'SchemaBool = Bool
+  SchemaResult 'SchemaInt = Int
+  SchemaResult 'SchemaDouble = Double
+  SchemaResult 'SchemaText = Text
+  SchemaResult ('SchemaCustom inner) = inner
+  SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
+  SchemaResult ('SchemaList inner) = [SchemaResult inner]
+  SchemaResult ('SchemaObject inner) = Object ('SchemaObject inner)
+
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
 class Typeable schema => FromSchema (schema :: SchemaType) where
-  -- | A type family mapping SchemaType to the corresponding Haskell type.
-  type SchemaResult schema
-
   parseValue :: [Text] -> Value -> Parser (SchemaResult schema)
   default parseValue :: FromJSON (SchemaResult schema) => [Text] -> Value -> Parser (SchemaResult schema)
   parseValue path value = parseJSON value <|> parseFail @schema path value
@@ -122,38 +130,27 @@ class Typeable schema => FromSchema (schema :: SchemaType) where
   default showValue :: Show (SchemaResult schema) => SchemaResult schema -> String
   showValue = show
 
-instance FromSchema 'SchemaBool where
-  type SchemaResult 'SchemaBool = Bool
+instance FromSchema 'SchemaBool
 
-instance FromSchema 'SchemaInt where
-  type SchemaResult 'SchemaInt = Int
+instance FromSchema 'SchemaInt
 
-instance FromSchema 'SchemaDouble where
-  type SchemaResult 'SchemaDouble = Double
+instance FromSchema 'SchemaDouble
 
-instance FromSchema 'SchemaText where
-  type SchemaResult 'SchemaText = Text
+instance FromSchema 'SchemaText
 
-instance (Show inner, Typeable inner, FromJSON inner) => FromSchema ('SchemaCustom inner) where
-  type SchemaResult ('SchemaCustom inner) = inner
+instance (Show inner, Typeable inner, FromJSON inner) => FromSchema ('SchemaCustom inner)
 
 instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaMaybe inner) where
-  type SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
-
   parseValue path = \case
     Null -> return Nothing
     value -> (Just <$> parseValue @inner path value)
 
 instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaList inner) where
-  type SchemaResult ('SchemaList inner) = [SchemaResult inner]
-
   parseValue path value = case value of
     Array a -> traverse (parseValue @inner path) (toList a)
     _ -> parseFail @('SchemaList inner) path value
 
 instance FromSchema ('SchemaObject '[]) where
-  type SchemaResult ('SchemaObject '[]) = Object ('SchemaObject '[])
-
   parseValue path = \case
     Object _ -> return $ UnsafeObject mempty
     value -> parseFail @('SchemaObject '[]) path value
@@ -168,8 +165,6 @@ instance
   , IsSchemaObject ('SchemaObject rest)
   , Typeable rest
   ) => FromSchema ('SchemaObject ('(key, inner) ': rest)) where
-  type SchemaResult ('SchemaObject ('(key, inner) ': rest)) = Object ('SchemaObject ('(key, inner) ': rest))
-
   parseValue path value = case value of
     Object o -> do
       let key = Text.pack $ symbolVal $ Proxy @key
