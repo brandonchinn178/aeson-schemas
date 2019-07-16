@@ -12,15 +12,14 @@ valid at compile-time.
 module Data.Aeson.Schema
   ( -- * Types
     Object
-  , SchemaType(..)
+  , SchemaType
   , IsSchemaObject
+  , SchemaResult
     -- * Quasiquoters for extracting or manipulating JSON data or schemas
   , schema
   , get
   , unwrap
   , mkGetter
-    -- * Magic type classes
-  , FromSchema(..)
   ) where
 
 import Data.Aeson.Schema.Internal

@@ -25,8 +25,8 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 --
 -- > mkGetter "Node" "getNodes" ''MySchema ".nodes![]"
 -- >
--- > -- generates roughly:
--- > type Node = Object ('SchemaObject '[ '("b", 'SchemaMaybe 'SchemaBool) ])
+-- > -- is equivalent to:
+-- > type Node = [unwrap| MySchema.nodes[] |] -- Object [schema| { b: Maybe Bool } |]
 -- > getNodes :: Object MySchema -> [Node]
 -- > getNodes = [get| .nodes![] |]
 --
@@ -38,31 +38,31 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 --
 --   [@startSchema@] The schema to extract/unwrap from
 --
---   [@ops@] The operation to extract/unwrap from the schema
+--   [@ops@] The operation to pass to the 'Data.Aeson.Schema.TH.get' and
+--           'Data.Aeson.Schema.TH.unwrap' quasiquoters
 --
--- @ops@ is passed to the 'Data.Aeson.Schema.TH.unwrap' and 'Data.Aeson.Schema.TH.get' quasiquoters
--- to create the unwrapped schema and the getter function. There is one subtlety that occurs from
--- the use of the same @ops@ string for both the 'Data.Aeson.Schema.TH.unwrap' and
--- 'Data.Aeson.Schema.TH.get' quasiquoters: 'Data.Aeson.Schema.TH.unwrap' strips out intermediate
--- functors, while 'Data.Aeson.Schema.TH.get' applies within the functor. So in the above example,
--- @".nodes![]"@ strips out the list when saving the schema to @Node@, while in the below example,
--- @".nodes!"@ doesn't strip out the list when saving the schema to @Nodes@.
+-- There is one subtlety that occurs from the use of the same @ops@ string for both the
+-- 'Data.Aeson.Schema.TH.unwrap' and 'Data.Aeson.Schema.TH.get' quasiquoters:
+-- 'Data.Aeson.Schema.TH.unwrap' strips out intermediate functors, while 'Data.Aeson.Schema.TH.get'
+-- applies within the functor. So in the above example, @".nodes![]"@ strips out the list when
+-- saving the schema to @Node@, while in the below example, @".nodes!"@ doesn't strip out the list
+-- when saving the schema to @Nodes@.
 --
--- > mkGetter "Nodes" "getNodes" ''MySchema ".nodes!"
+-- > mkGetter "Nodes" "getNodes" ''MySchema ".nodes"
 -- >
--- > -- generates roughly:
--- > type Nodes = [Object ('SchemaObject '[ '("b", 'SchemaMaybe 'SchemaBool) ])]
+-- > -- is equivalent to:
+-- > type Nodes = [unwrap| MySchema.nodes! |] -- [Object [schema| { b: Maybe Bool } |]]
 -- > getNodes :: Object MySchema -> Nodes
 -- > getNodes = [get| .nodes! |]
 --
 -- As another example,
 --
--- > mkGetter "MyBool" "getMyBool" ''MySchema ".nodes?[].b"
+-- > mkGetter "MyName" "getMyName" ''MySchema ".f?[].name"
 -- >
--- > -- generates roughly:
--- > type MyBool = Maybe Bool
--- > getMyBool :: Object MySchema -> Maybe [MyBool]
--- > getMyBool = [get| .nodes?[].b |]
+-- > -- is equivalent to:
+-- > type MyName = [unwrap| MySchema.f?[].name |] -- Text
+-- > getMyBool :: Object MySchema -> Maybe [MyName]
+-- > getMyBool = [get| .f?[].name |]
 mkGetter :: String -> String -> Name -> String -> DecsQ
 mkGetter unwrapName funcName startSchemaName ops = do
   -- TODO: allow (Object schema)

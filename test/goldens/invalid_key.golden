@@ -1,1 +1,0 @@
-Invalid key: foo. Possible keys: bool, int, int2, double, text, scalar, enum, maybeObject, maybeObjectNull, maybeList, maybeListNull, list, nonexistent

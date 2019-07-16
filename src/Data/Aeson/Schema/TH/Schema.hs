@@ -16,7 +16,7 @@ The 'schema' quasiquoter.
 
 module Data.Aeson.Schema.TH.Schema (schema) where
 
-import Control.Monad ((>=>))
+import Control.Monad ((<=<), (>=>))
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
 import Language.Haskell.TH
@@ -30,55 +30,56 @@ import Data.Aeson.Schema.TH.Utils (fromTypeList, toTypeList)
 --
 -- Example:
 --
--- > import Data.Aeson.Schema (SchemaType(..))
--- > import Data.Aeson.Schema.TH (schema)
+-- > import Data.Aeson.Schema (schema)
 -- >
--- > -- | MySchema ~ 'SchemaObject
--- > --     '[ '("a", 'SchemaInt)
--- > --      , '("nodes", 'SchemaMaybe (SchemaList ('SchemaObject
--- > --           '[ '("b", 'SchemaMaybe 'SchemaBool)
--- > --            ]
--- > --         )))
--- > --      , '("c", 'SchemaText)
--- > --      , '("d", 'SchemaText)
--- > --      , '("e", 'SchemaCustom "MyType")
--- > --      ]
 -- > type MySchema = [schema|
 -- >   {
 -- >     foo: {
 -- >       a: Int,
 -- >       // you can add comments like this
--- >       nodes: Maybe List {
+-- >       nodes: List {
 -- >         b: Maybe Bool,
 -- >       },
 -- >       c: Text,
 -- >       d: Text,
 -- >       e: MyType,
+-- >       f: Maybe List {
+-- >         name: Text,
+-- >       },
 -- >     },
 -- >   }
 -- > |]
 --
--- The schema definition accepts the following syntax:
+-- Syntax:
 --
--- * @Bool@ corresponds to @'SchemaBool@, and similarly for @Int@, @Double@, and @Text@
+-- * @{ key: \<schema\>, ... }@ corresponds to a JSON 'Data.Aeson.Schema.Object' with the given key
+--   mapping to the given schema.
 --
--- * @Maybe x@ and @List x@ correspond to @'SchemaMaybe x@ and @'SchemaList x@, respectively. (no
---   parentheses needed)
+-- * @Bool@, @Int@, @Double@, and @Text@ correspond to the usual Haskell values.
 --
--- * Any other uppercase identifier corresponds to @'SchemaCustom ident@
+-- * @Maybe \<schema\>@ and @List \<schema\>@ correspond to @Maybe@ and @[]@, containing values
+--   specified by the provided schema (no parentheses needed).
 --
--- * @{ "key": schema, ... }@ corresponds to @'SchemaObject '[ '("key", schema), ... ]@
+-- * Any other uppercase identifier corresponds to the respective type in scope -- requires a
+--   FromJSON instance.
 --
--- * @{ "key": #Other }@ includes @Other@ as a schema
+-- * @{ key: #Other, ... }@ maps the given key to the @Other@ schema.
 --
--- * @{ "key": schema, #Other }@ extends this schema with @Other@
+-- * @{ #Other, ... }@ extends this schema with the @Other@ schema.
 schema :: QuasiQuoter
 schema = QuasiQuoter
   { quoteExp = error "Cannot use `schema` for Exp"
   , quoteDec = error "Cannot use `schema` for Dec"
-  , quoteType = parse schemaDef >=> generateSchema
+  , quoteType = parse schemaDef >=> \case
+      SchemaDefObj items -> generateSchemaObject items
+      _ -> fail "`schema` definition must be an object"
   , quotePat = error "Cannot use `schema` for Pat"
   }
+
+generateSchemaObject :: [SchemaDefObjItem] -> TypeQ
+generateSchemaObject items = [t| 'SchemaObject $(fromItems items) |]
+  where
+    fromItems = toTypeList <=< resolveParts . concat <=< mapM toParts
 
 generateSchema :: SchemaDef -> TypeQ
 generateSchema = \case
@@ -90,7 +91,7 @@ generateSchema = \case
   SchemaDefMaybe inner   -> [t| 'SchemaMaybe $(generateSchema inner) |]
   SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
   SchemaDefInclude other -> getType other
-  SchemaDefObj items     -> [t| 'SchemaObject $(fromItems items) |]
+  SchemaDefObj items     -> generateSchemaObject items
 
 {- Helpers -}
 
@@ -100,14 +101,10 @@ getName ty = maybe (fail $ "Unknown type: " ++ ty) return =<< lookupTypeName ty
 getType :: String -> TypeQ
 getType = getName >=> conT
 
--- | Parse a list of SchemaDefObjItems into a a type-level list for 'SchemaObject.
-fromItems :: [SchemaDefObjItem] -> TypeQ
-fromItems items = toTypeList =<< resolveParts . concat =<< mapM toParts items
-
 data KeySource = Provided | Imported
   deriving (Show,Eq)
 
--- | Parse SchemaDefObjItem into a list of tuples, each containing the key to add to the schema,
+-- | Parse SchemaDefObjItem into a list of tuples, each containing a key to add to the schema,
 -- the value for the key, and the source of the key.
 toParts :: SchemaDefObjItem -> Q [(String, TypeQ, KeySource)]
 toParts = \case
