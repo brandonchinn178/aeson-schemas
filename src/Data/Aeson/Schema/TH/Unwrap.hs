@@ -37,7 +37,7 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 -- > foo = map parseBar [get| result.foo.nodes[] |]
 --
 -- The syntax is mostly the same as 'Data.Aeson.Schema.TH.get', except the operations run on the
--- type itself, instead of the values. Differences from 'get':
+-- type itself, instead of the values. Differences from 'Data.Aeson.Schema.TH.get':
 --
 -- * @x!@ is only valid if @x@ is a @Maybe a@ type. Returns @a@, the type wrapped in the 'Maybe'.
 --

@@ -38,7 +38,8 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 --
 --   [@startSchema@] The schema to extract/unwrap from
 --
---   [@ops@] The operation to pass to the 'get' and 'unwrap' quasiquoters
+--   [@ops@] The operation to pass to the 'Data.Aeson.Schema.TH.get' and
+--           'Data.Aeson.Schema.TH.unwrap' quasiquoters
 --
 -- There is one subtlety that occurs from the use of the same @ops@ string for both the
 -- 'Data.Aeson.Schema.TH.unwrap' and 'Data.Aeson.Schema.TH.get' quasiquoters:

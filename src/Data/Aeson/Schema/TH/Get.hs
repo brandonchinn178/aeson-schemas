@@ -45,15 +45,18 @@ import Data.Aeson.Schema.TH.Utils (GetterOperation(..), showGetterOps)
 --
 -- Syntax:
 --
--- * @x.y@ is only valid if @x@ is an 'Object'. Returns the value of the key @y@.
+-- * @x.y@ is only valid if @x@ is an 'Data.Aeson.Schema.Object'. Returns the value of the key @y@.
 --
--- * @.y@ returns a function that takes in an 'Object' and returns the value of the key @y@.
+-- * @.y@ returns a function that takes in an 'Data.Aeson.Schema.Object' and returns the value of
+--   the key @y@.
 --
--- * @x.[y,z.a]@ is only valid if @x@ is an 'Object', and if @y@ and @z.a@ have the same type.
---   Returns the value of the operations @y@ and @z.a@ as a list. MUST be the last operation.
+-- * @x.[y,z.a]@ is only valid if @x@ is an 'Data.Aeson.Schema.Object', and if @y@ and @z.a@ have
+--   the same type. Returns the value of the operations @y@ and @z.a@ as a list.
+--   MUST be the last operation.
 --
--- * @x.(y,z.a)@ is only valid if @x@ is an 'Object'. Returns the value of the operations @y@
---   and @z.a@ as a tuple. MUST be the last operation.
+-- * @x.(y,z.a)@ is only valid if @x@ is an 'Data.Aeson.Schema.Object'. Returns the value of the
+--   operations @y@ and @z.a@ as a tuple.
+--   MUST be the last operation.
 --
 -- * @x!@ is only valid if @x@ is a 'Maybe'. Unwraps the value of @x@ from a 'Just' value and
 --   errors (at runtime!) if @x@ is 'Nothing'.

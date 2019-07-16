@@ -52,8 +52,8 @@ import Data.Aeson.Schema.TH.Utils (fromTypeList, toTypeList)
 --
 -- Syntax:
 --
--- * @{ key: \<schema\>, ... }@ corresponds to a JSON 'Object' with the given key mapping to the
---   given schema.
+-- * @{ key: \<schema\>, ... }@ corresponds to a JSON 'Data.Aeson.Schema.Object' with the given key
+--   mapping to the given schema.
 --
 -- * @Bool@, @Int@, @Double@, and @Text@ correspond to the usual Haskell values.
 --
