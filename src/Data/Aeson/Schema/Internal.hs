@@ -57,7 +57,7 @@ import qualified Data.Aeson.Schema.Show as SchemaShow
 newtype Object (schema :: SchemaType) = UnsafeObject (HashMap Text Dynamic)
 
 -- | A constraint that checks if the given schema is a 'SchemaObject.
-type IsSchemaObject schema = (FromSchema schema, SchemaResult schema ~ Object schema)
+type IsSchemaObject schema = (IsSchemaType schema, SchemaResult schema ~ Object schema)
 
 instance IsSchemaObject schema => Show (Object schema) where
   show = showValue @schema
@@ -123,7 +123,7 @@ type family SchemaResult (schema :: SchemaType) where
   SchemaResult ('SchemaObject inner) = Object ('SchemaObject inner)
 
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
-class Typeable schema => FromSchema (schema :: SchemaType) where
+class Typeable schema => IsSchemaType (schema :: SchemaType) where
   parseValue :: [Text] -> Value -> Parser (SchemaResult schema)
   default parseValue :: FromJSON (SchemaResult schema) => [Text] -> Value -> Parser (SchemaResult schema)
   parseValue path value = parseJSON value <|> parseFail @schema path value
@@ -132,27 +132,27 @@ class Typeable schema => FromSchema (schema :: SchemaType) where
   default showValue :: Show (SchemaResult schema) => SchemaResult schema -> String
   showValue = show
 
-instance FromSchema 'SchemaBool
+instance IsSchemaType 'SchemaBool
 
-instance FromSchema 'SchemaInt
+instance IsSchemaType 'SchemaInt
 
-instance FromSchema 'SchemaDouble
+instance IsSchemaType 'SchemaDouble
 
-instance FromSchema 'SchemaText
+instance IsSchemaType 'SchemaText
 
-instance (Show inner, Typeable inner, FromJSON inner) => FromSchema ('SchemaCustom inner)
+instance (Show inner, Typeable inner, FromJSON inner) => IsSchemaType ('SchemaCustom inner)
 
-instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaMaybe inner) where
+instance (IsSchemaType inner, Show (SchemaResult inner)) => IsSchemaType ('SchemaMaybe inner) where
   parseValue path = \case
     Null -> return Nothing
     value -> (Just <$> parseValue @inner path value)
 
-instance (FromSchema inner, Show (SchemaResult inner)) => FromSchema ('SchemaList inner) where
+instance (IsSchemaType inner, Show (SchemaResult inner)) => IsSchemaType ('SchemaList inner) where
   parseValue path value = case value of
     Array a -> traverse (parseValue @inner path) (toList a)
     _ -> parseFail @('SchemaList inner) path value
 
-instance FromSchema ('SchemaObject '[]) where
+instance IsSchemaType ('SchemaObject '[]) where
   parseValue path = \case
     Object _ -> return $ UnsafeObject mempty
     value -> parseFail @('SchemaObject '[]) path value
@@ -161,12 +161,12 @@ instance FromSchema ('SchemaObject '[]) where
 
 instance
   ( KnownSymbol key
-  , FromSchema inner
+  , IsSchemaType inner
   , Show (SchemaResult inner)
   , Typeable (SchemaResult inner)
   , IsSchemaObject ('SchemaObject rest)
   , Typeable rest
-  ) => FromSchema ('SchemaObject ('(key, inner) ': rest)) where
+  ) => IsSchemaType ('SchemaObject ('(key, inner) ': rest)) where
   parseValue path value = case value of
     Object o -> do
       let key = Text.pack $ symbolVal $ Proxy @key
