@@ -34,7 +34,8 @@ type MySchema = [schema|
 main :: IO ()
 main = do
   -- Then, load data from a file
-  obj <- either fail return =<< eitherDecodeFileStrict "input.json" :: IO (Object MySchema)
+  obj <- either fail return =<<
+    eitherDecodeFileStrict "examples/input.json" :: IO (Object MySchema)
 
   -- print all the users' ids
   print [get| obj.users[].id |]
