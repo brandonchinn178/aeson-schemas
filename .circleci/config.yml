@@ -11,7 +11,7 @@ aliases:
       default: false
 
   - &cache_key
-    v0-{{ checksum "cache-key.txt" }}
+    v1-{{ checksum "cache-key.txt" }}
 
 executors:
   centos7:
@@ -61,9 +61,6 @@ jobs:
           name: Build external dependencies
           command: |
             STACK_ARGS=(--test --only-dependencies)
-            if [[ -n "${CI_LATEST}" ]]; then
-                STACK_ARGS+=(--haddock)
-            fi
 
             stack build "${STACK_ARGS[@]}"
 
@@ -98,7 +95,7 @@ jobs:
                 --ghc-options -Werror
             )
             if [[ -n "${CI_LATEST}" ]]; then
-                STACK_ARGS+=(--haddock)
+                STACK_ARGS+=(--haddock --no-haddock-deps)
             fi
 
             stack build "${STACK_ARGS[@]}"
