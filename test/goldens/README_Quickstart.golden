@@ -1,0 +1,17 @@
+[1,2,3,4]
+Details for user #1:
+* Name: Alice
+* Age: 30
+* Groups: [{"id": 1, "name": "admin"}]
+Details for user #2:
+* Name: Bob
+* Age: N/A
+* No groups
+Details for user #3:
+* Name: Charlie
+* Age: 25
+* Groups: []
+Details for user #4:
+* Name: Darlene
+* Age: 40
+* Groups: [{"id": 2, "name": "groupA"},{"id": 3, "name": "groupB"}]
