@@ -123,7 +123,7 @@ jobs:
                 command: |
                   TESTDIR=$(mktemp -d)
                   scripts/md_extract_code.py README.md 0 -o "${TESTDIR}/README_Quickstart.hs"
-                  stack runghc "${TESTDIR}/README_Quickstart.hs" > "${TESTDIR}/README_Quickstart.out"
+                  stack runghc "${TESTDIR}/README_Quickstart.hs" | tee "${TESTDIR}/README_Quickstart.out"
                   diff -u  "${TESTDIR}/README_Quickstart.out" test/goldens/README_Quickstart.golden
 
 workflows:
