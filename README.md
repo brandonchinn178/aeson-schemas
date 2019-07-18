@@ -34,13 +34,12 @@ type MySchema = [schema|
 main :: IO ()
 main = do
   -- Then, load data from a file
-  --   obj :: Object MySchema
-  obj <- either fail return =<< eitherDecodeFileStrict "input.json"
+  obj <- either fail return =<< eitherDecodeFileStrict "input.json" :: IO (Object MySchema)
 
   -- print all the users' ids
   print [get| obj.users[].id |]
 
-  forM_ [get| obj.users |] $ \user -> do
+  flip mapM_ [get| obj.users |] $ \user -> do
     -- for each user, print out some information
     putStrLn $ "Details for user #" ++ show [get| user.id |] ++ ":"
     putStrLn $ "* Name: " ++ T.unpack [get| user.name |]
@@ -234,16 +233,16 @@ Maybe you have nested data with JSON keys reused:
 
 ```json
 {
-    "_type": "user"
+    "_type": "user",
     "node": {
         "name": "John",
         "groups": [
             {
-              "_type": "group",
-              "node": {
-                  "name": "Admin",
-                  "writeAccess": true
-              }
+                "_type": "group",
+                "node": {
+                    "name": "Admin",
+                    "writeAccess": true
+                }
             }
         ]
     }
