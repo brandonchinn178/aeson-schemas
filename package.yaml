@@ -17,6 +17,8 @@ description: |
 extra-source-files:
   - README.md
   - CHANGELOG.md
+  - test/**/*.json
+  - test/**/*.golden
 
 github: LeapYear/aeson-schemas
 
