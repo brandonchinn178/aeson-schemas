@@ -1,5 +1,9 @@
 ## Upcoming
 
+## 1.0.3
+
+Support GHC 8.8
+
 ## 1.0.2
 
 Bundle test data files in release tarball
