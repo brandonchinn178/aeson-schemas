@@ -7,6 +7,7 @@ Portability :  portable
 Internal definitions for declaring JSON schemas.
 -}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
@@ -28,6 +29,9 @@ Internal definitions for declaring JSON schemas.
 module Data.Aeson.Schema.Internal where
 
 import Control.Applicative ((<|>))
+#if !MIN_VERSION_base(4,13,0)
+import Control.Monad.Fail (MonadFail)
+#endif
 import Data.Aeson (FromJSON(..), Value(..))
 import Data.Aeson.Types (Parser)
 import Data.Bifunctor (first)
@@ -190,7 +194,7 @@ instance
       pair = "\"" ++ key ++ "\": " ++ value
 
 -- | A helper for creating fail messages when parsing a schema.
-parseFail :: forall (schema :: SchemaType) m a. (Monad m, Typeable schema) => [Text] -> Value -> m a
+parseFail :: forall (schema :: SchemaType) m a. (MonadFail m, Typeable schema) => [Text] -> Value -> m a
 parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
   where
     msg = if null path

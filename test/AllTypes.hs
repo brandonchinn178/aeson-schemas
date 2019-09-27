@@ -2,12 +2,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 
 module AllTypes where
 
 import Data.Aeson (FromJSON(..), withText)
 import Data.Aeson.Schema
-import Data.Aeson.Schema.TH (mkEnum, mkGetter)
+import Data.Aeson.Schema.TH (mkEnum)
 import qualified Data.Text as Text
 
 import Util (getMockedResult)

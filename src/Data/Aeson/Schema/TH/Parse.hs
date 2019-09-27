@@ -16,6 +16,9 @@ module Data.Aeson.Schema.TH.Parse where
 import Control.Applicative (empty)
 #endif
 import Control.Monad (void)
+#if !MIN_VERSION_base(4,13,0)
+import Control.Monad.Fail (MonadFail)
+#endif
 import Data.Functor (($>))
 import Data.List (intercalate)
 import Data.Void (Void)
@@ -32,7 +35,7 @@ errorBundlePretty :: (Ord t, ShowToken t, ShowErrorComponent e) => ParseError t 
 errorBundlePretty = parseErrorPretty
 #endif
 
-parse :: Monad m => Parser a -> String -> m a
+parse :: MonadFail m => Parser a -> String -> m a
 parse parser s = either (fail . errorBundlePretty) return $ runParser parser s s
 
 {- Parser primitives -}
