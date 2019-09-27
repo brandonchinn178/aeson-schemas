@@ -1,0 +1,9 @@
+resolver: nightly-2019-09-26
+
+packages:
+  - .
+
+extra-deps:
+  - aeson-1.4.5.0
+  - th-test-utils-1.0.0
+  - time-compat-1.9.2.2
