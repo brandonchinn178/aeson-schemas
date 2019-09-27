@@ -4,4 +4,4 @@ packages:
   - .
 
 extra-deps:
-  - th-test-utils-1.0.0
+  - th-test-utils-1.0.1
