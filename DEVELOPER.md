@@ -40,7 +40,7 @@ stack test
 
 # Git etiquette
 
-See [`CONTRIBUTING.md`](Contributing.md#git-etiquette)
+See [`CONTRIBUTING`](https://github.com/LeapYear/.github/blob/master/CONTRIBUTING)
 
 # Documentation
 
