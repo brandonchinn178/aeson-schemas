@@ -37,7 +37,7 @@ import Language.Haskell.TH.Syntax (lift)
 -- --   genToJSONEnum ''State
 -- @
 mkEnum :: String -> [String] -> Q [Dec]
-mkEnum name vals = fmap concat $ sequence
+mkEnum name vals = concat <$> sequence
   [ (:[]) <$> dataDec
   , mkFromJSON name' vals'
   , mkToJSON name' vals'
