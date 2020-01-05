@@ -27,14 +27,11 @@ import Language.Haskell.TH
 -- case-insensitive.
 --
 -- @
--- mkEnum "State" ["OPEN", "CLOSED"]
+-- mkEnum \"State" [\"OPEN", \"CLOSED"]
 --
--- main = print
---   [ decode \"open" :: Maybe State
---   , decode \"OPEN" :: Maybe State
---   , decode \"closed" :: Maybe State
---   , decode \"CLOSED" :: Maybe State
---   ]
+-- -- generates equivalent of:
+-- --   data State = OPEN | CLOSED deriving (...)
+-- --   genFromJSONEnum ''State
 -- @
 mkEnum :: String -> [String] -> Q [Dec]
 mkEnum name vals = do
@@ -63,12 +60,20 @@ mkEnum name vals = do
 -- data State = OPEN | CLOSED deriving (Show,Enum)
 -- genFromJSONEnum ''State
 --
--- main = print
---   [ decode \"open" :: Maybe State
---   , decode \"OPEN" :: Maybe State
---   , decode \"closed" :: Maybe State
---   , decode \"CLOSED" :: Maybe State
+-- -- outputs:
+-- --   Just OPEN
+-- --   Just OPEN
+-- --   Just CLOSED
+-- --   Just CLOSED
+-- main = mapM_ print
+--   [ decodeState \"open"
+--   , decodeState \"OPEN"
+--   , decodeState \"closed"
+--   , decodeState \"CLOSED"
 --   ]
+--   where
+--     decodeState :: String -> Maybe State
+--     decodeState = decode . show
 -- @
 genFromJSONEnum :: Name -> Q [Dec]
 genFromJSONEnum name = do
