@@ -1,21 +1,27 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
+import Data.Aeson (decode, encode)
 import Data.Aeson.Schema (Object, get, unwrap)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
+import Data.Char (toLower, toUpper)
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Language.Haskell.TH.TestUtils (tryQErr')
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
+import Test.Tasty.HUnit (testCase, (@?=))
+import Test.Tasty.QuickCheck (elements, infiniteListOf, testProperty, (===))
 import Text.RawString.QQ (r)
 
 import qualified AllTypes
+import Enums
 import qualified Nested
 import Schema
 import Util
@@ -32,6 +38,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testUnwrapSchema
   , testSchemaDef
   , testMkGetter
+  , testEnumTH
   ]
 
 goldens' :: String -> String -> TestTree
@@ -163,3 +170,55 @@ testMkGetter = testGroup "Test the mkGetter helper"
 
     getType :: AllTypes.ListItem -> Text.Text
     getType = [get| .type |]
+
+testEnumTH :: TestTree
+testEnumTH = testGroup "Test the Enum TH helpers"
+  -- State
+  [ testProperty "mkEnum decode is case insensitive" $ do
+      (val, enumVal) <- elements
+        [ ("OPEN", OPEN)
+        , ("CLOSED", CLOSED)
+        ]
+      casedVal <- randomlyCased val
+      return $ decode (ByteString.pack $ show casedVal) === Just enumVal
+  , testCase "mkEnum encode keeps case of constructor" $ do
+      encode OPEN @?= "\"OPEN\""
+      encode CLOSED @?= "\"CLOSED\""
+  , testProperty "mkEnum: (fromJust . decode . encode) === id" $ do
+      enumVal <- elements [OPEN, CLOSED]
+      return $ (decode . encode) enumVal === Just enumVal
+
+  -- Color
+  , testProperty "genFromJSONEnum decode is case insensitive" $ do
+      (val, enumVal) <- elements
+        [ ("Red", Red)
+        , ("LightBlue", LightBlue)
+        , ("Yellow", Yellow)
+        , ("DarkGreen", DarkGreen)
+        , ("Black", Black)
+        , ("JustABitOffWhite", JustABitOffWhite)
+        ]
+      casedVal <- randomlyCased val
+      return $ decode (ByteString.pack $ show casedVal) === Just enumVal
+  , testCase "genToJSONEnum encode keeps case of constructor" $ do
+      encode Red @?= "\"Red\""
+      encode LightBlue @?= "\"LightBlue\""
+      encode Yellow @?= "\"Yellow\""
+      encode DarkGreen @?= "\"DarkGreen\""
+      encode Black @?= "\"Black\""
+      encode JustABitOffWhite @?= "\"JustABitOffWhite\""
+  , testProperty "genFromJSONEnum + genToJSONEnum: (fromJust . decode . encode) === id" $ do
+      enumVal <- elements
+        [ Red
+        , LightBlue
+        , Yellow
+        , DarkGreen
+        , Black
+        , JustABitOffWhite
+        ]
+      return $ (decode . encode) enumVal === Just enumVal
+  ]
+  where
+    randomlyCased s = do
+      caseFuncs <- infiniteListOf $ elements [toLower, toUpper]
+      return $ zipWith ($) caseFuncs s
