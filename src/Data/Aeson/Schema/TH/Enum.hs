@@ -34,8 +34,10 @@ import Language.Haskell.TH
 -- --   genFromJSONEnum ''State
 -- @
 mkEnum :: String -> [String] -> Q [Dec]
-mkEnum name vals = do
-  (:) <$> dataDec <*> mkFromJSON name' vals'
+mkEnum name vals = fmap concat $ sequence
+  [ (:[]) <$> dataDec
+  , mkFromJSON name' vals'
+  ]
   where
     name' = mkName name
     vals' = map mkName vals
@@ -76,7 +78,12 @@ mkEnum name vals = do
 --     decodeState = decode . show
 -- @
 genFromJSONEnum :: Name -> Q [Dec]
-genFromJSONEnum name = do
+genFromJSONEnum name = getEnumConstructors name >>= mkFromJSON name
+
+{- Helpers -}
+
+getEnumConstructors :: Name -> Q [Name]
+getEnumConstructors name = do
   -- check if 'name' is an Enum
   ClassI _ instances <- reify ''Enum
   let instanceNames = flip mapMaybe instances $ \case
@@ -85,15 +92,11 @@ genFromJSONEnum name = do
   unless (name `elem` instanceNames) $ fail $ "Not an Enum type: " ++ show name
 
   -- extract constructor names
-  cons <- reify name >>= \case
+  reify name >>= \case
     TyConI (DataD _ _ _ _ cons _) -> forM cons $ \case
       NormalC con [] -> return con
       con -> fail $ "Invalid constructor: " ++ show con
     info -> fail $ "Invalid data type: " ++ show info
-
-  mkFromJSON name cons
-
-{- Helpers -}
 
 mkFromJSON :: Name -> [Name] -> Q [Dec]
 mkFromJSON name cons = do
