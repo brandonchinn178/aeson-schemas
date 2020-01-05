@@ -30,6 +30,7 @@ module Data.Aeson.Schema.TH
   -- * Helpers for Enum types
   , mkEnum
   , genFromJSONEnum
+  , genToJSONEnum
   ) where
 
 import Data.Aeson.Schema.TH.Enum

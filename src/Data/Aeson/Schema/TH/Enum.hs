@@ -11,15 +11,17 @@ Template Haskell functions for Enum types.
 
 module Data.Aeson.Schema.TH.Enum
   ( genFromJSONEnum
+  , genToJSONEnum
   , mkEnum
   ) where
 
 import Control.Monad (forM, unless)
-import Data.Aeson (FromJSON(..), Value(..))
+import Data.Aeson (FromJSON(..), ToJSON(..), Value(..))
 import Data.Char (toLower)
 import Data.Maybe (mapMaybe)
 import qualified Data.Text as Text
 import Language.Haskell.TH
+import Language.Haskell.TH.Syntax (lift)
 
 -- | Make an enum type with the given constructors, that can be parsed from JSON.
 --
@@ -32,11 +34,13 @@ import Language.Haskell.TH
 -- -- generates equivalent of:
 -- --   data State = OPEN | CLOSED deriving (...)
 -- --   genFromJSONEnum ''State
+-- --   genToJSONEnum ''State
 -- @
 mkEnum :: String -> [String] -> Q [Dec]
 mkEnum name vals = fmap concat $ sequence
   [ (:[]) <$> dataDec
   , mkFromJSON name' vals'
+  , mkToJSON name' vals'
   ]
   where
     name' = mkName name
@@ -59,12 +63,12 @@ mkEnum name vals = fmap concat $ sequence
 -- case-insensitive.
 --
 -- @
--- data State = OPEN | CLOSED deriving (Show,Enum)
+-- data State = Open | CLOSED deriving (Show,Enum)
 -- genFromJSONEnum ''State
 --
 -- -- outputs:
--- --   Just OPEN
--- --   Just OPEN
+-- --   Just Open
+-- --   Just Open
 -- --   Just CLOSED
 -- --   Just CLOSED
 -- main = mapM_ print
@@ -79,6 +83,28 @@ mkEnum name vals = fmap concat $ sequence
 -- @
 genFromJSONEnum :: Name -> Q [Dec]
 genFromJSONEnum name = getEnumConstructors name >>= mkFromJSON name
+
+-- | Generate an instance of 'ToJSON' for the given data type.
+--
+-- Prefer using 'mkEnum'; this function is useful for data types in which you want greater control
+-- over the actual data type.
+--
+-- The 'ToJSON' instance will encode the enum as a string matching the constructor name.
+--
+-- @
+-- data State = Open | CLOSED deriving (Show,Enum)
+-- genToJSONEnum ''State
+--
+-- -- outputs:
+-- --   \"Open"
+-- --   \"CLOSED"
+-- main = mapM_ print
+--   [ encode Open
+--   , encode CLOSED
+--   ]
+-- @
+genToJSONEnum :: Name -> Q [Dec]
+genToJSONEnum name = getEnumConstructors name >>= mkToJSON name
 
 {- Helpers -}
 
@@ -116,3 +142,12 @@ mkFromJSON name cons = do
     badParse =
       let prefix = litE $ stringL $ "Bad " ++ nameBase name ++ ": "
       in [| fail . ($prefix ++) . show |]
+
+mkToJSON :: Name -> [Name] -> Q [Dec]
+mkToJSON name cons =
+  [d|
+    instance ToJSON $(conT name) where
+      toJSON = $(lamCaseE $ map encodeConstructor cons)
+    |]
+  where
+    encodeConstructor con = match (conP con []) (normalB [| String $ Text.pack $(lift $ nameBase con) |]) []
