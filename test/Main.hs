@@ -3,12 +3,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-import Data.Aeson (decode, encode)
+import Data.Aeson (ToJSON, decode, eitherDecode, encode)
 import Data.Aeson.Schema (Object, get, unwrap)
+import Data.Aeson.Schema.Utils.Sum (SumType(..))
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Data.Char (toLower, toUpper)
 import Data.Maybe (fromMaybe)
@@ -24,6 +26,7 @@ import qualified AllTypes
 import Enums
 import qualified Nested
 import Schema
+import SumType
 import Util
 
 allTypes :: Object AllTypes.Schema
@@ -39,6 +42,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testSchemaDef
   , testMkGetter
   , testEnumTH
+  , testSumType
   ]
 
 goldens' :: String -> String -> TestTree
@@ -222,3 +226,30 @@ testEnumTH = testGroup "Test the Enum TH helpers"
     randomlyCased s = do
       caseFuncs <- infiniteListOf $ elements [toLower, toUpper]
       return $ zipWith ($) caseFuncs s
+
+testSumType :: TestTree
+testSumType = testGroup "Test the SumType helper"
+  [ testCase "Sanity checks" $
+      let values =
+            [ Here True
+            , Here False
+            , There (Here 1)
+            , There (Here 10)
+            , There (There (Here []))
+            , There (There (Here ["a"]))
+            ] :: [SpecialJSON]
+      in values @?= values
+  , testGroup "Decode SumType"
+    [ testProperty "branch 1" $ \(b :: Bool) ->
+        toSpecialJSON b === Right (Here b)
+    , testProperty "branch 2" $ \(x :: Int) ->
+        toSpecialJSON x === Right (There (Here x))
+    , testProperty "branch 3" $ \(l :: [String]) ->
+        toSpecialJSON l === Right (There (There (Here l)))
+    , testCase "invalid SumType" $
+        toSpecialJSON [True] @?= Left "Error in $: Could not parse sum type"
+    ]
+  ]
+  where
+    toSpecialJSON :: ToJSON a => a -> Either String SpecialJSON
+    toSpecialJSON = eitherDecode . encode
