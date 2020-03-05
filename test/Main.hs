@@ -156,6 +156,8 @@ testSchemaDef = testGroup "Test generating schema definitions"
   , goldens' "schema_def_import_user" $(showSchema [r| { user: #UserSchema } |])
   , goldens' "schema_def_extend" $(showSchema [r| { a: Int, #(Schema.MySchema) } |])
   , goldens' "schema_def_shadow" $(showSchema [r| { extra: Bool, #(Schema.MySchema) } |])
+  , goldens' "schema_def_union" $(showSchema [r| { a: List Int | Text } |])
+  , goldens' "schema_def_union_grouped" $(showSchema [r| { a: List (Int | Text) } |])
   -- bad schema definitions
   , goldens' "schema_def_duplicate" $(tryQErr' $ showSchema [r| { a: Int, a: Bool } |])
   , goldens' "schema_def_duplicate_extend" $(tryQErr' $ showSchema [r| { #MySchema, #MySchema2 } |])
