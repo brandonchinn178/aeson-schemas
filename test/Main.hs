@@ -85,6 +85,7 @@ testGetterExp = testGroup "Test getter expressions"
   , goldens "list_maybeBool"           [get| allTypes.list[].maybeBool      |]
   , goldens "list_maybeInt"            [get| allTypes.list[].maybeInt       |]
   , goldens "nonexistent"              [get| allTypes.nonexistent           |]
+  , goldens "union"                    [get| allTypes.union                 |]
   -- bad 'get' expressions
   , goldens' "maybeListNull_bang" $(getError [get| (AllTypes.result).maybeListNull! |])
 #if MIN_VERSION_megaparsec(7,0,0)

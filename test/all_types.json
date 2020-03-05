@@ -32,5 +32,11 @@
             "type": "null",
             "maybeNull": null
         }
+    ],
+    "union": [
+        "Hello",
+        { "a": 1 },
+        [true, false],
+        "World!"
     ]
 }
