@@ -44,7 +44,7 @@ import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable, splitTyConApp, tyConName, typeRep, typeRepTyCon)
-import Fcf (type (<=<), type (=<<), Eval, Find, FromMaybe, Fst, Snd, TyEq)
+import Fcf (type (=<<), Eval, FromMaybe, Lookup)
 import GHC.Exts (toList)
 import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
@@ -216,14 +216,14 @@ parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
 -- | The type-level function that return the schema of the given key in a 'SchemaObject'.
 type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType where
   LookupSchema key ('SchemaObject schema) = Eval
-    ( Snd
-    =<< FromMaybe (TypeError
-      (     'Text "Key '"
-      ':<>: 'Text key
-      ':<>: 'Text "' does not exist in the following schema:"
-      ':$$: 'ShowType schema
-      ))
-    =<< Find (TyEq key <=< Fst) schema
+    ( FromMaybe (TypeError
+        (     'Text "Key '"
+        ':<>: 'Text key
+        ':<>: 'Text "' does not exist in the following schema:"
+        ':$$: 'ShowType schema
+        )
+      )
+      =<< Lookup key schema
     )
   LookupSchema key schema = TypeError
     (     'Text "Attempted to lookup key '"
