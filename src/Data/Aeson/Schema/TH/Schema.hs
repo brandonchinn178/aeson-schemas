@@ -17,6 +17,7 @@ The 'schema' quasiquoter.
 module Data.Aeson.Schema.TH.Schema (schema) where
 
 import Control.Monad ((<=<), (>=>))
+import Data.Bifunctor (second)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
 import Language.Haskell.TH
@@ -24,7 +25,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.Internal (SchemaType(..))
 import Data.Aeson.Schema.TH.Parse
-import Data.Aeson.Schema.TH.Utils (fromTypeList, toTypeList)
+import Data.Aeson.Schema.TH.Utils (schemaPairsToTypeQ, typeToSchemaPairs)
 
 -- | Defines a QuasiQuoter for writing schemas.
 --
@@ -79,7 +80,7 @@ schema = QuasiQuoter
 generateSchemaObject :: [SchemaDefObjItem] -> TypeQ
 generateSchemaObject items = [t| 'SchemaObject $(fromItems items) |]
   where
-    fromItems = toTypeList <=< resolveParts . concat <=< mapM toParts
+    fromItems = schemaPairsToTypeQ <=< resolveParts . concat <=< mapM toParts
 
 generateSchema :: SchemaDef -> TypeQ
 generateSchema = \case
@@ -113,7 +114,7 @@ toParts = \case
     name <- getName other
     reify name >>= \case
       TyConI (TySynD _ _ (AppT (PromotedT ty) inner)) | ty == 'SchemaObject ->
-        tagAs Imported <$> fromTypeList inner
+        pure . tagAs Imported . map (second pure) $ typeToSchemaPairs inner
       _ -> fail $ "'" ++ show name ++ "' is not a SchemaObject"
   where
     tagAs source = map $ \(k,v) -> (k,v,source)

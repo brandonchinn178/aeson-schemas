@@ -13,7 +13,7 @@ Portability :  portable
 module Data.Aeson.Schema.TH.Utils where
 
 import Control.Monad ((>=>))
-import Data.Bifunctor (second)
+import Data.Bifunctor (bimap, second)
 import Data.List (intercalate)
 import Data.Text (Text)
 import Language.Haskell.TH
@@ -39,29 +39,39 @@ showSchemaType = SchemaShow.showSchemaType . fromSchemaType
         | name == 'SchemaList -> SchemaShow.SchemaList $ fromSchemaType inner
         | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
       ty -> error $ "Unknown type: " ++ show ty
-    fromPairs pairs = map (second fromSchemaType) $ fromTypeList' pairs
 
-fromTypeList' :: Type -> [(String, Type)]
-fromTypeList' = \case
+    fromPairs pairs = map (second fromSchemaType) $ typeToSchemaPairs pairs
+
+typeToList :: Type -> [Type]
+typeToList = \case
   PromotedNilT -> []
-  AppT (AppT PromotedConsT x) xs -> fromTypeTuple x : fromTypeList' xs
-  SigT ty _ -> fromTypeList' ty
+  AppT (AppT PromotedConsT x) xs -> x : typeToList xs
+  SigT ty _ -> typeToList ty
   ty -> error $ "Not a type-level list: " ++ show ty
-  where
-    fromTypeTuple = \case
-      AppT (AppT (PromotedTupleT 2) (LitT (StrTyLit k))) v -> (k, stripSigs v)
-      SigT ty _ -> fromTypeTuple ty
-      x -> error $ "Not a type-level tuple: " ++ show x
 
-fromTypeList :: Type -> Q [(String, TypeQ)]
-fromTypeList = pure . map (second pure) . fromTypeList'
+typeToPair :: Type -> (Type, Type)
+typeToPair = \case
+  AppT (AppT (PromotedTupleT 2) a) b -> (a, b)
+  SigT ty _ -> typeToPair ty
+  ty -> error $ "Not a type-level pair: " ++ show ty
 
-toTypeList :: [(String, TypeQ)] -> TypeQ
-toTypeList = foldr (consT . pairT) promotedNilT
+typeToSchemaPairs :: Type -> [(String, Type)]
+typeToSchemaPairs = map (bimap toTypeStr stripSigs . typeToPair) . typeToList
   where
-    pairT (k, v) = [t| '( $(litT $ strTyLit k), $v) |]
+    toTypeStr = \case
+      LitT (StrTyLit k) -> k
+      x -> error $ "Not a type-level string: " ++ show x
+
+typeQListToTypeQ :: [TypeQ] -> TypeQ
+typeQListToTypeQ = foldr consT promotedNilT
+  where
     -- nb. https://stackoverflow.com/a/34457936
     consT x xs = appT (appT promotedConsT x) xs
+
+schemaPairsToTypeQ :: [(String, TypeQ)] -> TypeQ
+schemaPairsToTypeQ = typeQListToTypeQ . map pairT
+  where
+    pairT (k, v) = [t| '( $(litT $ strTyLit k), $v) |]
 
 -- | Strip all kind signatures from the given type.
 stripSigs :: Type -> Type

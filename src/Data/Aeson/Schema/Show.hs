@@ -47,5 +47,7 @@ showSchemaType schema = case schema of
       SchemaCustom s -> s
       SchemaMaybe inner -> "Maybe " ++ showSchemaType' inner
       SchemaList inner -> "List " ++ showSchemaType' inner
-      SchemaObject pairs -> "{" ++ intercalate ", " (map showPair pairs) ++ "}"
+      SchemaObject pairs -> "{" ++ mapJoin showPair ", " pairs ++ "}"
     showPair (key, inner) = "\"" ++ key ++ "\": " ++ showSchemaType' inner
+
+    mapJoin f delim = intercalate delim . map f

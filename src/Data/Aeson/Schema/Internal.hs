@@ -96,16 +96,23 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
       ("'SchemaCustom", [inner]) -> SchemaShow.SchemaCustom $ typeRepName inner
       ("'SchemaMaybe", [inner]) -> SchemaShow.SchemaMaybe $ cast inner
       ("'SchemaList", [inner]) -> SchemaShow.SchemaList $ cast inner
-      ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ getSchemaObjectPairs pairs
+      ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ map getSchemaObjectPair $ typeRepToList pairs
       _ -> error $ "Unknown schema type: " ++ show tyRep
-    getSchemaObjectPairs tyRep = case splitTypeRep tyRep of
+
+    getSchemaObjectPair tyRep =
+      let (key, val) = typeRepToPair tyRep
+          key' = tail . init . typeRepName $ key -- strip leading + trailing quote
+      in (key', cast val)
+
+    typeRepToPair tyRep = case splitTypeRep tyRep of
+      ("'(,)", [a, b]) -> (a, b)
+      _ -> error $ "Unknown pair: " ++ show tyRep
+
+    typeRepToList tyRep = case splitTypeRep tyRep of
       ("'[]", []) -> []
-      ("':", [x, rest]) -> case splitTypeRep x of
-        ("'(,)", [key, val]) ->
-          let key' = tail . init . typeRepName $ key -- strip leading + trailing quote
-          in (key', cast val) : getSchemaObjectPairs rest
-        _ -> error $ "Unknown pair: " ++ show x
+      ("':", [x, rest]) -> x : typeRepToList rest
       _ -> error $ "Unknown list: " ++ show tyRep
+
     splitTypeRep = first tyConName . splitTyConApp
     typeRepName = tyConName . typeRepTyCon
 
