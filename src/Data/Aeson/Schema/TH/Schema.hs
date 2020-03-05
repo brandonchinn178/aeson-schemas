@@ -25,7 +25,8 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.Internal (SchemaType(..))
 import Data.Aeson.Schema.TH.Parse
-import Data.Aeson.Schema.TH.Utils (schemaPairsToTypeQ, typeToSchemaPairs)
+import Data.Aeson.Schema.TH.Utils
+    (schemaPairsToTypeQ, typeQListToTypeQ, typeToSchemaPairs)
 
 -- | Defines a QuasiQuoter for writing schemas.
 --
@@ -61,6 +62,10 @@ import Data.Aeson.Schema.TH.Utils (schemaPairsToTypeQ, typeToSchemaPairs)
 -- * @Maybe \<schema\>@ and @List \<schema\>@ correspond to @Maybe@ and @[]@, containing values
 --   specified by the provided schema (no parentheses needed).
 --
+-- * @\<schema1\> | \<schema2\>@ corresponds to a JSON value that matches one of the given schemas.
+--   When extracted from an 'Data.Aeson.Schema.Object', it deserializes into a
+--   'Data.Aeson.Schema.Utils.Sum.JSONSum' object.
+--
 -- * Any other uppercase identifier corresponds to the respective type in scope -- requires a
 --   FromJSON instance.
 --
@@ -93,6 +98,7 @@ generateSchema = \case
   SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
   SchemaDefInclude other -> getType other
   SchemaDefObj items     -> generateSchemaObject items
+  SchemaDefUnion schemas -> [t| 'SchemaUnion $(typeQListToTypeQ $ map generateSchema schemas) |]
 
 {- Helpers -}
 

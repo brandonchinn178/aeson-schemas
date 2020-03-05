@@ -53,14 +53,23 @@ parseGetterOp = choice
   ]
 
 parseSchemaDef :: Parser SchemaDef
-parseSchemaDef = choice
-  [ between (lexeme "{") (lexeme "}") $ SchemaDefObj <$> parseSchemaDefObjItems
-  , lexeme "Maybe" *> (SchemaDefMaybe <$> parseSchemaDef)
-  , lexeme "List" *> (SchemaDefList <$> parseSchemaDef)
-  , SchemaDefType <$> identifier upperChar
-  , SchemaDefInclude <$> parseSchemaReference
-  ]
+parseSchemaDef = parseSchemaDefWithUnions
   where
+    parseSchemaDefWithUnions =
+      let parseSchemaUnion [] = error "Parsed no schema definitions" -- should not happen; sepBy1 returns one or more
+          parseSchemaUnion [schemaDef'] = schemaDef'
+          parseSchemaUnion schemaDefs = SchemaDefUnion schemaDefs
+      in fmap parseSchemaUnion $ parseSchemaDefWithoutUnions `sepBy1` lexeme "|"
+
+    parseSchemaDefWithoutUnions = choice
+      [ between (lexeme "{") (lexeme "}") $ SchemaDefObj <$> parseSchemaDefObjItems
+      , between (lexeme "(") (lexeme ")") parseSchemaDefWithUnions
+      , lexeme "Maybe" *> (SchemaDefMaybe <$> parseSchemaDefWithoutUnions)
+      , lexeme "List" *> (SchemaDefList <$> parseSchemaDefWithoutUnions)
+      , SchemaDefType <$> identifier upperChar
+      , SchemaDefInclude <$> parseSchemaReference
+      ] <* space -- allow any trailing spaces
+
     parseSchemaDefObjItems = parseSchemaDefObjItem `sepEndBy1` lexeme ","
     parseSchemaDefObjItem = choice
       [ SchemaDefObjPair <$> parseSchemaDefPair
@@ -69,7 +78,7 @@ parseSchemaDef = choice
     parseSchemaDefPair = do
       key <- jsonKey
       lexeme ":"
-      value <- parseSchemaDef
+      value <- parseSchemaDefWithUnions
       return (key, value)
     parseSchemaReference = char '#' *> namespacedIdentifier upperChar
 
@@ -108,6 +117,7 @@ data SchemaDef
   | SchemaDefList SchemaDef
   | SchemaDefInclude String
   | SchemaDefObj [SchemaDefObjItem]
+  | SchemaDefUnion [SchemaDef]
   deriving (Show)
 
 data SchemaDefObjItem

@@ -103,6 +103,7 @@ unwrapType _ [] = fromSchemaType
         | ty == 'SchemaMaybe -> [t| Maybe $(fromSchemaType inner) |]
         | ty == 'SchemaList -> [t| [$(fromSchemaType inner)] |]
         | ty == 'SchemaObject -> [t| Object $(pure schema) |]
+        | ty == 'SchemaUnion -> [t| SchemaResult $(pure schema) |]
       PromotedT ty
         | ty == 'SchemaBool -> [t| Bool |]
         | ty == 'SchemaInt -> [t| Int |]
