@@ -25,6 +25,7 @@ data SchemaType
   | SchemaMaybe SchemaType
   | SchemaList SchemaType
   | SchemaObject [(String, SchemaType)]
+  | SchemaUnion [SchemaType]
   deriving (Show)
 
 -- | Pretty show the given SchemaType.
@@ -38,6 +39,7 @@ showSchemaType schema = case schema of
   SchemaMaybe inner -> "SchemaMaybe " ++ showSchemaType' inner
   SchemaList inner -> "SchemaList " ++ showSchemaType' inner
   SchemaObject _ -> "SchemaObject " ++ showSchemaType' schema
+  SchemaUnion _ -> "SchemaUnion " ++ showSchemaType' schema
   where
     showSchemaType' = \case
       SchemaBool -> "Bool"
@@ -48,6 +50,7 @@ showSchemaType schema = case schema of
       SchemaMaybe inner -> "Maybe " ++ showSchemaType' inner
       SchemaList inner -> "List " ++ showSchemaType' inner
       SchemaObject pairs -> "{" ++ mapJoin showPair ", " pairs ++ "}"
+      SchemaUnion schemas -> "( " ++ mapJoin showSchemaType' " | " schemas ++ " )"
     showPair (key, inner) = "\"" ++ key ++ "\": " ++ showSchemaType' inner
 
     mapJoin f delim = intercalate delim . map f

@@ -50,6 +50,8 @@ import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
 
 import qualified Data.Aeson.Schema.Show as SchemaShow
+import Data.Aeson.Schema.Utils.Sum (SumType)
+import Data.Aeson.Schema.Utils.TypeFamilies (All)
 
 {- Schema-validated JSON object -}
 
@@ -83,6 +85,7 @@ data SchemaType
   | SchemaMaybe SchemaType
   | SchemaList SchemaType
   | SchemaObject [(Symbol, SchemaType)]
+  | SchemaUnion [SchemaType]
 
 -- | Convert 'SchemaType' into 'SchemaShow.SchemaType'.
 toSchemaTypeShow :: forall (a :: SchemaType). Typeable a => SchemaShow.SchemaType
@@ -97,6 +100,7 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
       ("'SchemaMaybe", [inner]) -> SchemaShow.SchemaMaybe $ cast inner
       ("'SchemaList", [inner]) -> SchemaShow.SchemaList $ cast inner
       ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ map getSchemaObjectPair $ typeRepToList pairs
+      ("'SchemaUnion", [schemas]) -> SchemaShow.SchemaUnion $ map cast $ typeRepToList schemas
       _ -> error $ "Unknown schema type: " ++ show tyRep
 
     getSchemaObjectPair tyRep =
@@ -132,6 +136,11 @@ type family SchemaResult (schema :: SchemaType) where
   SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaList inner) = [SchemaResult inner]
   SchemaResult ('SchemaObject inner) = Object ('SchemaObject inner)
+  SchemaResult ('SchemaUnion schemas) = SumType (SchemaResultList schemas)
+
+type family SchemaResultList (xs :: [SchemaType]) where
+  SchemaResultList '[] = '[]
+  SchemaResultList (x ': xs) = SchemaResult x ': SchemaResultList xs
 
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
 class Typeable schema => IsSchemaType (schema :: SchemaType) where
@@ -199,6 +208,13 @@ instance
         let dynValue = hm ! Text.pack key
         in maybe (show dynValue) show $ fromDynamic @(SchemaResult inner) dynValue
       pair = "\"" ++ key ++ "\": " ++ value
+
+instance
+  ( All IsSchemaType schemas
+  , Typeable schemas
+  , Show (SchemaResult ('SchemaUnion schemas))
+  , FromJSON (SchemaResult ('SchemaUnion schemas))
+  ) => IsSchemaType ('SchemaUnion schemas)
 
 -- | A helper for creating fail messages when parsing a schema.
 parseFail :: forall (schema :: SchemaType) m a. (MonadFail m, Typeable schema) => [Text] -> Value -> m a

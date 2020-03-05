@@ -38,6 +38,7 @@ showSchemaType = SchemaShow.showSchemaType . fromSchemaType
         | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ fromSchemaType inner
         | name == 'SchemaList -> SchemaShow.SchemaList $ fromSchemaType inner
         | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
+        | name == 'SchemaUnion -> SchemaShow.SchemaUnion $ map fromSchemaType $ typeToList inner
       ty -> error $ "Unknown type: " ++ show ty
 
     fromPairs pairs = map (second fromSchemaType) $ typeToSchemaPairs pairs
