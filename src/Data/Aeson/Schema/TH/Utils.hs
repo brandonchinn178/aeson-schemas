@@ -135,6 +135,12 @@ unwrapType keepFunctor (op:ops) = \case
       GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
       GetterMapList | ty == 'SchemaList -> withFunctor (pure ListT) $ unwrapType' ops inner
       GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
+      GetterBranch branch | ty == 'SchemaUnion ->
+        let subTypes = typeToList inner
+        in if branch >= length subTypes
+          then fail $ "Branch out of bounds for schema: " ++ showSchemaType schema
+          else unwrapType' ops $ subTypes !! branch
+      GetterBranch _ -> fail $ "Cannot use `@` operator on schema: " ++ showSchemaType schema
   -- allow starting from (Object schema)
   AppT (ConT ty) inner | ty == ''Object -> unwrapType' (op:ops) inner
   schema -> fail $ unlines ["Cannot get type:", show schema, show op]
@@ -160,6 +166,7 @@ data GetterOperation
   | GetterBang
   | GetterMapList
   | GetterMapMaybe
+  | GetterBranch Int
   deriving (Show,Lift)
 
 showGetterOps :: GetterOps -> String
@@ -172,3 +179,4 @@ showGetterOps = concatMap showGetterOp
       GetterBang -> "!"
       GetterMapList -> "[]"
       GetterMapMaybe -> "?"
+      GetterBranch x -> '@' : show x

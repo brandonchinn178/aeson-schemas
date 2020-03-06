@@ -15,6 +15,7 @@ module Data.Aeson.Schema.TH.Get where
 
 import Control.Monad (unless, (>=>))
 import qualified Data.Maybe as Maybe
+import Data.Proxy (Proxy(..))
 import GHC.Stack (HasCallStack)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
@@ -23,6 +24,7 @@ import Language.Haskell.TH.Syntax (lift)
 import Data.Aeson.Schema.Internal (getKey)
 import Data.Aeson.Schema.TH.Parse (GetterExp(..), getterExp, parse)
 import Data.Aeson.Schema.TH.Utils (GetterOperation(..), showGetterOps)
+import Data.Aeson.Schema.Utils.Sum (fromSumType)
 
 -- | Defines a QuasiQuoter for extracting JSON data.
 --
@@ -69,6 +71,12 @@ import Data.Aeson.Schema.TH.Utils (GetterOperation(..), showGetterOps)
 --     * @x[]!@ unwraps all 'Just' values in @x@ (and errors if any 'Nothing' values exist in @x@)
 --
 -- * @x?@ follows the same rules as @x[]@ except it's only valid if @x@ is a 'Maybe'.
+--
+-- * @x\@#@ is only valid if @x@ is a 'SumType'. If the sum type contains a value at the given
+--   branch (e.g. @x\@0@ for @Here v@), return 'Just' that value, otherwise 'Nothing'.
+--
+--   e.g. with the schema @{ a: Int | Bool }@, calling @[get| .a\@0 |]@ will return @Maybe Int@ if
+--   the sum type contains an 'Int'.
 get :: QuasiQuoter
 get = QuasiQuoter
   { quoteExp = parse getterExp >=> generateGetterExp
@@ -102,12 +110,15 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
             checkLast label = unless (null ops) $ fail $ label ++ " operation MUST be last."
             fromJustMsg = startDisplay ++ showGetterOps (reverse history)
         in case op of
-          GetterKey key     -> applyToNext' $ Right $ appTypeE [| getKey |] (litT $ strTyLit key)
-          GetterList elems  -> checkLast ".[*]" >> applyToEach' listE elems
-          GetterTuple elems -> checkLast ".(*)" >> applyToEach' tupE elems
-          GetterBang        -> applyToNext' $ Right [| fromJust $(lift fromJustMsg) |]
-          GetterMapMaybe    -> applyToNext' $ Left [| (<$?>) |]
-          GetterMapList     -> applyToNext' $ Left [| (<$:>) |]
+          GetterKey key       -> applyToNext' $ Right $ appTypeE [| getKey |] (litT $ strTyLit key)
+          GetterList elems    -> checkLast ".[*]" >> applyToEach' listE elems
+          GetterTuple elems   -> checkLast ".(*)" >> applyToEach' tupE elems
+          GetterBang          -> applyToNext' $ Right [| fromJust $(lift fromJustMsg) |]
+          GetterMapMaybe      -> applyToNext' $ Left [| (<$?>) |]
+          GetterMapList       -> applyToNext' $ Left [| (<$:>) |]
+          GetterBranch branch ->
+            let branchTyLit = litT $ numTyLit $ fromIntegral branch
+            in applyToNext' $ Right [| fromSumType (Proxy :: Proxy $branchTyLit) |]
 
 -- | fromJust with helpful error message
 fromJust :: HasCallStack => String -> Maybe a -> a

@@ -44,6 +44,8 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 -- * @x?@ is the same as @x!@.
 --
 -- * @x[]@ is only valid if @x@ is a @[a]@ type. Returns @a@, the type contained in the list.
+--
+-- * @x\@#@ is only valid if @x@ is a @SumType@. Returns the type at that branch in the sum type.
 unwrap :: QuasiQuoter
 unwrap = QuasiQuoter
   { quoteExp = error "Cannot use `unwrap` for Exp"

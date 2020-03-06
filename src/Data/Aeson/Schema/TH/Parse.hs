@@ -45,6 +45,7 @@ parseGetterOp = choice
   [ lexeme "!" $> GetterBang
   , lexeme "[]" $> GetterMapList
   , lexeme "?" $> GetterMapMaybe
+  , lexeme "@" *> (GetterBranch . read <$> some digitChar)
   , optional (lexeme ".") *> choice
       [ GetterKey <$> jsonKey
       , fmap GetterList $ between (lexeme "[") (lexeme "]") $ some parseGetterOp `sepBy1` lexeme ","
@@ -105,7 +106,7 @@ jsonKey :: Parser String
 jsonKey = some $ noneOf $ " " ++ schemaChars ++ getChars
   where
     -- characters that cause ambiguity when parsing 'get' expressions
-    getChars = "!?[](),."
+    getChars = "!?[](),.@"
     -- characters that should not indicate the start of a key when parsing 'schema' definitions
     schemaChars = ":{}#"
 
