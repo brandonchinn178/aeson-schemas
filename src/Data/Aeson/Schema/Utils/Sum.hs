@@ -8,19 +8,31 @@ The 'SumType' data type that represents a sum type consisting of types
 specified in a type-level list.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Data.Aeson.Schema.Utils.Sum (SumType(..)) where
+module Data.Aeson.Schema.Utils.Sum
+  ( SumType(..)
+  , fromSumType
+  ) where
 
 import Control.Applicative ((<|>))
 import Data.Aeson (FromJSON(..))
-import Data.Kind (Type)
+import Data.Kind (Constraint, Type)
+import Data.Proxy (Proxy(..))
+import GHC.TypeLits (type (-), ErrorMessage(..), Nat, TypeError)
 
 -- | Represents a sum type.
 --
@@ -66,3 +78,53 @@ instance (FromJSON x, FromJSON (SumType xs)) => FromJSON (SumType (x ': xs)) whe
 
 instance FromJSON (SumType '[]) where
   parseJSON _ = fail "Could not parse sum type"
+
+{- Extracting sum type branches -}
+
+class FromSumType (n :: Nat) (types :: [Type]) (x :: Type) where
+  fromSumType' :: 'Just x ~ GetIndex n types => proxy1 n -> SumType types -> Maybe x
+
+instance {-# OVERLAPPING #-} FromSumType 0 (x ': xs) x where
+  fromSumType' _ = \case
+    Here x -> Just x
+    There _ -> Nothing
+
+instance {-# OVERLAPPABLE #-}
+  ( FromSumType (n - 1) xs x
+  , 'Just x ~ GetIndex (n - 1) xs
+  ) => FromSumType n (_x ': xs) x where
+  fromSumType' _ = \case
+    Here _ -> Nothing
+    There xs -> fromSumType' (Proxy @(n - 1)) xs
+
+fromSumType
+  :: ( IsInRange n types
+     , 'Just result ~ GetIndex n types
+     , FromSumType n types result
+     )
+  => proxy n -> SumType types -> Maybe result
+fromSumType = fromSumType'
+
+{- Helpers -}
+
+type family IsInRange (n :: Nat) (xs :: [Type]) :: Constraint where
+  IsInRange n xs = IsInRange'
+    ( TypeError
+      (     'Text "Index "
+      ':<>: 'ShowType n
+      ':<>: 'Text " does not exist in list: "
+      ':<>: 'ShowType xs
+      )
+    )
+    n
+    xs
+
+type family IsInRange' typeErr (n :: Nat) (xs :: [Type]) :: Constraint where
+  IsInRange' typeErr _ '[] = typeErr
+  IsInRange' _ 0 (_ ': _) = ()
+  IsInRange' typeErr n (_ ': xs) = IsInRange' typeErr (n - 1) xs
+
+type family GetIndex (n :: Nat) (types :: [Type]) :: Maybe Type where
+  GetIndex 0 (x ': xs) = 'Just x
+  GetIndex _ '[] = 'Nothing
+  GetIndex n (_ ': xs) = GetIndex (n - 1) xs

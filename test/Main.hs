@@ -10,16 +10,18 @@
 
 import Data.Aeson (ToJSON, decode, eitherDecode, encode)
 import Data.Aeson.Schema (Object, get, unwrap)
-import Data.Aeson.Schema.Utils.Sum (SumType(..))
+import Data.Aeson.Schema.Utils.Sum (SumType(..), fromSumType)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Data.Char (toLower, toUpper)
 import Data.Maybe (fromMaybe)
+import Data.Proxy (Proxy(..))
 import qualified Data.Text as Text
 import Language.Haskell.TH.TestUtils (tryQErr')
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
 import Test.Tasty.HUnit (testCase, (@?=))
-import Test.Tasty.QuickCheck (elements, infiniteListOf, testProperty, (===))
+import Test.Tasty.QuickCheck
+    (arbitrary, elements, infiniteListOf, oneof, testProperty, (===))
 import Text.RawString.QQ (r)
 
 import qualified AllTypes
@@ -251,6 +253,32 @@ testSumType = testGroup "Test the SumType helper"
         toSpecialJSON l === Right (There (There (Here l)))
     , testCase "invalid SumType" $
         toSpecialJSON [True] @?= Left "Error in $: Could not parse sum type"
+    ]
+  , testGroup "fromSumType"
+    [ testProperty "branch 0 valid" $ \b ->
+        fromSumType (Proxy @0) (Here b :: SpecialJSON) === Just b
+    , testProperty "branch 0 invalid" $ do
+        value <- oneof
+          [ There . Here <$> arbitrary
+          , There . There . Here <$> arbitrary
+          ]
+        return $ fromSumType (Proxy @0) (value :: SpecialJSON) === Nothing
+    , testProperty "branch 1 valid" $ \x ->
+        fromSumType (Proxy @1) (There (Here x) :: SpecialJSON) === Just x
+    , testProperty "branch 1 invalid" $ do
+        value <- oneof
+          [ Here <$> arbitrary
+          , There . There . Here <$> arbitrary
+          ]
+        return $ fromSumType (Proxy @1) (value :: SpecialJSON) === Nothing
+    , testProperty "branch 2 valid" $ \l ->
+        fromSumType (Proxy @2) (There (There (Here l)) :: SpecialJSON) === Just l
+    , testProperty "branch 2 invalid" $ do
+        value <- oneof
+          [ Here <$> arbitrary
+          , There . Here <$> arbitrary
+          ]
+        return $ fromSumType (Proxy @2) (value :: SpecialJSON) === Nothing
     ]
   ]
   where
