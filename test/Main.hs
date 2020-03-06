@@ -88,6 +88,10 @@ testGetterExp = testGroup "Test getter expressions"
   , goldens "list_maybeInt"            [get| allTypes.list[].maybeInt       |]
   , goldens "nonexistent"              [get| allTypes.nonexistent           |]
   , goldens "union"                    [get| allTypes.union                 |]
+  , goldens "union_0"                  [get| allTypes.union[]@0             |]
+  , goldens "union_0_a"                [get| allTypes.union[]@0?.a          |]
+  , goldens "union_1"                  [get| allTypes.union[]@1             |]
+  , goldens "union_2"                  [get| allTypes.union[]@2             |]
   -- bad 'get' expressions
   , goldens' "maybeListNull_bang" $(getError [get| (AllTypes.result).maybeListNull! |])
 #if MIN_VERSION_megaparsec(7,0,0)
@@ -141,6 +145,8 @@ testUnwrapSchema = testGroup "Test unwrapping schemas"
   , goldens' "unwrap_schema_bad_question" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list[]?")
   , goldens' "unwrap_schema_bad_list" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list[][]")
   , goldens' "unwrap_schema_bad_key" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list.a")
+  , goldens' "unwrap_schema_bad_branch" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list@0")
+  , goldens' "unwrap_schema_branch_out_of_bounds" $(tryQErr' $ showUnwrap "(AllTypes.Schema).union[]@10")
   ]
 
 testSchemaDef :: TestTree
