@@ -13,7 +13,7 @@ Portability :  portable
 module Data.Aeson.Schema.TH.Utils where
 
 import Control.Monad ((>=>))
-import Data.Bifunctor (second)
+import Data.Bifunctor (bimap, second)
 import Data.List (intercalate)
 import Data.Text (Text)
 import Language.Haskell.TH
@@ -38,30 +38,41 @@ showSchemaType = SchemaShow.showSchemaType . fromSchemaType
         | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ fromSchemaType inner
         | name == 'SchemaList -> SchemaShow.SchemaList $ fromSchemaType inner
         | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
+        | name == 'SchemaUnion -> SchemaShow.SchemaUnion $ map fromSchemaType $ typeToList inner
       ty -> error $ "Unknown type: " ++ show ty
-    fromPairs pairs = map (second fromSchemaType) $ fromTypeList' pairs
 
-fromTypeList' :: Type -> [(String, Type)]
-fromTypeList' = \case
+    fromPairs pairs = map (second fromSchemaType) $ typeToSchemaPairs pairs
+
+typeToList :: Type -> [Type]
+typeToList = \case
   PromotedNilT -> []
-  AppT (AppT PromotedConsT x) xs -> fromTypeTuple x : fromTypeList' xs
-  SigT ty _ -> fromTypeList' ty
+  AppT (AppT PromotedConsT x) xs -> x : typeToList xs
+  SigT ty _ -> typeToList ty
   ty -> error $ "Not a type-level list: " ++ show ty
-  where
-    fromTypeTuple = \case
-      AppT (AppT (PromotedTupleT 2) (LitT (StrTyLit k))) v -> (k, stripSigs v)
-      SigT ty _ -> fromTypeTuple ty
-      x -> error $ "Not a type-level tuple: " ++ show x
 
-fromTypeList :: Type -> Q [(String, TypeQ)]
-fromTypeList = pure . map (second pure) . fromTypeList'
+typeToPair :: Type -> (Type, Type)
+typeToPair = \case
+  AppT (AppT (PromotedTupleT 2) a) b -> (a, b)
+  SigT ty _ -> typeToPair ty
+  ty -> error $ "Not a type-level pair: " ++ show ty
 
-toTypeList :: [(String, TypeQ)] -> TypeQ
-toTypeList = foldr (consT . pairT) promotedNilT
+typeToSchemaPairs :: Type -> [(String, Type)]
+typeToSchemaPairs = map (bimap toTypeStr stripSigs . typeToPair) . typeToList
   where
-    pairT (k, v) = [t| '( $(litT $ strTyLit k), $v) |]
+    toTypeStr = \case
+      LitT (StrTyLit k) -> k
+      x -> error $ "Not a type-level string: " ++ show x
+
+typeQListToTypeQ :: [TypeQ] -> TypeQ
+typeQListToTypeQ = foldr consT promotedNilT
+  where
     -- nb. https://stackoverflow.com/a/34457936
     consT x xs = appT (appT promotedConsT x) xs
+
+schemaPairsToTypeQ :: [(String, TypeQ)] -> TypeQ
+schemaPairsToTypeQ = typeQListToTypeQ . map pairT
+  where
+    pairT (k, v) = [t| '( $(litT $ strTyLit k), $v) |]
 
 -- | Strip all kind signatures from the given type.
 stripSigs :: Type -> Type
@@ -92,6 +103,7 @@ unwrapType _ [] = fromSchemaType
         | ty == 'SchemaMaybe -> [t| Maybe $(fromSchemaType inner) |]
         | ty == 'SchemaList -> [t| [$(fromSchemaType inner)] |]
         | ty == 'SchemaObject -> [t| Object $(pure schema) |]
+        | ty == 'SchemaUnion -> [t| SchemaResult $(pure schema) |]
       PromotedT ty
         | ty == 'SchemaBool -> [t| Bool |]
         | ty == 'SchemaInt -> [t| Int |]
@@ -123,6 +135,12 @@ unwrapType keepFunctor (op:ops) = \case
       GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
       GetterMapList | ty == 'SchemaList -> withFunctor (pure ListT) $ unwrapType' ops inner
       GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
+      GetterBranch branch | ty == 'SchemaUnion ->
+        let subTypes = typeToList inner
+        in if branch >= length subTypes
+          then fail $ "Branch out of bounds for schema: " ++ showSchemaType schema
+          else unwrapType' ops $ subTypes !! branch
+      GetterBranch _ -> fail $ "Cannot use `@` operator on schema: " ++ showSchemaType schema
   -- allow starting from (Object schema)
   AppT (ConT ty) inner | ty == ''Object -> unwrapType' (op:ops) inner
   schema -> fail $ unlines ["Cannot get type:", show schema, show op]
@@ -148,6 +166,7 @@ data GetterOperation
   | GetterBang
   | GetterMapList
   | GetterMapMaybe
+  | GetterBranch Int
   deriving (Show,Lift)
 
 showGetterOps :: GetterOps -> String
@@ -160,3 +179,4 @@ showGetterOps = concatMap showGetterOp
       GetterBang -> "!"
       GetterMapList -> "[]"
       GetterMapMaybe -> "?"
+      GetterBranch x -> '@' : show x

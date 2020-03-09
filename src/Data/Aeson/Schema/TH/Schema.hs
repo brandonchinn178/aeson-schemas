@@ -17,6 +17,7 @@ The 'schema' quasiquoter.
 module Data.Aeson.Schema.TH.Schema (schema) where
 
 import Control.Monad ((<=<), (>=>))
+import Data.Bifunctor (second)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
 import Language.Haskell.TH
@@ -24,7 +25,8 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.Internal (SchemaType(..))
 import Data.Aeson.Schema.TH.Parse
-import Data.Aeson.Schema.TH.Utils (fromTypeList, toTypeList)
+import Data.Aeson.Schema.TH.Utils
+    (schemaPairsToTypeQ, typeQListToTypeQ, typeToSchemaPairs)
 
 -- | Defines a QuasiQuoter for writing schemas.
 --
@@ -60,6 +62,10 @@ import Data.Aeson.Schema.TH.Utils (fromTypeList, toTypeList)
 -- * @Maybe \<schema\>@ and @List \<schema\>@ correspond to @Maybe@ and @[]@, containing values
 --   specified by the provided schema (no parentheses needed).
 --
+-- * @\<schema1\> | \<schema2\>@ corresponds to a JSON value that matches one of the given schemas.
+--   When extracted from an 'Data.Aeson.Schema.Object', it deserializes into a
+--   'Data.Aeson.Schema.Utils.Sum.JSONSum' object.
+--
 -- * Any other uppercase identifier corresponds to the respective type in scope -- requires a
 --   FromJSON instance.
 --
@@ -79,7 +85,7 @@ schema = QuasiQuoter
 generateSchemaObject :: [SchemaDefObjItem] -> TypeQ
 generateSchemaObject items = [t| 'SchemaObject $(fromItems items) |]
   where
-    fromItems = toTypeList <=< resolveParts . concat <=< mapM toParts
+    fromItems = schemaPairsToTypeQ <=< resolveParts . concat <=< mapM toParts
 
 generateSchema :: SchemaDef -> TypeQ
 generateSchema = \case
@@ -92,6 +98,7 @@ generateSchema = \case
   SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
   SchemaDefInclude other -> getType other
   SchemaDefObj items     -> generateSchemaObject items
+  SchemaDefUnion schemas -> [t| 'SchemaUnion $(typeQListToTypeQ $ map generateSchema schemas) |]
 
 {- Helpers -}
 
@@ -113,7 +120,7 @@ toParts = \case
     name <- getName other
     reify name >>= \case
       TyConI (TySynD _ _ (AppT (PromotedT ty) inner)) | ty == 'SchemaObject ->
-        tagAs Imported <$> fromTypeList inner
+        pure . tagAs Imported . map (second pure) $ typeToSchemaPairs inner
       _ -> fail $ "'" ++ show name ++ "' is not a SchemaObject"
   where
     tagAs source = map $ \(k,v) -> (k,v,source)

@@ -3,27 +3,32 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-import Data.Aeson (decode, encode)
+import Data.Aeson (ToJSON, decode, eitherDecode, encode)
 import Data.Aeson.Schema (Object, get, unwrap)
+import Data.Aeson.Schema.Utils.Sum (SumType(..), fromSumType)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Data.Char (toLower, toUpper)
 import Data.Maybe (fromMaybe)
+import Data.Proxy (Proxy(..))
 import qualified Data.Text as Text
 import Language.Haskell.TH.TestUtils (tryQErr')
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
 import Test.Tasty.HUnit (testCase, (@?=))
-import Test.Tasty.QuickCheck (elements, infiniteListOf, testProperty, (===))
+import Test.Tasty.QuickCheck
+    (arbitrary, elements, infiniteListOf, oneof, testProperty, (===))
 import Text.RawString.QQ (r)
 
 import qualified AllTypes
 import Enums
 import qualified Nested
 import Schema
+import SumType
 import Util
 
 allTypes :: Object AllTypes.Schema
@@ -39,6 +44,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testSchemaDef
   , testMkGetter
   , testEnumTH
+  , testSumType
   ]
 
 goldens' :: String -> String -> TestTree
@@ -81,6 +87,11 @@ testGetterExp = testGroup "Test getter expressions"
   , goldens "list_maybeBool"           [get| allTypes.list[].maybeBool      |]
   , goldens "list_maybeInt"            [get| allTypes.list[].maybeInt       |]
   , goldens "nonexistent"              [get| allTypes.nonexistent           |]
+  , goldens "union"                    [get| allTypes.union                 |]
+  , goldens "union_0"                  [get| allTypes.union[]@0             |]
+  , goldens "union_0_a"                [get| allTypes.union[]@0?.a          |]
+  , goldens "union_1"                  [get| allTypes.union[]@1             |]
+  , goldens "union_2"                  [get| allTypes.union[]@2             |]
   -- bad 'get' expressions
   , goldens' "maybeListNull_bang" $(getError [get| (AllTypes.result).maybeListNull! |])
 #if MIN_VERSION_megaparsec(7,0,0)
@@ -134,6 +145,8 @@ testUnwrapSchema = testGroup "Test unwrapping schemas"
   , goldens' "unwrap_schema_bad_question" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list[]?")
   , goldens' "unwrap_schema_bad_list" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list[][]")
   , goldens' "unwrap_schema_bad_key" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list.a")
+  , goldens' "unwrap_schema_bad_branch" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list@0")
+  , goldens' "unwrap_schema_branch_out_of_bounds" $(tryQErr' $ showUnwrap "(AllTypes.Schema).union[]@10")
   ]
 
 testSchemaDef :: TestTree
@@ -151,6 +164,8 @@ testSchemaDef = testGroup "Test generating schema definitions"
   , goldens' "schema_def_import_user" $(showSchema [r| { user: #UserSchema } |])
   , goldens' "schema_def_extend" $(showSchema [r| { a: Int, #(Schema.MySchema) } |])
   , goldens' "schema_def_shadow" $(showSchema [r| { extra: Bool, #(Schema.MySchema) } |])
+  , goldens' "schema_def_union" $(showSchema [r| { a: List Int | Text } |])
+  , goldens' "schema_def_union_grouped" $(showSchema [r| { a: List (Int | Text) } |])
   -- bad schema definitions
   , goldens' "schema_def_duplicate" $(tryQErr' $ showSchema [r| { a: Int, a: Bool } |])
   , goldens' "schema_def_duplicate_extend" $(tryQErr' $ showSchema [r| { #MySchema, #MySchema2 } |])
@@ -222,3 +237,56 @@ testEnumTH = testGroup "Test the Enum TH helpers"
     randomlyCased s = do
       caseFuncs <- infiniteListOf $ elements [toLower, toUpper]
       return $ zipWith ($) caseFuncs s
+
+testSumType :: TestTree
+testSumType = testGroup "Test the SumType helper"
+  [ testCase "Sanity checks" $
+      let values =
+            [ Here True
+            , Here False
+            , There (Here 1)
+            , There (Here 10)
+            , There (There (Here []))
+            , There (There (Here ["a"]))
+            ] :: [SpecialJSON]
+      in values @?= values
+  , testGroup "Decode SumType"
+    [ testProperty "branch 1" $ \(b :: Bool) ->
+        toSpecialJSON b === Right (Here b)
+    , testProperty "branch 2" $ \(x :: Int) ->
+        toSpecialJSON x === Right (There (Here x))
+    , testProperty "branch 3" $ \(l :: [String]) ->
+        toSpecialJSON l === Right (There (There (Here l)))
+    , testCase "invalid SumType" $
+        toSpecialJSON [True] @?= Left "Error in $: Could not parse sum type"
+    ]
+  , testGroup "fromSumType"
+    [ testProperty "branch 0 valid" $ \b ->
+        fromSumType (Proxy @0) (Here b :: SpecialJSON) === Just b
+    , testProperty "branch 0 invalid" $ do
+        value <- oneof
+          [ There . Here <$> arbitrary
+          , There . There . Here <$> arbitrary
+          ]
+        return $ fromSumType (Proxy @0) (value :: SpecialJSON) === Nothing
+    , testProperty "branch 1 valid" $ \x ->
+        fromSumType (Proxy @1) (There (Here x) :: SpecialJSON) === Just x
+    , testProperty "branch 1 invalid" $ do
+        value <- oneof
+          [ Here <$> arbitrary
+          , There . There . Here <$> arbitrary
+          ]
+        return $ fromSumType (Proxy @1) (value :: SpecialJSON) === Nothing
+    , testProperty "branch 2 valid" $ \l ->
+        fromSumType (Proxy @2) (There (There (Here l)) :: SpecialJSON) === Just l
+    , testProperty "branch 2 invalid" $ do
+        value <- oneof
+          [ Here <$> arbitrary
+          , There . Here <$> arbitrary
+          ]
+        return $ fromSumType (Proxy @2) (value :: SpecialJSON) === Nothing
+    ]
+  ]
+  where
+    toSpecialJSON :: ToJSON a => a -> Either String SpecialJSON
+    toSpecialJSON = eitherDecode . encode

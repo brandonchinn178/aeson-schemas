@@ -3,4 +3,4 @@
 1 | <empty line>
   | ^
 unexpected end of input
-expecting "[]", '!', '(', '.', '?', '[', lowercase letter, or white space
+expecting "[]", '!', '(', '.', '?', '@', '[', lowercase letter, or white space

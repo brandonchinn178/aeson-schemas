@@ -60,6 +60,9 @@ type Schema = [schema|
     },
     nonexistent: Maybe Text,
     // future_key: Int,
+    union: List (
+        { a: Int } | List Bool | Text
+    ),
   }
 |]
 

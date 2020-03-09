@@ -44,12 +44,14 @@ import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable, splitTyConApp, tyConName, typeRep, typeRepTyCon)
-import Fcf (type (<=<), type (=<<), Eval, Find, FromMaybe, Fst, Snd, TyEq)
+import Fcf (type (=<<), Eval, FromMaybe, Lookup)
 import GHC.Exts (toList)
 import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
 
 import qualified Data.Aeson.Schema.Show as SchemaShow
+import Data.Aeson.Schema.Utils.Sum (SumType)
+import Data.Aeson.Schema.Utils.TypeFamilies (All)
 
 {- Schema-validated JSON object -}
 
@@ -83,6 +85,7 @@ data SchemaType
   | SchemaMaybe SchemaType
   | SchemaList SchemaType
   | SchemaObject [(Symbol, SchemaType)]
+  | SchemaUnion [SchemaType]
 
 -- | Convert 'SchemaType' into 'SchemaShow.SchemaType'.
 toSchemaTypeShow :: forall (a :: SchemaType). Typeable a => SchemaShow.SchemaType
@@ -96,16 +99,24 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
       ("'SchemaCustom", [inner]) -> SchemaShow.SchemaCustom $ typeRepName inner
       ("'SchemaMaybe", [inner]) -> SchemaShow.SchemaMaybe $ cast inner
       ("'SchemaList", [inner]) -> SchemaShow.SchemaList $ cast inner
-      ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ getSchemaObjectPairs pairs
+      ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ map getSchemaObjectPair $ typeRepToList pairs
+      ("'SchemaUnion", [schemas]) -> SchemaShow.SchemaUnion $ map cast $ typeRepToList schemas
       _ -> error $ "Unknown schema type: " ++ show tyRep
-    getSchemaObjectPairs tyRep = case splitTypeRep tyRep of
+
+    getSchemaObjectPair tyRep =
+      let (key, val) = typeRepToPair tyRep
+          key' = tail . init . typeRepName $ key -- strip leading + trailing quote
+      in (key', cast val)
+
+    typeRepToPair tyRep = case splitTypeRep tyRep of
+      ("'(,)", [a, b]) -> (a, b)
+      _ -> error $ "Unknown pair: " ++ show tyRep
+
+    typeRepToList tyRep = case splitTypeRep tyRep of
       ("'[]", []) -> []
-      ("':", [x, rest]) -> case splitTypeRep x of
-        ("'(,)", [key, val]) ->
-          let key' = tail . init . typeRepName $ key -- strip leading + trailing quote
-          in (key', cast val) : getSchemaObjectPairs rest
-        _ -> error $ "Unknown pair: " ++ show x
+      ("':", [x, rest]) -> x : typeRepToList rest
       _ -> error $ "Unknown list: " ++ show tyRep
+
     splitTypeRep = first tyConName . splitTyConApp
     typeRepName = tyConName . typeRepTyCon
 
@@ -125,6 +136,11 @@ type family SchemaResult (schema :: SchemaType) where
   SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaList inner) = [SchemaResult inner]
   SchemaResult ('SchemaObject inner) = Object ('SchemaObject inner)
+  SchemaResult ('SchemaUnion schemas) = SumType (SchemaResultList schemas)
+
+type family SchemaResultList (xs :: [SchemaType]) where
+  SchemaResultList '[] = '[]
+  SchemaResultList (x ': xs) = SchemaResult x ': SchemaResultList xs
 
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
 class Typeable schema => IsSchemaType (schema :: SchemaType) where
@@ -193,6 +209,13 @@ instance
         in maybe (show dynValue) show $ fromDynamic @(SchemaResult inner) dynValue
       pair = "\"" ++ key ++ "\": " ++ value
 
+instance
+  ( All IsSchemaType schemas
+  , Typeable schemas
+  , Show (SchemaResult ('SchemaUnion schemas))
+  , FromJSON (SchemaResult ('SchemaUnion schemas))
+  ) => IsSchemaType ('SchemaUnion schemas)
+
 -- | A helper for creating fail messages when parsing a schema.
 parseFail :: forall (schema :: SchemaType) m a. (MonadFail m, Typeable schema) => [Text] -> Value -> m a
 parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
@@ -209,14 +232,14 @@ parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
 -- | The type-level function that return the schema of the given key in a 'SchemaObject'.
 type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType where
   LookupSchema key ('SchemaObject schema) = Eval
-    ( Snd
-    =<< FromMaybe (TypeError
-      (     'Text "Key '"
-      ':<>: 'Text key
-      ':<>: 'Text "' does not exist in the following schema:"
-      ':$$: 'ShowType schema
-      ))
-    =<< Find (TyEq key <=< Fst) schema
+    ( FromMaybe (TypeError
+        (     'Text "Key '"
+        ':<>: 'Text key
+        ':<>: 'Text "' does not exist in the following schema:"
+        ':$$: 'ShowType schema
+        )
+      )
+      =<< Lookup key schema
     )
   LookupSchema key schema = TypeError
     (     'Text "Attempted to lookup key '"

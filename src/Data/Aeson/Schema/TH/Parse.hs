@@ -45,6 +45,7 @@ parseGetterOp = choice
   [ lexeme "!" $> GetterBang
   , lexeme "[]" $> GetterMapList
   , lexeme "?" $> GetterMapMaybe
+  , lexeme "@" *> (GetterBranch . read <$> some digitChar)
   , optional (lexeme ".") *> choice
       [ GetterKey <$> jsonKey
       , fmap GetterList $ between (lexeme "[") (lexeme "]") $ some parseGetterOp `sepBy1` lexeme ","
@@ -53,14 +54,23 @@ parseGetterOp = choice
   ]
 
 parseSchemaDef :: Parser SchemaDef
-parseSchemaDef = choice
-  [ between (lexeme "{") (lexeme "}") $ SchemaDefObj <$> parseSchemaDefObjItems
-  , lexeme "Maybe" *> (SchemaDefMaybe <$> parseSchemaDef)
-  , lexeme "List" *> (SchemaDefList <$> parseSchemaDef)
-  , SchemaDefType <$> identifier upperChar
-  , SchemaDefInclude <$> parseSchemaReference
-  ]
+parseSchemaDef = parseSchemaDefWithUnions
   where
+    parseSchemaDefWithUnions =
+      let parseSchemaUnion [] = error "Parsed no schema definitions" -- should not happen; sepBy1 returns one or more
+          parseSchemaUnion [schemaDef'] = schemaDef'
+          parseSchemaUnion schemaDefs = SchemaDefUnion schemaDefs
+      in fmap parseSchemaUnion $ parseSchemaDefWithoutUnions `sepBy1` lexeme "|"
+
+    parseSchemaDefWithoutUnions = choice
+      [ between (lexeme "{") (lexeme "}") $ SchemaDefObj <$> parseSchemaDefObjItems
+      , between (lexeme "(") (lexeme ")") parseSchemaDefWithUnions
+      , lexeme "Maybe" *> (SchemaDefMaybe <$> parseSchemaDefWithoutUnions)
+      , lexeme "List" *> (SchemaDefList <$> parseSchemaDefWithoutUnions)
+      , SchemaDefType <$> identifier upperChar
+      , SchemaDefInclude <$> parseSchemaReference
+      ] <* space -- allow any trailing spaces
+
     parseSchemaDefObjItems = parseSchemaDefObjItem `sepEndBy1` lexeme ","
     parseSchemaDefObjItem = choice
       [ SchemaDefObjPair <$> parseSchemaDefPair
@@ -69,7 +79,7 @@ parseSchemaDef = choice
     parseSchemaDefPair = do
       key <- jsonKey
       lexeme ":"
-      value <- parseSchemaDef
+      value <- parseSchemaDefWithUnions
       return (key, value)
     parseSchemaReference = char '#' *> namespacedIdentifier upperChar
 
@@ -96,7 +106,7 @@ jsonKey :: Parser String
 jsonKey = some $ noneOf $ " " ++ schemaChars ++ getChars
   where
     -- characters that cause ambiguity when parsing 'get' expressions
-    getChars = "!?[](),."
+    getChars = "!?[](),.@"
     -- characters that should not indicate the start of a key when parsing 'schema' definitions
     schemaChars = ":{}#"
 
@@ -108,6 +118,7 @@ data SchemaDef
   | SchemaDefList SchemaDef
   | SchemaDefInclude String
   | SchemaDefObj [SchemaDefObjItem]
+  | SchemaDefUnion [SchemaDef]
   deriving (Show)
 
 data SchemaDefObjItem

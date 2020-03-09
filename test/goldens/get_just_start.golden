@@ -3,4 +3,4 @@ allTypes:1:9:
 1 | allTypes
   |         ^
 unexpected end of input
-expecting "[]", '!', ''', '(', '.', '?', '[', or alphanumeric character
+expecting "[]", '!', ''', '(', '.', '?', '@', '[', or alphanumeric character
