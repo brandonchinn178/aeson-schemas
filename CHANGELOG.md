@@ -1,5 +1,11 @@
 ## Upcoming
 
+## 1.1.0
+
+New features:
+    * Added support for unions
+    * Added `ToJSON` instance for enums generated with `mkEnum`
+
 ## 1.0.3
 
 Support GHC 8.8
