@@ -85,7 +85,7 @@ data SchemaType
   | SchemaMaybe SchemaType
   | SchemaList SchemaType
   | SchemaObject [(Symbol, SchemaType)]
-  | SchemaUnion [SchemaType]
+  | SchemaUnion [SchemaType] -- ^ @since v1.1.0
 
 -- | Convert 'SchemaType' into 'SchemaShow.SchemaType'.
 toSchemaTypeShow :: forall (a :: SchemaType). Typeable a => SchemaShow.SchemaType
