@@ -73,7 +73,8 @@ import Data.Aeson.Schema.Utils.Sum (fromSumType)
 -- * @x?@ follows the same rules as @x[]@ except it's only valid if @x@ is a 'Maybe'.
 --
 -- * @x\@#@ is only valid if @x@ is a 'SumType'. If the sum type contains a value at the given
---   branch (e.g. @x\@0@ for @Here v@), return 'Just' that value, otherwise 'Nothing'.
+--   branch (e.g. @x\@0@ for @Here v@), return 'Just' that value, otherwise 'Nothing'. (added in
+--   v1.1.0)
 --
 --   e.g. with the schema @{ a: Int | Bool }@, calling @[get| .a\@0 |]@ will return @Maybe Int@ if
 --   the sum type contains an 'Int'.
