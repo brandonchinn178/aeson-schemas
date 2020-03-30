@@ -97,6 +97,21 @@ instance {-# OVERLAPPABLE #-}
     Here _ -> Nothing
     There xs -> fromSumType' (Proxy @(n - 1)) xs
 
+-- | Extract a value from a 'SumType'
+--
+-- Example:
+--
+-- @
+-- type Animal = SumType '[Owl, Cat, Toad]
+-- let someAnimal = ... :: Animal
+--
+-- fromSumType (Proxy :: Proxy 0) someAnimal :: Maybe Owl
+-- fromSumType (Proxy :: Proxy 1) someAnimal :: Maybe Cat
+-- fromSumType (Proxy :: Proxy 2) someAnimal :: Maybe Toad
+--
+-- -- Compile-time error
+-- -- fromSumType (Proxy :: Proxy 3) someAnimal
+-- @
 fromSumType
   :: ( IsInRange n types
      , 'Just result ~ GetIndex n types
