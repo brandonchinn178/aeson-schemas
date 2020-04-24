@@ -14,7 +14,7 @@ Portability :  portable
 module Data.Aeson.Schema.TH.Utils where
 
 import Control.Monad ((>=>))
-import Data.Bifunctor (bimap, second)
+import Data.Bifunctor (bimap, first, second)
 import Data.List (intercalate)
 import Data.Text (Text)
 import GHC.Stack (HasCallStack)
@@ -148,13 +148,10 @@ unwrapType keepFunctor (op:ops) = \case
   schema -> fail $ unlines ["Cannot get type:", show schema, show op]
   where
     unwrapType' = unwrapType keepFunctor
-    getObjectSchema = \case
-      AppT (AppT PromotedConsT t1) t2 ->
-        case t1 of
-          AppT (AppT (PromotedTupleT 2) (LitT (StrTyLit key))) ty -> (key, ty) : getObjectSchema t2
-          _ -> error $ "Could not parse a (key, schema) tuple: " ++ show t1
-      PromotedNilT -> []
-      t -> error $ "Could not get object schema: " ++ show t
+    getObjectSchema = map (first getSchemaKey . typeToPair) . typeToList
+    getSchemaKey = \case
+      LitT (StrTyLit key) -> key
+      t -> error $ "Could not parse a schema key: " ++ show t
     withFunctor f = if keepFunctor then appT f else id
 
 {- GetterOps -}
