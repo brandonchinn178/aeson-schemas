@@ -44,7 +44,8 @@ import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable, splitTyConApp, tyConName, typeRep, typeRepTyCon)
-import Fcf (type (<=<), type (=<<), Bimap, Eval, Exp, Find, FromMaybe, Fst, Map, Pure, Snd, TyEq)
+import Fcf (type (<=<), type (=<<))
+import qualified Fcf
 import GHC.Exts (toList)
 import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
@@ -257,24 +258,24 @@ parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
 
 {- Lookups within SchemaObject -}
 
-data UnSchemaKey :: SchemaKey -> Exp Symbol
-type instance Eval (UnSchemaKey ('NormalKey key)) = Eval (Pure key)
-type instance Eval (UnSchemaKey ('PhantomKey key)) = Eval (Pure key)
+data UnSchemaKey :: SchemaKey -> Fcf.Exp Symbol
+type instance Fcf.Eval (UnSchemaKey ('NormalKey key)) = Fcf.Eval (Fcf.Pure key)
+type instance Fcf.Eval (UnSchemaKey ('PhantomKey key)) = Fcf.Eval (Fcf.Pure key)
 
 -- first-class-families-0.3.0.1 doesn't support partially applying Lookup
-type Lookup a = Map Snd <=< Find (TyEq a <=< Fst)
+type Lookup a = Fcf.Map Fcf.Snd <=< Fcf.Find (Fcf.TyEq a <=< Fcf.Fst)
 
 -- | The type-level function that return the schema of the given key in a 'SchemaObject'.
 type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType where
-  LookupSchema key ('SchemaObject schema) = Eval
-    ( FromMaybe (TypeError
+  LookupSchema key ('SchemaObject schema) = Fcf.Eval
+    ( Fcf.FromMaybe (TypeError
         (     'Text "Key '"
         ':<>: 'Text key
         ':<>: 'Text "' does not exist in the following schema:"
         ':$$: 'ShowType schema
         )
       )
-      =<< Lookup key =<< Map (Bimap UnSchemaKey Pure) schema
+      =<< Lookup key =<< Fcf.Map (Fcf.Bimap UnSchemaKey Fcf.Pure) schema
     )
   LookupSchema key schema = TypeError
     (     'Text "Attempted to lookup key '"
