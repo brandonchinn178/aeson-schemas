@@ -6,6 +6,7 @@ Portability :  portable
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
@@ -16,6 +17,7 @@ import Control.Monad ((>=>))
 import Data.Bifunctor (bimap, second)
 import Data.List (intercalate)
 import Data.Text (Text)
+import GHC.Stack (HasCallStack)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (Lift)
 
@@ -43,20 +45,20 @@ showSchemaType = SchemaShow.showSchemaType . fromSchemaType
 
     fromPairs pairs = map (second fromSchemaType) $ typeToSchemaPairs pairs
 
-typeToList :: Type -> [Type]
+typeToList :: HasCallStack => Type -> [Type]
 typeToList = \case
   PromotedNilT -> []
   AppT (AppT PromotedConsT x) xs -> x : typeToList xs
   SigT ty _ -> typeToList ty
   ty -> error $ "Not a type-level list: " ++ show ty
 
-typeToPair :: Type -> (Type, Type)
+typeToPair :: HasCallStack => Type -> (Type, Type)
 typeToPair = \case
   AppT (AppT (PromotedTupleT 2) a) b -> (a, b)
   SigT ty _ -> typeToPair ty
   ty -> error $ "Not a type-level pair: " ++ show ty
 
-typeToSchemaPairs :: Type -> [(String, Type)]
+typeToSchemaPairs :: HasCallStack => Type -> [(String, Type)]
 typeToSchemaPairs = map (bimap toTypeStr stripSigs . typeToPair) . typeToList
   where
     toTypeStr = \case
