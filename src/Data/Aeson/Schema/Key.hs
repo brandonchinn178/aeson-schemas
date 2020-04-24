@@ -15,7 +15,11 @@ module Data.Aeson.Schema.Key
 -- | A key in a JSON object schema.
 data SchemaKey
   = NormalKey String
+  | PhantomKey String
+    -- ^ A key that doesn't actually exist in the object, but whose content should be parsed from
+    -- the current object.
   deriving (Show)
 
 fromSchemaKey :: SchemaKey -> String
 fromSchemaKey (NormalKey key) = key
+fromSchemaKey (PhantomKey key) = key

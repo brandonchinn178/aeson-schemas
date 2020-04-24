@@ -44,7 +44,7 @@ import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable, splitTyConApp, tyConName, typeRep, typeRepTyCon)
-import Fcf (type (=<<), Eval, FromMaybe, Lookup)
+import Fcf (type (<=<), type (=<<), Bimap, Eval, Exp, Find, FromMaybe, Fst, Map, Pure, Snd, TyEq)
 import GHC.Exts (toList)
 import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
@@ -108,6 +108,7 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
           fromTypeRep = tail . init . typeRepName -- strip leading + trailing quote
           schemaKey = case splitTypeRep key of
             ("'NormalKey", [key']) -> SchemaShow.NormalKey $ fromTypeRep key'
+            ("'PhantomKey", [key']) -> SchemaShow.PhantomKey $ fromTypeRep key'
             _ -> error $ "Unknown schema key: " ++ show key
       in (schemaKey, cast val)
 
@@ -130,9 +131,11 @@ showSchema = SchemaShow.showSchemaType $ toSchemaTypeShow @a
 -- | The type-level analogue of 'Data.Aeson.Schema.Key.SchemaKey'.
 data SchemaKey
   = NormalKey Symbol
+  | PhantomKey Symbol
 
 type family FromSchemaKey (schemaKey :: SchemaKey) where
   FromSchemaKey ('NormalKey key) = key
+  FromSchemaKey ('PhantomKey key) = key
 
 fromSchemaKey :: forall schemaKey. KnownSymbol (FromSchemaKey schemaKey) => Text
 fromSchemaKey = Text.pack $ symbolVal $ Proxy @(FromSchemaKey schemaKey)
@@ -145,6 +148,9 @@ class
 
 instance KnownSymbol key => KnownSchemaKey ('NormalKey key) where
   getContext = fromMaybe Null . HashMap.lookup (fromSchemaKey @('NormalKey key))
+
+instance KnownSymbol key => KnownSchemaKey ('PhantomKey key) where
+  getContext = Object
 
 {- Conversions from schema types into Haskell types -}
 
@@ -251,6 +257,13 @@ parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
 
 {- Lookups within SchemaObject -}
 
+data UnSchemaKey :: SchemaKey -> Exp Symbol
+type instance Eval (UnSchemaKey ('NormalKey key)) = Eval (Pure key)
+type instance Eval (UnSchemaKey ('PhantomKey key)) = Eval (Pure key)
+
+-- first-class-families-0.3.0.1 doesn't support partially applying Lookup
+type Lookup a = Map Snd <=< Find (TyEq a <=< Fst)
+
 -- | The type-level function that return the schema of the given key in a 'SchemaObject'.
 type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType where
   LookupSchema key ('SchemaObject schema) = Eval
@@ -261,7 +274,7 @@ type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType wh
         ':$$: 'ShowType schema
         )
       )
-      =<< Lookup ('NormalKey key) schema
+      =<< Lookup key =<< Map (Bimap UnSchemaKey Pure) schema
     )
   LookupSchema key schema = TypeError
     (     'Text "Attempted to lookup key '"

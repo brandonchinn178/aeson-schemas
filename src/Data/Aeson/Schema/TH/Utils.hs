@@ -75,12 +75,14 @@ schemaPairsToTypeQ = typeQListToTypeQ . map pairT
     pairT (k, v) =
       let schemaKey = case k of
             NormalKey key -> [t| 'Internal.NormalKey $(litT $ strTyLit key) |]
+            PhantomKey key -> [t| 'Internal.PhantomKey $(litT $ strTyLit key) |]
       in [t| '($schemaKey, $v) |]
 
 parseSchemaKey :: HasCallStack => Type -> SchemaKey
 parseSchemaKey = \case
   AppT (PromotedT ty) (LitT (StrTyLit key))
     | ty == 'Internal.NormalKey -> NormalKey key
+    | ty == 'Internal.PhantomKey -> PhantomKey key
   SigT ty _ -> parseSchemaKey ty
   ty -> error $ "Could not parse a schema key: " ++ show ty
 
