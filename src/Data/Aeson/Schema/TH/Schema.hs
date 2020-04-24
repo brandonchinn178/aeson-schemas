@@ -63,12 +63,14 @@ import Data.Aeson.Schema.TH.Utils
 -- * @Maybe \<schema\>@ and @List \<schema\>@ correspond to @Maybe@ and @[]@, containing values
 --   specified by the provided schema (no parentheses needed).
 --
+-- * Any other uppercase identifier corresponds to the respective type in scope -- requires a
+--   FromJSON instance.
+--
+-- Advanced syntax:
+--
 -- * @\<schema1\> | \<schema2\>@ corresponds to a JSON value that matches one of the given schemas.
 --   When extracted from an 'Data.Aeson.Schema.Object', it deserializes into a
 --   'Data.Aeson.Schema.Utils.Sum.JSONSum' object. (added in v1.1.0)
---
--- * Any other uppercase identifier corresponds to the respective type in scope -- requires a
---   FromJSON instance.
 --
 -- * @{ key: #Other, ... }@ maps the given key to the @Other@ schema.
 --
