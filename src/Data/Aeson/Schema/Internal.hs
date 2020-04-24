@@ -84,7 +84,7 @@ data SchemaType
   | SchemaCustom Type
   | SchemaMaybe SchemaType
   | SchemaList SchemaType
-  | SchemaObject [(Symbol, SchemaType)]
+  | SchemaObject [(SchemaKey, SchemaType)]
   | SchemaUnion [SchemaType] -- ^ @since v1.1.0
 
 -- | Convert 'SchemaType' into 'SchemaShow.SchemaType'.
@@ -105,8 +105,11 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
 
     getSchemaObjectPair tyRep =
       let (key, val) = typeRepToPair tyRep
-          key' = tail . init . typeRepName $ key -- strip leading + trailing quote
-      in (key', cast val)
+          fromTypeRep = tail . init . typeRepName -- strip leading + trailing quote
+          schemaKey = case splitTypeRep key of
+            ("'NormalKey", [key']) -> SchemaShow.NormalKey $ fromTypeRep key'
+            _ -> error $ "Unknown schema key: " ++ show key
+      in (schemaKey, cast val)
 
     typeRepToPair tyRep = case splitTypeRep tyRep of
       ("'(,)", [a, b]) -> (a, b)
@@ -123,6 +126,25 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
 -- | Pretty show the given SchemaType.
 showSchema :: forall (a :: SchemaType). Typeable a => String
 showSchema = SchemaShow.showSchemaType $ toSchemaTypeShow @a
+
+-- | The type-level analogue of 'Data.Aeson.Schema.Key.SchemaKey'.
+data SchemaKey
+  = NormalKey Symbol
+
+type family FromSchemaKey (schemaKey :: SchemaKey) where
+  FromSchemaKey ('NormalKey key) = key
+
+fromSchemaKey :: forall schemaKey. KnownSymbol (FromSchemaKey schemaKey) => Text
+fromSchemaKey = Text.pack $ symbolVal $ Proxy @(FromSchemaKey schemaKey)
+
+class
+  ( Typeable schemaKey
+  , KnownSymbol (FromSchemaKey schemaKey)
+  ) => KnownSchemaKey (schemaKey :: SchemaKey) where
+  getContext :: HashMap Text Value -> Value
+
+instance KnownSymbol key => KnownSchemaKey ('NormalKey key) where
+  getContext = fromMaybe Null . HashMap.lookup (fromSchemaKey @('NormalKey key))
 
 {- Conversions from schema types into Haskell types -}
 
@@ -180,34 +202,34 @@ instance IsSchemaType ('SchemaObject '[]) where
   showValue _ = "{}"
 
 instance
-  ( KnownSymbol key
+  ( KnownSchemaKey schemaKey
   , IsSchemaType inner
   , Show (SchemaResult inner)
   , Typeable (SchemaResult inner)
   , IsSchemaObject ('SchemaObject rest)
   , Typeable rest
-  ) => IsSchemaType ('SchemaObject ('(key, inner) ': rest)) where
+  ) => IsSchemaType ('SchemaObject ('(schemaKey, inner) ': rest)) where
   parseValue path value = case value of
     Object o -> do
-      let key = Text.pack $ symbolVal $ Proxy @key
-          innerVal = fromMaybe Null $ HashMap.lookup key o
+      let key = fromSchemaKey @schemaKey
+          innerVal = getContext @schemaKey o
 
       inner <- parseValue @inner (key:path) innerVal
       UnsafeObject rest <- parseValue @('SchemaObject rest) path value
 
       return $ UnsafeObject $ HashMap.insert key (toDyn inner) rest
-    _ -> parseFail @('SchemaObject ('(key, inner) ': rest)) path value
+    _ -> parseFail @('SchemaObject ('(schemaKey, inner) ': rest)) path value
 
   showValue (UnsafeObject hm) = case showValue @('SchemaObject rest) (UnsafeObject hm) of
     "{}" -> "{" ++ pair ++ "}"
     '{':s -> "{" ++ pair ++ ", " ++ s
     s -> error $ "Unknown result when showing Object: " ++ s
     where
-      key = symbolVal $ Proxy @key
+      key = fromSchemaKey @schemaKey
       value =
-        let dynValue = hm ! Text.pack key
+        let dynValue = hm ! key
         in maybe (show dynValue) show $ fromDynamic @(SchemaResult inner) dynValue
-      pair = "\"" ++ key ++ "\": " ++ value
+      pair = show key ++ ": " ++ value
 
 instance
   ( All IsSchemaType schemas
@@ -239,7 +261,7 @@ type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType wh
         ':$$: 'ShowType schema
         )
       )
-      =<< Lookup key schema
+      =<< Lookup ('NormalKey key) schema
     )
   LookupSchema key schema = TypeError
     (     'Text "Attempted to lookup key '"

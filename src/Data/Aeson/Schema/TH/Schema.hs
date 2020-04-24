@@ -24,6 +24,7 @@ import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.Internal (SchemaType(..))
+import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
 import Data.Aeson.Schema.TH.Parse
 import Data.Aeson.Schema.TH.Utils
     (schemaPairsToTypeQ, typeQListToTypeQ, typeToSchemaPairs)
@@ -113,9 +114,9 @@ data KeySource = Provided | Imported
 
 -- | Parse SchemaDefObjItem into a list of tuples, each containing a key to add to the schema,
 -- the value for the key, and the source of the key.
-toParts :: SchemaDefObjItem -> Q [(String, TypeQ, KeySource)]
+toParts :: SchemaDefObjItem -> Q [(SchemaKey, TypeQ, KeySource)]
 toParts = \case
-  SchemaDefObjPair (k, v) -> pure . tagAs Provided $ [(k, generateSchema v)]
+  SchemaDefObjPair (k, v) -> pure . tagAs Provided $ [(NormalKey k, generateSchema v)]
   SchemaDefObjExtend other -> do
     name <- getName other
     reify name >>= \case
@@ -130,12 +131,12 @@ toParts = \case
 -- 1. Any explicitly provided keys shadow/overwrite imported keys
 -- 2. Fail if duplicate keys are both explicitly provided
 -- 3. Fail if duplicate keys are both imported
-resolveParts :: [(String, TypeQ, KeySource)] -> Q [(String, TypeQ)]
+resolveParts :: [(SchemaKey, TypeQ, KeySource)] -> Q [(SchemaKey, TypeQ)]
 resolveParts parts = do
   resolved <- resolveParts' $ HashMap.fromListWith (++) $ map nameAndSource parts
   return $ mapMaybe (alignWithResolved resolved) parts
   where
-    nameAndSource (name, _, source) = (name, [source])
+    nameAndSource (name, _, source) = (fromSchemaKey name, [source])
     resolveParts' = HashMap.traverseWithKey $ \name sources -> do
       -- invariant: length sources > 0
       let numOf source = length $ filter (== source) sources
@@ -145,8 +146,8 @@ resolveParts parts = do
         (x, _) | x > 1 -> fail $ "Key '" ++ name ++ "' specified multiple times"
         (_, x) | x > 1 -> fail $ "Key '" ++ name ++ "' declared in multiple imported schemas"
         _ -> fail "Broken invariant in resolveParts"
-    alignWithResolved resolved (name, ty, source) =
-      let resolvedSource = resolved HashMap.! name
+    alignWithResolved resolved (key, ty, source) =
+      let resolvedSource = resolved HashMap.! fromSchemaKey key
       in if resolvedSource == source
-        then Just (name, ty)
+        then Just (key, ty)
         else Nothing

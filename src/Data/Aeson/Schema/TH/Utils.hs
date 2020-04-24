@@ -22,6 +22,8 @@ import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (Lift)
 
 import Data.Aeson.Schema.Internal (Object, SchemaResult, SchemaType(..))
+import qualified Data.Aeson.Schema.Internal as Internal
+import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
 import qualified Data.Aeson.Schema.Show as SchemaShow
 
 -- | Show the given schema as a type.
@@ -58,12 +60,8 @@ typeToPair = \case
   SigT ty _ -> typeToPair ty
   ty -> error $ "Not a type-level pair: " ++ show ty
 
-typeToSchemaPairs :: HasCallStack => Type -> [(String, Type)]
-typeToSchemaPairs = map (bimap toTypeStr stripSigs . typeToPair) . typeToList
-  where
-    toTypeStr = \case
-      LitT (StrTyLit k) -> k
-      x -> error $ "Not a type-level string: " ++ show x
+typeToSchemaPairs :: HasCallStack => Type -> [(SchemaKey, Type)]
+typeToSchemaPairs = map (bimap parseSchemaKey stripSigs . typeToPair) . typeToList
 
 typeQListToTypeQ :: [TypeQ] -> TypeQ
 typeQListToTypeQ = foldr consT promotedNilT
@@ -71,10 +69,20 @@ typeQListToTypeQ = foldr consT promotedNilT
     -- nb. https://stackoverflow.com/a/34457936
     consT x xs = appT (appT promotedConsT x) xs
 
-schemaPairsToTypeQ :: [(String, TypeQ)] -> TypeQ
+schemaPairsToTypeQ :: [(SchemaKey, TypeQ)] -> TypeQ
 schemaPairsToTypeQ = typeQListToTypeQ . map pairT
   where
-    pairT (k, v) = [t| '( $(litT $ strTyLit k), $v) |]
+    pairT (k, v) =
+      let schemaKey = case k of
+            NormalKey key -> [t| 'Internal.NormalKey $(litT $ strTyLit key) |]
+      in [t| '($schemaKey, $v) |]
+
+parseSchemaKey :: HasCallStack => Type -> SchemaKey
+parseSchemaKey = \case
+  AppT (PromotedT ty) (LitT (StrTyLit key))
+    | ty == 'Internal.NormalKey -> NormalKey key
+  SigT ty _ -> parseSchemaKey ty
+  ty -> error $ "Could not parse a schema key: " ++ show ty
 
 -- | Strip all kind signatures from the given type.
 stripSigs :: Type -> Type
@@ -149,9 +157,7 @@ unwrapType keepFunctor (op:ops) = \case
   where
     unwrapType' = unwrapType keepFunctor
     getObjectSchema = map (first getSchemaKey . typeToPair) . typeToList
-    getSchemaKey = \case
-      LitT (StrTyLit key) -> key
-      t -> error $ "Could not parse a schema key: " ++ show t
+    getSchemaKey = fromSchemaKey . parseSchemaKey
     withFunctor f = if keepFunctor then appT f else id
 
 {- GetterOps -}
