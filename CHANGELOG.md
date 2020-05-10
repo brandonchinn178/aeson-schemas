@@ -3,8 +3,9 @@
 ## 1.1.0
 
 New features:
-    * Added support for unions
-    * Added `ToJSON` instance for enums generated with `mkEnum`
+
+* Added support for unions
+* Added `ToJSON` instance for enums generated with `mkEnum`
 
 ## 1.0.3
 
