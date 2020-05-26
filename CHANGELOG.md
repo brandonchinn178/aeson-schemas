@@ -1,5 +1,8 @@
 ## Upcoming
 
+New features:
+    * Add support for phantom keys
+
 ## 1.1.0
 
 New features:
