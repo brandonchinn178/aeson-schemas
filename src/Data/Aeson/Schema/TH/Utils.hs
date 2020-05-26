@@ -27,25 +27,26 @@ import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
 import qualified Data.Aeson.Schema.Show as SchemaShow
 
 -- | Show the given schema as a type.
-showSchemaType :: Type -> String
-showSchemaType = SchemaShow.showSchemaType . fromSchemaType
-  where
-    fromSchemaType = \case
-      PromotedT name
-        | name == 'SchemaBool -> SchemaShow.SchemaBool
-        | name == 'SchemaInt -> SchemaShow.SchemaInt
-        | name == 'SchemaDouble -> SchemaShow.SchemaDouble
-        | name == 'SchemaText -> SchemaShow.SchemaText
-      AppT (PromotedT name) (ConT inner)
-        | name == 'SchemaCustom -> SchemaShow.SchemaCustom $ nameBase inner
-      AppT (PromotedT name) inner
-        | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ fromSchemaType inner
-        | name == 'SchemaList -> SchemaShow.SchemaList $ fromSchemaType inner
-        | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
-        | name == 'SchemaUnion -> SchemaShow.SchemaUnion $ map fromSchemaType $ typeToList inner
-      ty -> error $ "Unknown type: " ++ show ty
+showSchemaType :: HasCallStack => Type -> String
+showSchemaType = SchemaShow.showSchemaType . parseSchemaType
 
-    fromPairs pairs = map (second fromSchemaType) $ typeToSchemaPairs pairs
+parseSchemaType :: HasCallStack => Type -> SchemaShow.SchemaType
+parseSchemaType = \case
+  PromotedT name
+    | name == 'SchemaBool -> SchemaShow.SchemaBool
+    | name == 'SchemaInt -> SchemaShow.SchemaInt
+    | name == 'SchemaDouble -> SchemaShow.SchemaDouble
+    | name == 'SchemaText -> SchemaShow.SchemaText
+  AppT (PromotedT name) (ConT inner)
+    | name == 'SchemaCustom -> SchemaShow.SchemaCustom $ nameBase inner
+  AppT (PromotedT name) inner
+    | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ parseSchemaType inner
+    | name == 'SchemaList -> SchemaShow.SchemaList $ parseSchemaType inner
+    | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
+    | name == 'SchemaUnion -> SchemaShow.SchemaUnion $ map parseSchemaType $ typeToList inner
+  ty -> error $ "Unknown type: " ++ show ty
+  where
+    fromPairs pairs = map (second parseSchemaType) $ typeToSchemaPairs pairs
 
 typeToList :: HasCallStack => Type -> [Type]
 typeToList = \case

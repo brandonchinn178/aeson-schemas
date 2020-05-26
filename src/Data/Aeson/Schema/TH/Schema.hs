@@ -16,7 +16,7 @@ The 'schema' quasiquoter.
 
 module Data.Aeson.Schema.TH.Schema (schema) where
 
-import Control.Monad ((<=<), (>=>))
+import Control.Monad (unless, (<=<), (>=>))
 import Data.Bifunctor (second)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
@@ -25,9 +25,10 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.Internal (SchemaType(..))
 import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
+import qualified Data.Aeson.Schema.Show as SchemaShow
 import Data.Aeson.Schema.TH.Parse
 import Data.Aeson.Schema.TH.Utils
-    (schemaPairsToTypeQ, typeQListToTypeQ, typeToSchemaPairs)
+    (parseSchemaType, schemaPairsToTypeQ, typeQListToTypeQ, typeToSchemaPairs)
 
 -- | Defines a QuasiQuoter for writing schemas.
 --
@@ -71,6 +72,9 @@ import Data.Aeson.Schema.TH.Utils
 -- * @\<schema1\> | \<schema2\>@ corresponds to a JSON value that matches one of the given schemas.
 --   When extracted from an 'Data.Aeson.Schema.Object', it deserializes into a
 --   'Data.Aeson.Schema.Utils.Sum.JSONSum' object. (added in v1.1.0)
+--
+-- * @{ [key]: \<schema\> }@ uses the current object to resolve the keys in the given schema. Only
+--   object schemas are allowed here.
 --
 -- * @{ key: #Other, ... }@ maps the given key to the @Other@ schema.
 --
@@ -118,7 +122,18 @@ data KeySource = Provided | Imported
 -- the value for the key, and the source of the key.
 toParts :: SchemaDefObjItem -> Q [(SchemaKey, TypeQ, KeySource)]
 toParts = \case
-  SchemaDefObjPair (k, v) -> pure . tagAs Provided $ [(NormalKey k, generateSchema v)]
+  SchemaDefObjPair (schemaDefKey, schemaDefType) -> do
+    let schemaKey = schemaDefToSchemaKey schemaDefKey
+    schemaType <- generateSchema schemaDefType
+
+    case schemaKey of
+      PhantomKey _ -> do
+        let schemaTypeShow = parseSchemaType schemaType
+        unless (isValidPhantomSchema schemaTypeShow) $
+          fail $ "Invalid schema for '" ++ fromSchemaKey schemaKey ++ "': " ++ SchemaShow.showSchemaType schemaTypeShow
+      _ -> return ()
+
+    pure . tagAs Provided $ [(schemaKey, pure schemaType)]
   SchemaDefObjExtend other -> do
     name <- getName other
     reify name >>= \case
@@ -127,6 +142,13 @@ toParts = \case
       _ -> fail $ "'" ++ show name ++ "' is not a SchemaObject"
   where
     tagAs source = map $ \(k,v) -> (k,v,source)
+    schemaDefToSchemaKey = \case
+      SchemaDefObjKeyNormal key -> NormalKey key
+      SchemaDefObjKeyPhantom key -> PhantomKey key
+    isValidPhantomSchema = \case
+      SchemaShow.SchemaObject _ -> True
+      SchemaShow.SchemaUnion schemas -> all isValidPhantomSchema schemas
+      _ -> False
 
 -- | Resolve the parts returned by 'toParts' as such:
 --

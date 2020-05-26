@@ -77,7 +77,10 @@ parseSchemaDef = parseSchemaDefWithUnions
       , SchemaDefObjExtend <$> parseSchemaReference
       ] <* space -- allow any trailing spaces
     parseSchemaDefPair = do
-      key <- jsonKey
+      key <- choice
+        [ SchemaDefObjKeyNormal <$> jsonKey
+        , SchemaDefObjKeyPhantom <$> between (lexeme "[") (lexeme "]") jsonKey
+        ]
       lexeme ":"
       value <- parseSchemaDefWithUnions
       return (key, value)
@@ -122,8 +125,13 @@ data SchemaDef
   deriving (Show)
 
 data SchemaDefObjItem
-  = SchemaDefObjPair (String, SchemaDef)
+  = SchemaDefObjPair (SchemaDefObjKey, SchemaDef)
   | SchemaDefObjExtend String
+  deriving (Show)
+
+data SchemaDefObjKey
+  = SchemaDefObjKeyNormal String
+  | SchemaDefObjKeyPhantom String
   deriving (Show)
 
 schemaDef :: Parser SchemaDef
