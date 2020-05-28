@@ -84,6 +84,7 @@ data SchemaType
   | SchemaText
   | SchemaCustom Type
   | SchemaMaybe SchemaType
+  | SchemaTry SchemaType
   | SchemaList SchemaType
   | SchemaObject [(SchemaKey, SchemaType)]
   | SchemaUnion [SchemaType] -- ^ @since v1.1.0
@@ -99,6 +100,7 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
       ("'SchemaText", _) -> SchemaShow.SchemaText
       ("'SchemaCustom", [inner]) -> SchemaShow.SchemaCustom $ typeRepName inner
       ("'SchemaMaybe", [inner]) -> SchemaShow.SchemaMaybe $ cast inner
+      ("'SchemaTry", [inner]) -> SchemaShow.SchemaTry $ cast inner
       ("'SchemaList", [inner]) -> SchemaShow.SchemaList $ cast inner
       ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ map getSchemaObjectPair $ typeRepToList pairs
       ("'SchemaUnion", [schemas]) -> SchemaShow.SchemaUnion $ map cast $ typeRepToList schemas
@@ -163,6 +165,7 @@ type family SchemaResult (schema :: SchemaType) where
   SchemaResult 'SchemaText = Text
   SchemaResult ('SchemaCustom inner) = inner
   SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
+  SchemaResult ('SchemaTry inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaList inner) = [SchemaResult inner]
   SchemaResult ('SchemaObject inner) = Object ('SchemaObject inner)
   SchemaResult ('SchemaUnion schemas) = SumType (SchemaResultList schemas)
@@ -195,6 +198,11 @@ instance (IsSchemaType inner, Show (SchemaResult inner)) => IsSchemaType ('Schem
   parseValue path = \case
     Null -> return Nothing
     value -> (Just <$> parseValue @inner path value)
+
+instance (IsSchemaType inner, Show (SchemaResult inner)) => IsSchemaType ('SchemaTry inner) where
+  parseValue path = wrapTry . parseValue @inner path
+    where
+      wrapTry parser = (Just <$> parser) <|> pure Nothing
 
 instance (IsSchemaType inner, Show (SchemaResult inner)) => IsSchemaType ('SchemaList inner) where
   parseValue path value = case value of
