@@ -41,6 +41,7 @@ parseSchemaType = \case
     | name == 'SchemaCustom -> SchemaShow.SchemaCustom $ nameBase inner
   AppT (PromotedT name) inner
     | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ parseSchemaType inner
+    | name == 'SchemaTry -> SchemaShow.SchemaTry $ parseSchemaType inner
     | name == 'SchemaList -> SchemaShow.SchemaList $ parseSchemaType inner
     | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
     | name == 'SchemaUnion -> SchemaShow.SchemaUnion $ map parseSchemaType $ typeToList inner
@@ -114,6 +115,7 @@ unwrapType _ [] = fromSchemaType
       AppT (PromotedT ty) inner
         | ty == 'SchemaCustom -> [t| SchemaResult $(pure schema) |]
         | ty == 'SchemaMaybe -> [t| Maybe $(fromSchemaType inner) |]
+        | ty == 'SchemaTry -> [t| Maybe $(fromSchemaType inner) |]
         | ty == 'SchemaList -> [t| [$(fromSchemaType inner)] |]
         | ty == 'SchemaObject -> [t| Object $(pure schema) |]
         | ty == 'SchemaUnion -> [t| SchemaResult $(pure schema) |]
@@ -143,8 +145,10 @@ unwrapType keepFunctor (op:ops) = \case
         foldl appT (tupleT $ length elems) $ map (`unwrapType'` schema) elems
       GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
       GetterBang | ty == 'SchemaMaybe -> unwrapType' ops inner
+      GetterBang | ty == 'SchemaTry -> unwrapType' ops inner
       GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ showSchemaType schema
       GetterMapMaybe | ty == 'SchemaMaybe -> withFunctor [t| Maybe |] $ unwrapType' ops inner
+      GetterMapMaybe | ty == 'SchemaTry -> withFunctor [t| Maybe |] $ unwrapType' ops inner
       GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
       GetterMapList | ty == 'SchemaList -> withFunctor (pure ListT) $ unwrapType' ops inner
       GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
