@@ -150,6 +150,7 @@ toParts = \case
       SchemaDefObjKeyNormal key -> NormalKey key
       SchemaDefObjKeyPhantom key -> PhantomKey key
     isValidPhantomSchema = \case
+      SchemaShow.SchemaTry _ -> True
       SchemaShow.SchemaObject _ -> True
       SchemaShow.SchemaUnion schemas -> all isValidPhantomSchema schemas
       _ -> False
