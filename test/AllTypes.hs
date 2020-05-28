@@ -63,6 +63,9 @@ type Schema = [schema|
     union: List (
         { a: Int } | List Bool | Text
     ),
+    [phantom]: {
+      keyForPhantom: Int,
+    },
   }
 |]
 

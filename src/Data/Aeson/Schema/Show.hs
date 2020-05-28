@@ -11,9 +11,13 @@ Utilities for showing a schema. Meant to be imported qualified.
 module Data.Aeson.Schema.Show
   ( SchemaType(..)
   , showSchemaType
+    -- * Re-exports
+  , SchemaKey(..)
   ) where
 
 import Data.List (intercalate)
+
+import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
 
 -- | 'Data.Aeson.Schema.Internal.SchemaType', but for printing.
 data SchemaType
@@ -24,7 +28,7 @@ data SchemaType
   | SchemaCustom String
   | SchemaMaybe SchemaType
   | SchemaList SchemaType
-  | SchemaObject [(String, SchemaType)]
+  | SchemaObject [(SchemaKey, SchemaType)]
   | SchemaUnion [SchemaType]
   deriving (Show)
 
@@ -51,6 +55,6 @@ showSchemaType schema = case schema of
       SchemaList inner -> "List " ++ showSchemaType' inner
       SchemaObject pairs -> "{" ++ mapJoin showPair ", " pairs ++ "}"
       SchemaUnion schemas -> "( " ++ mapJoin showSchemaType' " | " schemas ++ " )"
-    showPair (key, inner) = "\"" ++ key ++ "\": " ++ showSchemaType' inner
+    showPair (key, inner) = "\"" ++ fromSchemaKey key ++ "\": " ++ showSchemaType' inner
 
     mapJoin f delim = intercalate delim . map f

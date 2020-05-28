@@ -38,5 +38,6 @@
         { "a": 1 },
         [true, false],
         "World!"
-    ]
+    ],
+    "keyForPhantom": 1
 }

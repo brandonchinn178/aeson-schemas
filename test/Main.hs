@@ -92,6 +92,7 @@ testGetterExp = testGroup "Test getter expressions"
   , goldens "union_0_a"                [get| allTypes.union[]@0?.a          |]
   , goldens "union_1"                  [get| allTypes.union[]@1             |]
   , goldens "union_2"                  [get| allTypes.union[]@2             |]
+  , goldens "phantom"                  [get| allTypes.phantom.keyForPhantom |]
   -- bad 'get' expressions
   , goldens' "maybeListNull_bang" $(getError [get| (AllTypes.result).maybeListNull! |])
 #if MIN_VERSION_megaparsec(7,0,0)
@@ -168,10 +169,12 @@ testSchemaDef = testGroup "Test generating schema definitions"
   , goldens' "schema_def_union_grouped" $(showSchema [r| { a: List (Int | Text) } |])
   -- bad schema definitions
   , goldens' "schema_def_duplicate" $(tryQErr' $ showSchema [r| { a: Int, a: Bool } |])
+  , goldens' "schema_def_duplicate_phantom" $(tryQErr' $ showSchema [r| { a: Int, [a]: { b: Bool } } |])
   , goldens' "schema_def_duplicate_extend" $(tryQErr' $ showSchema [r| { #MySchema, #MySchema2 } |])
   , goldens' "schema_def_not_object" $(tryQErr' $ showSchema [r| List { a: Int } |])
   , goldens' "schema_def_unknown_type" $(tryQErr' $ showSchema [r| HelloWorld |])
   , goldens' "schema_def_invalid_extend" $(tryQErr' $ showSchema [r| { #Int } |])
+  , goldens' "schema_def_nonobject_phantom" $(tryQErr' $ showSchema [r| { [a]: Int } |])
   ]
 
 testMkGetter :: TestTree

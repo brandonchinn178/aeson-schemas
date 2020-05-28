@@ -6,6 +6,7 @@ Portability :  portable
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
@@ -13,55 +14,55 @@ Portability :  portable
 module Data.Aeson.Schema.TH.Utils where
 
 import Control.Monad ((>=>))
-import Data.Bifunctor (bimap, second)
+import Data.Bifunctor (bimap, first, second)
 import Data.List (intercalate)
 import Data.Text (Text)
+import GHC.Stack (HasCallStack)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (Lift)
 
 import Data.Aeson.Schema.Internal (Object, SchemaResult, SchemaType(..))
+import qualified Data.Aeson.Schema.Internal as Internal
+import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
 import qualified Data.Aeson.Schema.Show as SchemaShow
 
 -- | Show the given schema as a type.
-showSchemaType :: Type -> String
-showSchemaType = SchemaShow.showSchemaType . fromSchemaType
+showSchemaType :: HasCallStack => Type -> String
+showSchemaType = SchemaShow.showSchemaType . parseSchemaType
+
+parseSchemaType :: HasCallStack => Type -> SchemaShow.SchemaType
+parseSchemaType = \case
+  PromotedT name
+    | name == 'SchemaBool -> SchemaShow.SchemaBool
+    | name == 'SchemaInt -> SchemaShow.SchemaInt
+    | name == 'SchemaDouble -> SchemaShow.SchemaDouble
+    | name == 'SchemaText -> SchemaShow.SchemaText
+  AppT (PromotedT name) (ConT inner)
+    | name == 'SchemaCustom -> SchemaShow.SchemaCustom $ nameBase inner
+  AppT (PromotedT name) inner
+    | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ parseSchemaType inner
+    | name == 'SchemaList -> SchemaShow.SchemaList $ parseSchemaType inner
+    | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
+    | name == 'SchemaUnion -> SchemaShow.SchemaUnion $ map parseSchemaType $ typeToList inner
+  ty -> error $ "Unknown type: " ++ show ty
   where
-    fromSchemaType = \case
-      PromotedT name
-        | name == 'SchemaBool -> SchemaShow.SchemaBool
-        | name == 'SchemaInt -> SchemaShow.SchemaInt
-        | name == 'SchemaDouble -> SchemaShow.SchemaDouble
-        | name == 'SchemaText -> SchemaShow.SchemaText
-      AppT (PromotedT name) (ConT inner)
-        | name == 'SchemaCustom -> SchemaShow.SchemaCustom $ nameBase inner
-      AppT (PromotedT name) inner
-        | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ fromSchemaType inner
-        | name == 'SchemaList -> SchemaShow.SchemaList $ fromSchemaType inner
-        | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
-        | name == 'SchemaUnion -> SchemaShow.SchemaUnion $ map fromSchemaType $ typeToList inner
-      ty -> error $ "Unknown type: " ++ show ty
+    fromPairs pairs = map (second parseSchemaType) $ typeToSchemaPairs pairs
 
-    fromPairs pairs = map (second fromSchemaType) $ typeToSchemaPairs pairs
-
-typeToList :: Type -> [Type]
+typeToList :: HasCallStack => Type -> [Type]
 typeToList = \case
   PromotedNilT -> []
   AppT (AppT PromotedConsT x) xs -> x : typeToList xs
   SigT ty _ -> typeToList ty
   ty -> error $ "Not a type-level list: " ++ show ty
 
-typeToPair :: Type -> (Type, Type)
+typeToPair :: HasCallStack => Type -> (Type, Type)
 typeToPair = \case
   AppT (AppT (PromotedTupleT 2) a) b -> (a, b)
   SigT ty _ -> typeToPair ty
   ty -> error $ "Not a type-level pair: " ++ show ty
 
-typeToSchemaPairs :: Type -> [(String, Type)]
-typeToSchemaPairs = map (bimap toTypeStr stripSigs . typeToPair) . typeToList
-  where
-    toTypeStr = \case
-      LitT (StrTyLit k) -> k
-      x -> error $ "Not a type-level string: " ++ show x
+typeToSchemaPairs :: HasCallStack => Type -> [(SchemaKey, Type)]
+typeToSchemaPairs = map (bimap parseSchemaKey stripSigs . typeToPair) . typeToList
 
 typeQListToTypeQ :: [TypeQ] -> TypeQ
 typeQListToTypeQ = foldr consT promotedNilT
@@ -69,10 +70,22 @@ typeQListToTypeQ = foldr consT promotedNilT
     -- nb. https://stackoverflow.com/a/34457936
     consT x xs = appT (appT promotedConsT x) xs
 
-schemaPairsToTypeQ :: [(String, TypeQ)] -> TypeQ
+schemaPairsToTypeQ :: [(SchemaKey, TypeQ)] -> TypeQ
 schemaPairsToTypeQ = typeQListToTypeQ . map pairT
   where
-    pairT (k, v) = [t| '( $(litT $ strTyLit k), $v) |]
+    pairT (k, v) =
+      let schemaKey = case k of
+            NormalKey key -> [t| 'Internal.NormalKey $(litT $ strTyLit key) |]
+            PhantomKey key -> [t| 'Internal.PhantomKey $(litT $ strTyLit key) |]
+      in [t| '($schemaKey, $v) |]
+
+parseSchemaKey :: HasCallStack => Type -> SchemaKey
+parseSchemaKey = \case
+  AppT (PromotedT ty) (LitT (StrTyLit key))
+    | ty == 'Internal.NormalKey -> NormalKey key
+    | ty == 'Internal.PhantomKey -> PhantomKey key
+  SigT ty _ -> parseSchemaKey ty
+  ty -> error $ "Could not parse a schema key: " ++ show ty
 
 -- | Strip all kind signatures from the given type.
 stripSigs :: Type -> Type
@@ -146,13 +159,8 @@ unwrapType keepFunctor (op:ops) = \case
   schema -> fail $ unlines ["Cannot get type:", show schema, show op]
   where
     unwrapType' = unwrapType keepFunctor
-    getObjectSchema = \case
-      AppT (AppT PromotedConsT t1) t2 ->
-        case t1 of
-          AppT (AppT (PromotedTupleT 2) (LitT (StrTyLit key))) ty -> (key, ty) : getObjectSchema t2
-          _ -> error $ "Could not parse a (key, schema) tuple: " ++ show t1
-      PromotedNilT -> []
-      t -> error $ "Could not get object schema: " ++ show t
+    getObjectSchema = map (first getSchemaKey . typeToPair) . typeToList
+    getSchemaKey = fromSchemaKey . parseSchemaKey
     withFunctor f = if keepFunctor then appT f else id
 
 {- GetterOps -}
