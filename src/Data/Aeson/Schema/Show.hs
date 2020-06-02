@@ -27,6 +27,7 @@ data SchemaType
   | SchemaText
   | SchemaCustom String
   | SchemaMaybe SchemaType
+  | SchemaTry SchemaType
   | SchemaList SchemaType
   | SchemaObject [(SchemaKey, SchemaType)]
   | SchemaUnion [SchemaType]
@@ -41,6 +42,7 @@ showSchemaType schema = case schema of
   SchemaText -> "SchemaText"
   SchemaCustom s -> "SchemaCustom " ++ s
   SchemaMaybe inner -> "SchemaMaybe " ++ showSchemaType' inner
+  SchemaTry inner -> "SchemaTry " ++ showSchemaType' inner
   SchemaList inner -> "SchemaList " ++ showSchemaType' inner
   SchemaObject _ -> "SchemaObject " ++ showSchemaType' schema
   SchemaUnion _ -> "SchemaUnion " ++ showSchemaType' schema
@@ -52,6 +54,7 @@ showSchemaType schema = case schema of
       SchemaText -> "Text"
       SchemaCustom s -> s
       SchemaMaybe inner -> "Maybe " ++ showSchemaType' inner
+      SchemaTry inner -> "Try " ++ showSchemaType' inner
       SchemaList inner -> "List " ++ showSchemaType' inner
       SchemaObject pairs -> "{" ++ mapJoin showPair ", " pairs ++ "}"
       SchemaUnion schemas -> "( " ++ mapJoin showSchemaType' " | " schemas ++ " )"

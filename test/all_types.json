@@ -19,6 +19,10 @@
         }
     ],
     "maybeListNull": null,
+    "tryObject": {
+        "a": 1
+    },
+    "tryObjectNull": true,
     "list": [
         {
             "type": "bool",

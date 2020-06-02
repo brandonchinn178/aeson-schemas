@@ -45,6 +45,12 @@ type Schema = [schema|
     maybeObjectNull: Maybe {
       text: Text,
     },
+    tryObject: Try {
+      a: Int,
+    },
+    tryObjectNull: Try {
+      a: Int,
+    },
     maybeList: Maybe List {
       text: Text,
     },

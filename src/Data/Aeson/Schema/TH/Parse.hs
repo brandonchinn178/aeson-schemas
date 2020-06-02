@@ -66,6 +66,7 @@ parseSchemaDef = parseSchemaDefWithUnions
       [ between (lexeme "{") (lexeme "}") $ SchemaDefObj <$> parseSchemaDefObjItems
       , between (lexeme "(") (lexeme ")") parseSchemaDefWithUnions
       , lexeme "Maybe" *> (SchemaDefMaybe <$> parseSchemaDefWithoutUnions)
+      , lexeme "Try" *> (SchemaDefTry <$> parseSchemaDefWithoutUnions)
       , lexeme "List" *> (SchemaDefList <$> parseSchemaDefWithoutUnions)
       , SchemaDefType <$> identifier upperChar
       , SchemaDefInclude <$> parseSchemaReference
@@ -118,6 +119,7 @@ jsonKey = some $ noneOf $ " " ++ schemaChars ++ getChars
 data SchemaDef
   = SchemaDefType String
   | SchemaDefMaybe SchemaDef
+  | SchemaDefTry SchemaDef
   | SchemaDefList SchemaDef
   | SchemaDefInclude String
   | SchemaDefObj [SchemaDefObjItem]

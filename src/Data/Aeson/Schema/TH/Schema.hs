@@ -64,6 +64,9 @@ import Data.Aeson.Schema.TH.Utils
 -- * @Maybe \<schema\>@ and @List \<schema\>@ correspond to @Maybe@ and @[]@, containing values
 --   specified by the provided schema (no parentheses needed).
 --
+-- * @Try \<schema\>@ correspond to @Maybe@, where the value will be @Just@ if the given schema
+--   successfully parses the value, or @Nothing@ otherwise.
+--
 -- * Any other uppercase identifier corresponds to the respective type in scope -- requires a
 --   FromJSON instance.
 --
@@ -102,6 +105,7 @@ generateSchema = \case
   SchemaDefType "Text"   -> [t| 'SchemaText |]
   SchemaDefType other    -> [t| 'SchemaCustom $(getType other) |]
   SchemaDefMaybe inner   -> [t| 'SchemaMaybe $(generateSchema inner) |]
+  SchemaDefTry inner     -> [t| 'SchemaTry $(generateSchema inner) |]
   SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
   SchemaDefInclude other -> getType other
   SchemaDefObj items     -> generateSchemaObject items
@@ -146,6 +150,7 @@ toParts = \case
       SchemaDefObjKeyNormal key -> NormalKey key
       SchemaDefObjKeyPhantom key -> PhantomKey key
     isValidPhantomSchema = \case
+      SchemaShow.SchemaTry _ -> True
       SchemaShow.SchemaObject _ -> True
       SchemaShow.SchemaUnion schemas -> all isValidPhantomSchema schemas
       _ -> False
