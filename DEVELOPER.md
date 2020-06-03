@@ -68,6 +68,9 @@ Follow these steps to release this project:
     1. Curate `CHANGELOG.md`, creating a new section for this version and
        moving everything previously in `Upcoming` into the new section
        (keeping `Upcoming` as a section)
+    1. Run `stack sdist` to check for any deployment errors
+    1. Add comments to new features indicating when it was added (e.g.
+       `-- @since v2.0.0`)
 
 1. Create PR as usual and merge into `master`
 
