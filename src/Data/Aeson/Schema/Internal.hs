@@ -84,7 +84,7 @@ data SchemaType
   | SchemaText
   | SchemaCustom Type
   | SchemaMaybe SchemaType
-  | SchemaTry SchemaType
+  | SchemaTry SchemaType -- ^ @since v1.2.0
   | SchemaList SchemaType
   | SchemaObject [(SchemaKey, SchemaType)]
   | SchemaUnion [SchemaType] -- ^ @since v1.1.0
