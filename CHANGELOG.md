@@ -1,8 +1,11 @@
 ## Upcoming
 
+## 1.2.0
+
 New features:
-    * Add support for phantom keys
-    * Add support for `Try` schemas
+
+* Add support for phantom keys
+* Add support for `Try` schemas
 
 ## 1.1.0
 
