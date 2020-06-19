@@ -53,7 +53,8 @@ jobs:
               "${STACK_YAML}"
               package.yaml
             )
-            cat "${FILES[@]}" > cache-key.txt
+            echo "${STACK_YAML}" > cache-key.txt
+            cat "${FILES[@]}" >> cache-key.txt
             stack --version >> cache-key.txt
             cat cache-key.txt
       - restore_cache:
