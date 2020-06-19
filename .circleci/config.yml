@@ -40,6 +40,13 @@ jobs:
       # init
       - checkout
       - run:
+          name: Install stack
+          command: |
+            curl -sSL https://get.haskellstack.org/ | sh
+            stack --version
+
+      # install stack dependencies
+      - run:
           name: Build cache key
           command: |
             FILES=(
@@ -47,14 +54,8 @@ jobs:
               package.yaml
             )
             cat "${FILES[@]}" > cache-key.txt
-            curl -sSL https://get.haskellstack.org/ | sed -n 's/^STACK_VERSION="\(.*\)"/\1/p' >> cache-key.txt
-
-      # install stack and dependencies
-      - run:
-          name: Install stack
-          command: |
-            curl -sSL https://get.haskellstack.org/ | sh
-            stack --version
+            stack --version >> cache-key.txt
+            cat cache-key.txt
       - restore_cache:
           key: *cache_key
       - run:

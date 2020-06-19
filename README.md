@@ -57,8 +57,9 @@ main = do
 
 ### Type safe
 
-Since schemas are defined at the type level, parsing JSON objects is checked at
-compile-time:
+Since schemas are defined at the type level, extracting data from JSON objects
+is checked at compile-time, meaning that using the `get` quasiquoter should
+never throw an error at runtime.
 
 ```
 -- using schema from above
@@ -93,7 +94,8 @@ getNames :: Object MySchema -> [Text]
 getNames = [get| .users[].name |]
 ```
 
-You can use the `unwrap` quasiquoter to define intermediate schemas:
+If you'd like to extract intermediate schemas, you can use the `unwrap`
+quasiquoter:
 
 ```haskell
 type User = [unwrap| MySchema.users[] |]
@@ -220,7 +222,7 @@ type Result = [schema|
 |]
 ```
 
-The only identifier added to the namespace is `Result`, and parsing out data
+The only identifier added to the namespace is `Result`, and extracting data
 is easier and more readable:
 
 ```haskell
@@ -298,7 +300,7 @@ let UserNode{node = User{groups = userGroups}} = userNode
     groupNames = map (\GroupNode{node = Group{name = name}} -> name) userGroups
 ```
 
-With this library, parsing is much more straightforward
+With this library, extraction is much more straightforward
 
 ```haskell
 let groupNames = [get| userNode.node.groups[].node.name |]
