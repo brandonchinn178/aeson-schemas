@@ -8,27 +8,24 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-import Data.Aeson (ToJSON, decode, eitherDecode, encode)
+import Data.Aeson (decode, encode)
 import Data.Aeson.Schema (Object, get, unwrap)
-import Data.Aeson.Schema.Utils.Sum (SumType(..), fromSumType)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
 import Data.Char (toLower, toUpper)
 import Data.Maybe (fromMaybe)
-import Data.Proxy (Proxy(..))
 import qualified Data.Text as Text
 import Language.Haskell.TH.TestUtils (tryQErr')
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
 import Test.Tasty.HUnit (testCase, (@?=))
-import Test.Tasty.QuickCheck
-    (arbitrary, elements, infiniteListOf, oneof, testProperty, (===))
+import Test.Tasty.QuickCheck (elements, infiniteListOf, testProperty, (===))
 import Text.RawString.QQ (r)
 
 import qualified AllTypes
 import Enums
 import qualified Nested
 import Schema
-import SumType
+import qualified Tests.SumType
 import Util
 
 allTypes :: Object AllTypes.Schema
@@ -44,7 +41,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testSchemaDef
   , testMkGetter
   , testEnumTH
-  , testSumType
+  , Tests.SumType.test
   ]
 
 goldens' :: String -> String -> TestTree
@@ -246,56 +243,3 @@ testEnumTH = testGroup "Test the Enum TH helpers"
     randomlyCased s = do
       caseFuncs <- infiniteListOf $ elements [toLower, toUpper]
       return $ zipWith ($) caseFuncs s
-
-testSumType :: TestTree
-testSumType = testGroup "Test the SumType helper"
-  [ testCase "Sanity checks" $
-      let values =
-            [ Here True
-            , Here False
-            , There (Here 1)
-            , There (Here 10)
-            , There (There (Here []))
-            , There (There (Here ["a"]))
-            ] :: [SpecialJSON]
-      in values @?= values
-  , testGroup "Decode SumType"
-    [ testProperty "branch 1" $ \(b :: Bool) ->
-        toSpecialJSON b === Right (Here b)
-    , testProperty "branch 2" $ \(x :: Int) ->
-        toSpecialJSON x === Right (There (Here x))
-    , testProperty "branch 3" $ \(l :: [String]) ->
-        toSpecialJSON l === Right (There (There (Here l)))
-    , testCase "invalid SumType" $
-        toSpecialJSON [True] @?= Left "Error in $: Could not parse sum type"
-    ]
-  , testGroup "fromSumType"
-    [ testProperty "branch 0 valid" $ \b ->
-        fromSumType (Proxy @0) (Here b :: SpecialJSON) === Just b
-    , testProperty "branch 0 invalid" $ do
-        value <- oneof
-          [ There . Here <$> arbitrary
-          , There . There . Here <$> arbitrary
-          ]
-        return $ fromSumType (Proxy @0) (value :: SpecialJSON) === Nothing
-    , testProperty "branch 1 valid" $ \x ->
-        fromSumType (Proxy @1) (There (Here x) :: SpecialJSON) === Just x
-    , testProperty "branch 1 invalid" $ do
-        value <- oneof
-          [ Here <$> arbitrary
-          , There . There . Here <$> arbitrary
-          ]
-        return $ fromSumType (Proxy @1) (value :: SpecialJSON) === Nothing
-    , testProperty "branch 2 valid" $ \l ->
-        fromSumType (Proxy @2) (There (There (Here l)) :: SpecialJSON) === Just l
-    , testProperty "branch 2 invalid" $ do
-        value <- oneof
-          [ Here <$> arbitrary
-          , There . Here <$> arbitrary
-          ]
-        return $ fromSumType (Proxy @2) (value :: SpecialJSON) === Nothing
-    ]
-  ]
-  where
-    toSpecialJSON :: ToJSON a => a -> Either String SpecialJSON
-    toSpecialJSON = eitherDecode . encode
