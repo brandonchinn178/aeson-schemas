@@ -64,8 +64,10 @@ import Data.Aeson.Schema.TH.Utils
 -- * @Maybe \<schema\>@ and @List \<schema\>@ correspond to @Maybe@ and @[]@, containing values
 --   specified by the provided schema (no parentheses needed).
 --
--- * @Try \<schema\>@ correspond to @Maybe@, where the value will be @Just@ if the given schema
---   successfully parses the value, or @Nothing@ otherwise. (added in v1.2.0)
+-- * @Try \<schema\>@ corresponds to @Maybe@, where the value will be @Just@ if the given schema
+--   successfully parses the value, or @Nothing@ otherwise. Different from @Maybe \<schema\>@,
+--   where parsing @{ "foo": true }@ with @{ foo: Try Int }@ returns @Nothing@, whereas it would
+--   be a parse error with @{ foo: Maybe Int }@ (added in v1.2.0)
 --
 -- * Any other uppercase identifier corresponds to the respective type in scope -- requires a
 --   FromJSON instance.
@@ -79,9 +81,11 @@ import Data.Aeson.Schema.TH.Utils
 -- * @{ [key]: \<schema\> }@ uses the current object to resolve the keys in the given schema. Only
 --   object schemas are allowed here. (added in v1.2.0)
 --
--- * @{ key: #Other, ... }@ maps the given key to the @Other@ schema.
+-- * @{ key: #Other, ... }@ maps the given key to the @Other@ schema. The @Other@ schema needs to
+--   be defined in another module.
 --
--- * @{ #Other, ... }@ extends this schema with the @Other@ schema.
+-- * @{ #Other, ... }@ extends this schema with the @Other@ schema. The @Other@ schema needs to
+--   be defined in another module.
 schema :: QuasiQuoter
 schema = QuasiQuoter
   { quoteExp = error "Cannot use `schema` for Exp"
