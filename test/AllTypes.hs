@@ -77,7 +77,3 @@ type Schema = [schema|
 
 result :: Object Schema
 result = $(getMockedResult "test/all_types.json")
-
-{- AllTypes getters -}
-
-mkGetter "ListItem" "getList" ''AllTypes.Schema ".list[]"

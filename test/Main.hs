@@ -19,6 +19,7 @@ import Test.Tasty.Golden (goldenVsString)
 import qualified AllTypes
 import qualified Nested
 import qualified Tests.EnumTH
+import qualified Tests.MkGetterQQ
 import qualified Tests.SchemaQQ
 import qualified Tests.SumType
 import Util
@@ -34,7 +35,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testFromObjectNamespaced
   , testUnwrapSchema
   , Tests.SchemaQQ.test
-  , testMkGetter
+  , Tests.MkGetterQQ.test
   , Tests.EnumTH.test
   , Tests.SumType.test
   ]
@@ -147,15 +148,3 @@ testUnwrapSchema = testGroup "Test unwrapping schemas"
   , goldens' "unwrap_schema_bad_branch" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list@0")
   , goldens' "unwrap_schema_branch_out_of_bounds" $(tryQErr' $ showUnwrap "(AllTypes.Schema).union[]@10")
   ]
-
-testMkGetter :: TestTree
-testMkGetter = testGroup "Test the mkGetter helper"
-  [ goldens "getter_all_types_list" list
-  , goldens "getter_all_types_list_item" $ map getType list
-  ]
-  where
-    list :: [AllTypes.ListItem]
-    list = AllTypes.getList AllTypes.result
-
-    getType :: AllTypes.ListItem -> Text.Text
-    getType = [get| .type |]
