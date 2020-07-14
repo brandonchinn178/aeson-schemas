@@ -78,11 +78,11 @@ never throw an error at runtime.
                 ('Data.Aeson.Schema.SchemaObject
                    '[ '("id", 'Data.Aeson.Schema.SchemaInt),
                       '("name", 'Data.Aeson.Schema.SchemaText)])))]
-    • In the second argument of ‘(.)’, namely ‘getKey @"isEnabled"’
+    • In the second argument of ‘(.)’, namely ‘getKey (Proxy :: Proxy "isEnabled")’
       In the first argument of ‘(<$:>)’, namely
-        ‘(id . getKey @"isEnabled")’
+        ‘(id . getKey (Proxy :: Proxy "isEnabled"))’
       In the first argument of ‘(.)’, namely
-        ‘((id . getKey @"isEnabled") <$:>)’
+        ‘((id . getKey (Proxy :: Proxy "isEnabled")) <$:>)’
 ```
 
 ### Point-free definitions

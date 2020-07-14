@@ -1,5 +1,9 @@
 ## Upcoming
 
+Bug fixes:
+
+* Avoid requiring `TypeApplications` when using `get` quasiquoter ([#16](https://github.com/LeapYear/aeson-schemas/issues/16))
+
 ## 1.2.0
 
 New features:
