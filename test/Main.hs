@@ -15,12 +15,11 @@ import qualified Data.Text as Text
 import Language.Haskell.TH.TestUtils (tryQErr')
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Golden (goldenVsString)
-import Text.RawString.QQ (r)
 
 import qualified AllTypes
 import qualified Nested
-import Schema
 import qualified Tests.EnumTH
+import qualified Tests.SchemaQQ
 import qualified Tests.SumType
 import Util
 
@@ -34,7 +33,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testFromObjectNested
   , testFromObjectNamespaced
   , testUnwrapSchema
-  , testSchemaDef
+  , Tests.SchemaQQ.test
   , testMkGetter
   , Tests.EnumTH.test
   , Tests.SumType.test
@@ -147,33 +146,6 @@ testUnwrapSchema = testGroup "Test unwrapping schemas"
   , goldens' "unwrap_schema_bad_key" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list.a")
   , goldens' "unwrap_schema_bad_branch" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list@0")
   , goldens' "unwrap_schema_branch_out_of_bounds" $(tryQErr' $ showUnwrap "(AllTypes.Schema).union[]@10")
-  ]
-
-testSchemaDef :: TestTree
-testSchemaDef = testGroup "Test generating schema definitions"
-  [ goldens' "schema_def_bool" $(showSchema [r| { a: Bool } |])
-  , goldens' "schema_def_int" $(showSchema [r| { a: Int } |])
-  , goldens' "schema_def_double" $(showSchema [r| { foo123: Double } |])
-  , goldens' "schema_def_text" $(showSchema [r| { some_text: Text } |])
-  , goldens' "schema_def_custom" $(showSchema [r| { status: Status } |])
-  , goldens' "schema_def_maybe" $(showSchema [r| { a: Maybe Int } |])
-  , goldens' "schema_def_list" $(showSchema [r| { a: List Int } |])
-  , goldens' "schema_def_obj" $(showSchema [r| { a: { b: Int } } |])
-  , goldens' "schema_def_maybe_obj" $(showSchema [r| { a: Maybe { b: Int } } |])
-  , goldens' "schema_def_list_obj" $(showSchema [r| { a: List { b: Int } } |])
-  , goldens' "schema_def_import_user" $(showSchema [r| { user: #UserSchema } |])
-  , goldens' "schema_def_extend" $(showSchema [r| { a: Int, #(Schema.MySchema) } |])
-  , goldens' "schema_def_shadow" $(showSchema [r| { extra: Bool, #(Schema.MySchema) } |])
-  , goldens' "schema_def_union" $(showSchema [r| { a: List Int | Text } |])
-  , goldens' "schema_def_union_grouped" $(showSchema [r| { a: List (Int | Text) } |])
-  -- bad schema definitions
-  , goldens' "schema_def_duplicate" $(tryQErr' $ showSchema [r| { a: Int, a: Bool } |])
-  , goldens' "schema_def_duplicate_phantom" $(tryQErr' $ showSchema [r| { a: Int, [a]: { b: Bool } } |])
-  , goldens' "schema_def_duplicate_extend" $(tryQErr' $ showSchema [r| { #MySchema, #MySchema2 } |])
-  , goldens' "schema_def_not_object" $(tryQErr' $ showSchema [r| List { a: Int } |])
-  , goldens' "schema_def_unknown_type" $(tryQErr' $ showSchema [r| HelloWorld |])
-  , goldens' "schema_def_invalid_extend" $(tryQErr' $ showSchema [r| { #Int } |])
-  , goldens' "schema_def_nonobject_phantom" $(tryQErr' $ showSchema [r| { [a]: Int } |])
   ]
 
 testMkGetter :: TestTree
