@@ -111,7 +111,10 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
             checkLast label = unless (null ops) $ fail $ label ++ " operation MUST be last."
             fromJustMsg = startDisplay ++ showGetterOps (reverse history)
         in case op of
-          GetterKey key       -> applyToNext' $ Right $ appTypeE [| getKey |] (litT $ strTyLit key)
+          GetterKey key       ->
+            let proxyCon = [| Proxy |]
+                proxyType = [t| Proxy $(litT $ strTyLit key) |]
+            in applyToNext' $ Right $ appE [| getKey |] $ sigE proxyCon proxyType
           GetterList elems    -> checkLast ".[*]" >> applyToEach' listE elems
           GetterTuple elems   -> checkLast ".(*)" >> applyToEach' tupE elems
           GetterBang          -> applyToNext' $ Right [| fromJust $(lift fromJustMsg) |]

@@ -305,22 +305,22 @@ type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType wh
 -- >                 ]
 -- >             )
 -- >
--- > getKey @"foo" o                  :: Bool
--- > getKey @"bar" o                  :: Object ('SchemaObject '[ '("name", 'SchemaText) ])
--- > getKey @"name" $ getKey @"bar" o :: Text
--- > getKey @"baz" o                  :: Maybe Bool
+-- > getKey (Proxy @"foo") o                  :: Bool
+-- > getKey (Proxy @"bar") o                  :: Object ('SchemaObject '[ '("name", 'SchemaText) ])
+-- > getKey (Proxy @"name") $ getKey @"bar" o :: Text
+-- > getKey (Proxy @"baz") o                  :: Maybe Bool
 --
 getKey
-  :: forall key schema endSchema result
-   . ( endSchema ~ LookupSchema key schema
+  :: ( endSchema ~ LookupSchema key schema
      , result ~ SchemaResult endSchema
      , KnownSymbol key
      , Typeable result
      , Typeable endSchema
      )
-  => Object schema
+  => Proxy key
+  -> Object schema
   -> result
-getKey (UnsafeObject object) = fromDyn (object ! Text.pack key) badCast
+getKey keyProxy (UnsafeObject object) = fromDyn (object ! Text.pack key) badCast
   where
-    key = symbolVal (Proxy @key)
+    key = symbolVal keyProxy
     badCast = error $ "Could not load key: " ++ key
