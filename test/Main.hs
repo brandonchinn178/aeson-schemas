@@ -8,9 +8,8 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-import Data.Aeson.Schema (Object, get, unwrap)
+import Data.Aeson.Schema (Object, get)
 import qualified Data.ByteString.Lazy.Char8 as ByteString
-import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import Language.Haskell.TH.TestUtils (tryQErr')
 import Test.Tasty (TestTree, defaultMain, testGroup)
@@ -22,6 +21,7 @@ import qualified Tests.EnumTH
 import qualified Tests.MkGetterQQ
 import qualified Tests.SchemaQQ
 import qualified Tests.SumType
+import qualified Tests.UnwrapQQ
 import Util
 
 allTypes :: Object AllTypes.Schema
@@ -33,7 +33,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , testFromObjectAllTypes
   , testFromObjectNested
   , testFromObjectNamespaced
-  , testUnwrapSchema
+  , Tests.UnwrapQQ.test
   , Tests.SchemaQQ.test
   , Tests.MkGetterQQ.test
   , Tests.EnumTH.test
@@ -126,25 +126,3 @@ testFromObjectNamespaced = goldens "from_object_namespaced" $
   where
     fromAllTypes o = Text.unpack [get| o.type |]
     fromNested o = show [get| o.b |]
-
-type NestedObject = [unwrap| (Nested.Schema).list[] |]
-
-parseNestedObject :: NestedObject -> Int
-parseNestedObject obj = fromMaybe [get| obj.b |] [get| obj.a?.b |]
-
-nestedList :: [NestedObject]
-nestedList = [get| (Nested.result).list[] |]
-
-testUnwrapSchema :: TestTree
-testUnwrapSchema = testGroup "Test unwrapping schemas"
-  [ goldens' "unwrap_schema" $(showUnwrap "(Nested.Schema).list[]")
-  , goldens "unwrap_schema_nested_list" nestedList
-  , goldens "unwrap_schema_nested_object" $ map parseNestedObject nestedList
-  -- bad unwrap types
-  , goldens' "unwrap_schema_bad_bang" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list[]!")
-  , goldens' "unwrap_schema_bad_question" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list[]?")
-  , goldens' "unwrap_schema_bad_list" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list[][]")
-  , goldens' "unwrap_schema_bad_key" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list.a")
-  , goldens' "unwrap_schema_bad_branch" $(tryQErr' $ showUnwrap "(AllTypes.Schema).list@0")
-  , goldens' "unwrap_schema_branch_out_of_bounds" $(tryQErr' $ showUnwrap "(AllTypes.Schema).union[]@10")
-  ]

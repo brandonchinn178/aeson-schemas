@@ -8,26 +8,22 @@
 
 module Tests.MkGetterQQ where
 
-import Data.Aeson (eitherDecode)
 import Data.Text (Text)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Text.RawString.QQ (r)
 
 import Data.Aeson.Schema (Object, get, mkGetter, schema)
-import qualified Data.Aeson.Schema.Internal as Internal
+import TestUtils (json, showSchemaResult)
 
 type MySchema = [schema| { users: List { name: Text } } |]
 
 mkGetter "User" "getUsers" ''MySchema ".users[]"
 
-userSchema :: forall schema. (Object schema ~ User) => String
-userSchema = Internal.showSchema @schema
-
 test :: TestTree
 test = testGroup "`mkGetter` quasiquoter"
   [ testCase "Type synonym is generated" $
-      userSchema @?= [r|SchemaObject {"name": Text}|]
+      showSchemaResult @User @?= [r|Object (SchemaObject {"name": Text})|]
   , testCase "Getter function is generated" $
       let users :: [User]
           users = getUsers testData
@@ -39,7 +35,7 @@ test = testGroup "`mkGetter` quasiquoter"
   ]
 
 testData :: Object MySchema
-testData = either error id $ eitherDecode $ [r|
+testData = [json|
   {
     "users": [
       { "name": "Alice" },
