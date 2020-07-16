@@ -17,7 +17,6 @@ description: |
 extra-source-files:
   - README.md
   - CHANGELOG.md
-  - test/**/*.json
   - test/**/*.golden
 
 github: LeapYear/aeson-schemas
@@ -60,11 +59,10 @@ tests:
     main:         Main.hs
     dependencies:
       - aeson-schemas
-      - bytestring >= 0.10.8.1 && < 0.11
+      - aeson-qq >= 0.8.2 && < 0.8.4
       - QuickCheck >= 2.7 && < 3
       - raw-strings-qq >= 1.1 && < 1.2
       - tasty >= 0.11.3 && < 1.4
-      - tasty-golden >= 2.3.1.2 && < 2.4
       - tasty-hunit >= 0.9 && < 0.11
       - tasty-quickcheck >= 0.9 && < 0.11
       - th-test-utils >= 1.0.0 && < 1.1
