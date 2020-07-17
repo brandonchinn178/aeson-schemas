@@ -28,7 +28,7 @@ module Data.Aeson.Schema.Utils.Sum
   ) where
 
 import Control.Applicative ((<|>))
-import Data.Aeson (FromJSON(..))
+import Data.Aeson (FromJSON(..), ToJSON(..))
 import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy(..))
 import GHC.TypeLits (type (-), ErrorMessage(..), Nat, TypeError)
@@ -77,6 +77,14 @@ instance (FromJSON x, FromJSON (SumType xs)) => FromJSON (SumType (x ': xs)) whe
 
 instance FromJSON (SumType '[]) where
   parseJSON _ = fail "Could not parse sum type"
+
+instance (ToJSON x, ToJSON (SumType xs)) => ToJSON (SumType (x ': xs)) where
+  toJSON = \case
+    Here x -> toJSON x
+    There xs -> toJSON xs
+
+instance ToJSON (SumType '[]) where
+  toJSON = \case {}
 
 {- Extracting sum type branches -}
 
