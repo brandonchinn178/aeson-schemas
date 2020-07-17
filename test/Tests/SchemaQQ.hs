@@ -53,6 +53,16 @@ testValidSchemas = testGroup "Valid schemas"
         @[schema| { status: Status } |]
         [r| SchemaObject {"status": Status} |]
 
+  , testCase "Object with a field with a Maybe type" $
+      assertSchemaMatches
+        @[schema| { a: Maybe Bool } |]
+        [r| SchemaObject {"a": Maybe Bool} |]
+
+  , testCase "Object with a field with a Try type" $
+      assertSchemaMatches
+        @[schema| { a: Try Bool } |]
+        [r| SchemaObject {"a": Try Bool} |]
+
   , testCase "Object with a nested object" $
       assertSchemaMatches
         @[schema| { a: { b: Int } } |]
