@@ -8,6 +8,7 @@ The 'SumType' data type that represents a sum type consisting of types
 specified in a type-level list.
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -63,15 +64,15 @@ data SumType (types :: [Type]) where
 
 deriving instance (Show x, Show (SumType xs)) => Show (SumType (x ': xs))
 instance Show (SumType '[]) where
-  show = error "impossible"
+  show = \case {}
 
 deriving instance (Eq x, Eq (SumType xs)) => Eq (SumType (x ': xs))
 instance Eq (SumType '[]) where
-  (==) = error "impossible"
+  _ == _ = True
 
 deriving instance (Ord x, Ord (SumType xs)) => Ord (SumType (x ': xs))
 instance Ord (SumType '[]) where
-  compare = error "impossible"
+  compare _ _ = EQ
 
 instance (FromJSON x, FromJSON (SumType xs)) => FromJSON (SumType (x ': xs)) where
   parseJSON v = (Here <$> parseJSON v) <|> (There <$> parseJSON v)
