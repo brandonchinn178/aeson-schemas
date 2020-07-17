@@ -19,6 +19,8 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 
 -- | Defines a QuasiQuoter to extract a schema within the given schema.
 --
+-- The base schema needs to be defined in a separate module.
+--
 -- For example:
 --
 -- > -- | MyFoo ~ Object [schema| { b: Maybe Bool } |]
