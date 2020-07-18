@@ -179,22 +179,21 @@ data types, you would need to define a Haskell data type for each level.
 ```haskell
 data Result = Result
   { permissions :: [Permission]
-  }
-  deriving (Generic, FromJSON)
+  } deriving (Show, Generic, FromJSON)
 
 data Permission = Permission
   { resource :: Resource
   , access :: String
-  } deriving (Generic, FromJSON)
+  } deriving (Show, Generic, FromJSON)
 
 data Resource = Resource
   { name :: String
   , owner :: Owner
-  } deriving (Generic, FromJSON)
+  } deriving (Show, Generic, FromJSON)
 
 data Owner = Owner
   { username :: String
-  }
+  } deriving (Show, Generic, FromJSON)
 ```
 
 It might be fine for a single example like this, but if you have to parse this
