@@ -104,7 +104,7 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
       ("'SchemaList", [inner]) -> SchemaShow.SchemaList $ cast inner
       ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ map getSchemaObjectPair $ typeRepToList pairs
       ("'SchemaUnion", [schemas]) -> SchemaShow.SchemaUnion $ map cast $ typeRepToList schemas
-      _ -> error $ "Unknown schema type: " ++ show tyRep
+      _ -> unreachable $ "Unknown schema type: " ++ show tyRep
 
     getSchemaObjectPair tyRep =
       let (key, val) = typeRepToPair tyRep
@@ -112,17 +112,17 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
           schemaKey = case splitTypeRep key of
             ("'NormalKey", [key']) -> SchemaShow.NormalKey $ fromTypeRep key'
             ("'PhantomKey", [key']) -> SchemaShow.PhantomKey $ fromTypeRep key'
-            _ -> error $ "Unknown schema key: " ++ show key
+            _ -> unreachable $ "Unknown schema key: " ++ show key
       in (schemaKey, cast val)
 
     typeRepToPair tyRep = case splitTypeRep tyRep of
       ("'(,)", [a, b]) -> (a, b)
-      _ -> error $ "Unknown pair: " ++ show tyRep
+      _ -> unreachable $ "Unknown pair: " ++ show tyRep
 
     typeRepToList tyRep = case splitTypeRep tyRep of
       ("'[]", []) -> []
       ("':", [x, rest]) -> x : typeRepToList rest
-      _ -> error $ "Unknown list: " ++ show tyRep
+      _ -> unreachable $ "Unknown list: " ++ show tyRep
 
     splitTypeRep = first tyConName . splitTyConApp
     typeRepName = tyConName . typeRepTyCon
@@ -241,12 +241,12 @@ instance
   showValue (UnsafeObject hm) = case showValue @('SchemaObject rest) (UnsafeObject hm) of
     "{}" -> "{" ++ pair ++ "}"
     '{':s -> "{" ++ pair ++ ", " ++ s
-    s -> error $ "Unknown result when showing Object: " ++ s
+    s -> unreachable $ "Unknown result when showing Object: " ++ s
     where
       key = fromSchemaKey @schemaKey
       value = case fromDynamic @(SchemaResult inner) (hm ! key) of
         Just v -> showValue @inner v
-        Nothing -> error $
+        Nothing -> unreachable $
           "Could not show key " ++ show key ++
           " with schema " ++ showSchema @inner ++
           ": " ++ show (hm ! key)
@@ -329,4 +329,14 @@ getKey
 getKey keyProxy (UnsafeObject object) = fromDyn (object ! Text.pack key) badCast
   where
     key = symbolVal keyProxy
-    badCast = error $ "Could not load key: " ++ key
+    badCast = unreachable $ "Could not load key: " ++ key
+
+{- Helpers -}
+
+-- | An error function to indicate that a branch is unreachable. Provides a useful error message
+-- if it ends up happening, pointing users to write a bug report.
+unreachable :: String -> a
+unreachable msg = error $ unlines
+  [ "`aeson-schemas` internal error: " ++ msg
+  , "Please file a bug report at https://github.com/LeapYear/aeson-schemas/issues/"
+  ]
