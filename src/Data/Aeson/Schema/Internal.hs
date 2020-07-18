@@ -35,7 +35,7 @@ import Control.Monad.Fail (MonadFail)
 import Data.Aeson (FromJSON(..), Value(..))
 import Data.Aeson.Types (Parser)
 import Data.Bifunctor (first)
-import Data.Dynamic (Dynamic, fromDyn, fromDynamic, toDyn)
+import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
 import Data.Kind (Type)
@@ -326,10 +326,11 @@ getKey
   => Proxy key
   -> Object schema
   -> result
-getKey keyProxy (UnsafeObject object) = fromDyn (object ! Text.pack key) badCast
+getKey keyProxy (UnsafeObject object) =
+  fromMaybe (unreachable $ "Could not load key: " ++ key) $
+    fromDynamic (object ! Text.pack key)
   where
     key = symbolVal keyProxy
-    badCast = unreachable $ "Could not load key: " ++ key
 
 {- Helpers -}
 
