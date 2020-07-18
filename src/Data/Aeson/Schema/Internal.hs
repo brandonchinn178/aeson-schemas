@@ -61,22 +61,26 @@ import Data.Aeson.Schema.Utils.TypeFamilies (All)
 -- Has a 'FromJSON' instance, so you can use the usual 'Data.Aeson' decoding functions.
 --
 -- > obj = decode "{\"a\": 1}" :: Maybe (Object [schema| { a: Int } |])
-newtype Object (schema :: SchemaType) = UnsafeObject (HashMap Text Dynamic)
+newtype Object (schema :: Schema) = UnsafeObject (HashMap Text Dynamic)
 
--- | A constraint that checks if the given schema is a 'SchemaObject.
-type IsSchemaObject schema = (IsSchemaType schema, SchemaResult schema ~ Object schema)
+instance IsSchemaType ('SchemaObject schema) => Show (Object ('Schema schema)) where
+  show = showValue @('SchemaObject schema)
 
-instance IsSchemaObject schema => Show (Object schema) where
-  show = showValue @schema
-
-instance IsSchemaObject schema => FromJSON (Object schema) where
-  parseJSON = parseValue @schema []
+instance IsSchemaType ('SchemaObject schema) => FromJSON (Object ('Schema schema)) where
+  parseJSON = parseValue @('SchemaObject schema) []
 
 {- Type-level schema definitions -}
+
+type SchemaObjectMap = [(SchemaKey, SchemaType)]
 
 -- | The type-level schema definition for JSON data.
 --
 -- To view a schema for debugging, use 'showSchema'.
+data Schema = Schema SchemaObjectMap
+
+type family ToSchemaObject (schema :: Schema) where
+  ToSchemaObject ('Schema inner) = 'SchemaObject inner
+
 data SchemaType
   = SchemaBool
   | SchemaInt
@@ -86,7 +90,7 @@ data SchemaType
   | SchemaMaybe SchemaType
   | SchemaTry SchemaType -- ^ @since v1.2.0
   | SchemaList SchemaType
-  | SchemaObject [(SchemaKey, SchemaType)]
+  | SchemaObject SchemaObjectMap
   | SchemaUnion [SchemaType] -- ^ @since v1.1.0
 
 -- | Convert 'SchemaType' into 'SchemaShow.SchemaType'.
@@ -128,8 +132,8 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
     typeRepName = tyConName . typeRepTyCon
 
 -- | Pretty show the given SchemaType.
-showSchema :: forall (a :: SchemaType). Typeable a => String
-showSchema = SchemaShow.showSchemaType $ toSchemaTypeShow @a
+showSchemaType :: forall (a :: SchemaType). Typeable a => String
+showSchemaType = SchemaShow.showSchemaType $ toSchemaTypeShow @a
 
 -- | The type-level analogue of 'Data.Aeson.Schema.Key.SchemaKey'.
 data SchemaKey
@@ -170,7 +174,7 @@ type family SchemaResult (schema :: SchemaType) where
   SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaTry inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaList inner) = [SchemaResult inner]
-  SchemaResult ('SchemaObject inner) = Object ('SchemaObject inner)
+  SchemaResult ('SchemaObject inner) = Object ('Schema inner)
   SchemaResult ('SchemaUnion schemas) = SumType (SchemaResultList schemas)
 
 type family SchemaResultList (xs :: [SchemaType]) where
@@ -222,9 +226,9 @@ instance IsSchemaType ('SchemaObject '[]) where
 instance
   ( KnownSchemaKey schemaKey
   , IsSchemaType inner
+  , IsSchemaType ('SchemaObject rest)
   , Show (SchemaResult inner)
   , Typeable (SchemaResult inner)
-  , IsSchemaObject ('SchemaObject rest)
   , Typeable rest
   ) => IsSchemaType ('SchemaObject ('(schemaKey, inner) ': rest)) where
   parseValue path value = case value of
@@ -248,7 +252,7 @@ instance
         Just v -> showValue @inner v
         Nothing -> unreachable $
           "Could not show key " ++ show key ++
-          " with schema " ++ showSchema @inner ++
+          " with schema " ++ showSchemaType @inner ++
           ": " ++ show (hm ! key)
       pair = showSchemaKey @schemaKey ++ ": " ++ value
 
@@ -267,7 +271,7 @@ parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
       then "Could not parse schema " ++ schema'
       else "Could not parse path '" ++ path' ++ "' with schema " ++ schema'
     path' = Text.unpack . Text.intercalate "." $ reverse path
-    schema' = "`" ++ showSchema @schema ++ "`"
+    schema' = "`" ++ showSchemaType @schema ++ "`"
     ellipses n s = if length s > n then take n s ++ "..." else s
 
 {- Lookups within SchemaObject -}
@@ -280,8 +284,8 @@ type instance Fcf.Eval (UnSchemaKey ('PhantomKey key)) = Fcf.Eval (Fcf.Pure key)
 type Lookup a = Fcf.Map Fcf.Snd <=< Fcf.Find (Fcf.TyEq a <=< Fcf.Fst)
 
 -- | The type-level function that return the schema of the given key in a 'SchemaObject'.
-type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType where
-  LookupSchema key ('SchemaObject schema) = Fcf.Eval
+type family LookupSchema (key :: Symbol) (schema :: Schema) :: SchemaType where
+  LookupSchema key ('Schema schema) = Fcf.Eval
     ( Fcf.FromMaybe (TypeError
         (     'Text "Key '"
         ':<>: 'Text key
@@ -290,12 +294,6 @@ type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType wh
         )
       )
       =<< Lookup key =<< Fcf.Map (Fcf.Bimap UnSchemaKey Fcf.Pure) schema
-    )
-  LookupSchema key schema = TypeError
-    (     'Text "Attempted to lookup key '"
-    ':<>: 'Text key
-    ':<>: 'Text "' in the following schema:"
-    ':$$: 'ShowType schema
     )
 
 -- | Get a key from the given 'Data.Aeson.Schema.Internal.Object', returned as the type encoded in

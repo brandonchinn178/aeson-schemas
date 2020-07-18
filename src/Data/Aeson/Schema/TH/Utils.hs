@@ -21,7 +21,8 @@ import GHC.Stack (HasCallStack)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (Lift)
 
-import Data.Aeson.Schema.Internal (Object, SchemaResult, SchemaType(..))
+import Data.Aeson.Schema.Internal
+    (Object, Schema(..), SchemaResult, SchemaType(..))
 import qualified Data.Aeson.Schema.Internal as Internal
 import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
 import qualified Data.Aeson.Schema.Show as SchemaShow
@@ -113,11 +114,13 @@ unwrapType _ [] = fromSchemaType
   where
     fromSchemaType schema = case schema of
       AppT (PromotedT ty) inner
+        -- TODO: factor out
+        | ty == 'Schema -> fromSchemaType (AppT (PromotedT 'SchemaObject) inner)
         | ty == 'SchemaCustom -> [t| SchemaResult $(pure schema) |]
         | ty == 'SchemaMaybe -> [t| Maybe $(fromSchemaType inner) |]
         | ty == 'SchemaTry -> [t| Maybe $(fromSchemaType inner) |]
         | ty == 'SchemaList -> [t| [$(fromSchemaType inner)] |]
-        | ty == 'SchemaObject -> [t| Object $(pure schema) |]
+        | ty == 'SchemaObject -> [t| Object ('Schema $(pure inner)) |]
         | ty == 'SchemaUnion -> [t| SchemaResult $(pure schema) |]
       PromotedT ty
         | ty == 'SchemaBool -> [t| Bool |]
@@ -128,6 +131,8 @@ unwrapType _ [] = fromSchemaType
       TupleT _ -> pure schema
       _ -> fail $ "Could not convert schema: " ++ showSchemaType schema
 unwrapType keepFunctor (op:ops) = \case
+  -- TODO: factor out
+  AppT (PromotedT ty) inner | ty == 'Schema -> unwrapType' (op:ops) (AppT (PromotedT 'SchemaObject) inner)
   schema@(AppT (PromotedT ty) inner) ->
     case op of
       GetterKey key | ty == 'SchemaObject ->

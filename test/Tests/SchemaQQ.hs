@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -16,7 +17,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Text.RawString.QQ (r)
 
-import Data.Aeson.Schema (SchemaType, schema)
+import Data.Aeson.Schema (Schema, schema)
 import qualified Data.Aeson.Schema.Internal as Internal
 import Tests.SchemaQQ.TH
 
@@ -142,7 +143,7 @@ testInvalidSchemas = testGroup "Invalid schemas"
       $(getSchemaQQErr "{ a: HelloWorld }") @?= "Unknown type: HelloWorld"
 
   , testCase "Object extending a non-schema" $
-      $(getSchemaQQErr "{ #Int }") @?= "'GHC.Types.Int' is not a SchemaObject"
+      $(getSchemaQQErr "{ #Int }") @?= "'GHC.Types.Int' is not a Schema"
 
   , testCase "Object with a phantom key for a non-object" $
       $(getSchemaQQErr "{ [a]: Int }") @?= "Invalid schema for 'a': SchemaInt"
@@ -153,7 +154,7 @@ testInvalidSchemas = testGroup "Invalid schemas"
 newtype Status = Status Int
   deriving (Show,FromJSON)
 
-assertSchemaMatches :: forall (schema :: SchemaType). Typeable schema => String -> Assertion
+assertSchemaMatches :: forall (schema :: Schema). Typeable (Internal.ToSchemaObject schema) => String -> Assertion
 assertSchemaMatches = (schemaStr @?=) . Text.unpack . Text.strip . Text.pack
   where
-    schemaStr = Internal.showSchema @schema
+    schemaStr = Internal.showSchemaType @(Internal.ToSchemaObject schema)

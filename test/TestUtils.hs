@@ -1,4 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -28,8 +30,8 @@ import qualified Data.Aeson.Schema.Internal as Internal
 class ShowSchemaResult a where
   showSchemaResult :: String
 
-instance Typeable schema => ShowSchemaResult (Object schema) where
-  showSchemaResult = "Object (" ++ Internal.showSchema @schema ++ ")"
+instance Typeable (Internal.ToSchemaObject schema) => ShowSchemaResult (Object schema) where
+  showSchemaResult = "Object (" ++ Internal.showSchemaType @(Internal.ToSchemaObject schema) ++ ")"
 
 instance ShowSchemaResult a => ShowSchemaResult [a] where
   showSchemaResult = "[" ++ showSchemaResult @a ++ "]"
