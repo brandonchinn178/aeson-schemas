@@ -100,9 +100,14 @@ stripSigs = \case
   ParensT ty -> ParensT (stripSigs ty)
   ty -> ty
 
+-- | Reify the given name and return the result if it reifies to a Schema.
 reifySchema :: Name -> TypeQ
 reifySchema = reify >=> \case
-  TyConI (TySynD _ _ ty) -> pure $ stripSigs ty
+  TyConI (TySynD _ _ tyWithSigs)
+    | ty <- stripSigs tyWithSigs
+    , AppT (PromotedT name) _ <- ty
+    , name == 'Schema
+    -> pure $ stripSigs ty
   info -> fail $ "Unknown reified schema: " ++ show info
 
 -- | Unwrap the given type using the given getter operations.
@@ -110,12 +115,55 @@ reifySchema = reify >=> \case
 -- Accepts Bool for whether to maintain functor structure (True) or strip away functor applications
 -- (False).
 unwrapType :: Bool -> GetterOps -> Type -> TypeQ
-unwrapType _ [] = fromSchemaType
+unwrapType keepFunctor getterOps schemaType =
+  case schemaType of
+    AppT (PromotedT ty) inner | ty == 'Schema -> go (AppT (PromotedT 'SchemaObject) inner) getterOps
+    ty -> fail $ "Tried to unwrap something that wasn't a Schema: " ++ show ty
   where
+    go schema [] = fromSchemaType schema
+    go schema (op:ops) = case schema of
+      AppT (PromotedT ty) inner ->
+        case op of
+          GetterKey key | ty == 'SchemaObject ->
+            let getObjectSchema = map (first getSchemaKey . typeToPair) . typeToList
+                getSchemaKey = fromSchemaKey . parseSchemaKey
+            in case lookup key (getObjectSchema inner) of
+              Just nextSchema -> go nextSchema ops
+              Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ showSchemaType schema
+          GetterKey key -> fail $ "Cannot get key '" ++ key ++ "' in schema: " ++ showSchemaType schema
+          GetterList elems | ty == 'SchemaObject -> do
+            elemSchemas <- mapM (go schema) elems
+            if all (== head elemSchemas) elemSchemas
+              then go (head elemSchemas) ops
+              else fail $ "List contains different types with schema: " ++ showSchemaType schema
+          GetterList _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
+          GetterTuple elems | ty == 'SchemaObject ->
+            foldl appT (tupleT $ length elems) $ map (go schema) elems
+          GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
+          GetterBang | ty == 'SchemaMaybe -> go inner ops
+          GetterBang | ty == 'SchemaTry -> go inner ops
+          GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ showSchemaType schema
+          GetterMapMaybe | ty == 'SchemaMaybe -> withFunctor [t| Maybe |] $ go inner ops
+          GetterMapMaybe | ty == 'SchemaTry -> withFunctor [t| Maybe |] $ go inner ops
+          GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
+          GetterMapList | ty == 'SchemaList -> withFunctor (pure ListT) $ go inner ops
+          GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
+          GetterBranch branch | ty == 'SchemaUnion ->
+            let subTypes = typeToList inner
+            in if branch >= length subTypes
+              then fail $ "Branch out of bounds for schema: " ++ showSchemaType schema
+              else go (subTypes !! branch) ops
+          GetterBranch _ -> fail $ "Cannot use `@` operator on schema: " ++ showSchemaType schema
+
+      -- allow starting from (Object schema)
+      AppT (ConT ty) inner | ty == ''Object -> go inner (op:ops)
+
+      _ -> fail $ unlines ["Cannot get type:", show schema, show op]
+
+    withFunctor f = if keepFunctor then appT f else id
+
     fromSchemaType schema = case schema of
       AppT (PromotedT ty) inner
-        -- TODO: factor out
-        | ty == 'Schema -> fromSchemaType (AppT (PromotedT 'SchemaObject) inner)
         | ty == 'SchemaCustom -> [t| SchemaResult $(pure schema) |]
         | ty == 'SchemaMaybe -> [t| Maybe $(fromSchemaType inner) |]
         | ty == 'SchemaTry -> [t| Maybe $(fromSchemaType inner) |]
@@ -130,47 +178,6 @@ unwrapType _ [] = fromSchemaType
       AppT t1 t2 -> appT (fromSchemaType t1) (fromSchemaType t2)
       TupleT _ -> pure schema
       _ -> fail $ "Could not convert schema: " ++ showSchemaType schema
-unwrapType keepFunctor (op:ops) = \case
-  -- TODO: factor out
-  AppT (PromotedT ty) inner | ty == 'Schema -> unwrapType' (op:ops) (AppT (PromotedT 'SchemaObject) inner)
-  schema@(AppT (PromotedT ty) inner) ->
-    case op of
-      GetterKey key | ty == 'SchemaObject ->
-        case lookup key (getObjectSchema inner) of
-          Just schema' -> unwrapType' ops schema'
-          Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ showSchemaType schema
-      GetterKey key -> fail $ "Cannot get key '" ++ key ++ "' in schema: " ++ showSchemaType schema
-      GetterList elems | ty == 'SchemaObject -> do
-        (elem':rest) <- mapM (`unwrapType'` schema) elems
-        if all (== elem') rest
-          then unwrapType' ops elem'
-          else fail $ "List contains different types with schema: " ++ showSchemaType schema
-      GetterList _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
-      GetterTuple elems | ty == 'SchemaObject ->
-        foldl appT (tupleT $ length elems) $ map (`unwrapType'` schema) elems
-      GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
-      GetterBang | ty == 'SchemaMaybe -> unwrapType' ops inner
-      GetterBang | ty == 'SchemaTry -> unwrapType' ops inner
-      GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ showSchemaType schema
-      GetterMapMaybe | ty == 'SchemaMaybe -> withFunctor [t| Maybe |] $ unwrapType' ops inner
-      GetterMapMaybe | ty == 'SchemaTry -> withFunctor [t| Maybe |] $ unwrapType' ops inner
-      GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
-      GetterMapList | ty == 'SchemaList -> withFunctor (pure ListT) $ unwrapType' ops inner
-      GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
-      GetterBranch branch | ty == 'SchemaUnion ->
-        let subTypes = typeToList inner
-        in if branch >= length subTypes
-          then fail $ "Branch out of bounds for schema: " ++ showSchemaType schema
-          else unwrapType' ops $ subTypes !! branch
-      GetterBranch _ -> fail $ "Cannot use `@` operator on schema: " ++ showSchemaType schema
-  -- allow starting from (Object schema)
-  AppT (ConT ty) inner | ty == ''Object -> unwrapType' (op:ops) inner
-  schema -> fail $ unlines ["Cannot get type:", show schema, show op]
-  where
-    unwrapType' = unwrapType keepFunctor
-    getObjectSchema = map (first getSchemaKey . typeToPair) . typeToList
-    getSchemaKey = fromSchemaKey . parseSchemaKey
-    withFunctor f = if keepFunctor then appT f else id
 
 {- GetterOps -}
 
@@ -178,8 +185,8 @@ type GetterOps = [GetterOperation]
 
 data GetterOperation
   = GetterKey String
-  | GetterList [GetterOps]
-  | GetterTuple [GetterOps]
+  | GetterList [GetterOps] -- ^ Invariant: needs to be non-empty
+  | GetterTuple [GetterOps] -- ^ Invariant: needs to be non-empty
   | GetterBang
   | GetterMapList
   | GetterMapMaybe
