@@ -25,6 +25,7 @@ import Data.Aeson.Schema (Object, get, schema)
 import Data.Aeson.Schema.TH (mkEnum)
 import Data.Aeson.Schema.Utils.Sum (SumType(..))
 import Tests.GetQQ.TH
+import TestUtils (parseObject)
 
 mkEnum "Greeting" ["HELLO", "GOODBYE"]
 

@@ -148,12 +148,15 @@ class
   , KnownSymbol (FromSchemaKey schemaKey)
   ) => KnownSchemaKey (schemaKey :: SchemaKey) where
   getContext :: HashMap Text Value -> Value
+  showSchemaKey :: String
 
 instance KnownSymbol key => KnownSchemaKey ('NormalKey key) where
   getContext = fromMaybe Null . HashMap.lookup (fromSchemaKey @('NormalKey key))
+  showSchemaKey = show $ fromSchemaKey @('NormalKey key)
 
 instance KnownSymbol key => KnownSchemaKey ('PhantomKey key) where
   getContext = Object
+  showSchemaKey = Text.unpack $ Text.concat ["[", fromSchemaKey @('PhantomKey key), "]"]
 
 {- Conversions from schema types into Haskell types -}
 
@@ -241,10 +244,13 @@ instance
     s -> error $ "Unknown result when showing Object: " ++ s
     where
       key = fromSchemaKey @schemaKey
-      value =
-        let dynValue = hm ! key
-        in maybe (show dynValue) show $ fromDynamic @(SchemaResult inner) dynValue
-      pair = show key ++ ": " ++ value
+      value = case fromDynamic @(SchemaResult inner) (hm ! key) of
+        Just v -> showValue @inner v
+        Nothing -> error $
+          "Could not show key " ++ show key ++
+          " with schema " ++ showSchema @inner ++
+          ": " ++ show (hm ! key)
+      pair = showSchemaKey @schemaKey ++ ": " ++ value
 
 instance
   ( All IsSchemaType schemas

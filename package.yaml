@@ -60,6 +60,7 @@ tests:
     dependencies:
       - aeson-schemas
       - aeson-qq
+      - interpolate
       - QuickCheck
       - raw-strings-qq
       - tasty

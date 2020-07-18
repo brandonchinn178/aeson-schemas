@@ -7,16 +7,20 @@
 module TestUtils
   ( ShowSchemaResult(..)
   , json
+  , parseValue
+  , parseObject
   ) where
 
-import Data.Aeson (eitherDecode)
+import Data.Aeson (FromJSON(..), Value, eitherDecode)
+import Data.Aeson.Types (parseEither)
 import Data.Proxy (Proxy(..))
 import Data.String (fromString)
 import Data.Typeable (Typeable, typeRep)
+import Language.Haskell.TH (ExpQ)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.Syntax (lift)
 
-import Data.Aeson.Schema (Object)
+import Data.Aeson.Schema (Object, schema)
 import qualified Data.Aeson.Schema.Internal as Internal
 
 {- ShowSchemaResult -}
@@ -42,3 +46,11 @@ json = QuasiQuoter
   , quoteType = error "Cannot use the 'json' QuasiQuoter for types"
   , quoteDec = error "Cannot use the 'json' QuasiQuoter for declarations"
   }
+
+parseValue :: FromJSON a => Value -> a
+parseValue = either error id . parseEither parseJSON
+
+parseObject :: String -> ExpQ
+parseObject schemaString = [| parseValue :: Value -> Object $schemaType |]
+  where
+    schemaType = quoteType schema schemaString
