@@ -314,14 +314,12 @@ testInvalidExpressions = testGroup "Invalid expressions"
   , testCase "No operators" $
       assertError $(tryGetQQ "o")
   , testCase "Operators after tuple of keys" $
-      $(getGetQQErr "o.(a,b).foo") @?= str ".(*) operation MUST be last."
+      [getErr| o.(a,b).foo |] @?= ".(*) operation MUST be last."
   , testCase "Operators after list of keys" $
-      $(getGetQQErr "o.[a,b].foo") @?= str ".[*] operation MUST be last."
+      [getErr| o.[a,b].foo |] @?= ".[*] operation MUST be last."
   ]
   where
     assertError = assertBool "did not error" . isLeft
-    -- type hint because of OverloadedStrings
-    str = id @String
 
 {- Helpers -}
 
