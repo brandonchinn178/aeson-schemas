@@ -84,7 +84,7 @@ testValidSchemas = testGroup "Valid schemas"
         @[schema| { user: #UserSchema } |]
         [r| SchemaObject {"user": {"name": Text}} |]
 
-  , testCase "Object with an qualified imported schema" $
+  , testCase "Object with a qualified imported schema" $
       assertSchemaMatches
         @[schema| { user: #(Tests.SchemaQQ.TH.UserSchema) } |]
         [r| SchemaObject {"user": {"name": Text}} |]
@@ -144,6 +144,12 @@ testInvalidSchemas = testGroup "Invalid schemas"
 
   , testCase "Object extending a non-schema" $
       [schemaErr| { #Int } |] @?= "'GHC.Types.Int' is not a Schema"
+
+  , testCase "Object importing an unknown schema" $
+      [schemaErr| { foo: #FooSchema } |] @?= "Unknown type: FooSchema"
+
+  , testCase "Object extending an unknown schema" $
+      [schemaErr| { #FooSchema } |] @?= "Unknown type: FooSchema"
 
   , testCase "Object with a phantom key for a non-object" $
       [schemaErr| { [a]: Int } |] @?= "Invalid schema for 'a': SchemaInt"
