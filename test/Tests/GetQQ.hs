@@ -312,7 +312,7 @@ testInvalidExpressions = testGroup "Invalid expressions"
   [ testCase "Empty expression" $
       assertError $(tryGetQQ "")
   , testCase "No operators" $
-      assertError $(tryGetQQ "")
+      assertError $(tryGetQQ "o")
   , testCase "Operators after tuple of keys" $
       $(getGetQQErr "o.(a,b).foo") @?= str ".(*) operation MUST be last."
   , testCase "Operators after list of keys" $
