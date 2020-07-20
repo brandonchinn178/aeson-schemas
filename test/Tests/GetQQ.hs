@@ -21,7 +21,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
 
-import Data.Aeson.Schema (Object, get, schema)
+import Data.Aeson.Schema (Object, schema)
 import Data.Aeson.Schema.TH (mkEnum)
 import Data.Aeson.Schema.Utils.Sum (SumType(..))
 import Tests.GetQQ.TH
@@ -64,41 +64,41 @@ testScalarExpressions :: TestTree
 testScalarExpressions = testGroup "Scalar expressions"
   [ testProperty "Get Bool key from object" $ \b ->
       let o = $(parseObject "{ foo: Bool }") [aesonQQ| { "foo": #{b} } |]
-      in [get| o.foo |] === b
+      in [runGet| o.foo |] === b
 
   , testProperty "Get Int key from object" $ \x ->
       let o = $(parseObject "{ foo: Int }") [aesonQQ| { "foo": #{x} } |]
-      in [get| o.foo |] === x
+      in [runGet| o.foo |] === x
 
   , testProperty "Get Double key from object" $ \x ->
       let o = $(parseObject "{ foo: Double }") [aesonQQ| { "foo": #{x} } |]
-      in [get| o.foo |] === x
+      in [runGet| o.foo |] === x
 
   , testProperty "Get Text key from object" $ \(UnicodeText s) ->
       let o = $(parseObject "{ foo: Text }") [aesonQQ| { "foo": #{s} } |]
-      in [get| o.foo |] === s
+      in [runGet| o.foo |] === s
 
   , testProperty "Get Custom key from object" $ \coordinate ->
       let o = $(parseObject "{ foo: Coordinate }") [aesonQQ| { "foo": #{coordinate} } |]
-      in [get| o.foo |] === coordinate
+      in [runGet| o.foo |] === coordinate
 
   , testProperty "Get Enum key from object" $ \greeting ->
       let o = $(parseObject "{ foo: Greeting }") [aesonQQ| { "foo": #{greeting} } |]
-      in [get| o.foo |] === greeting
+      in [runGet| o.foo |] === greeting
   ]
 
 testBasicExpressions :: TestTree
 testBasicExpressions = testGroup "Basic expressions"
   [ testCase "Can query fields on namespaced object" $
-      [get| (Tests.GetQQ.TH.testData).foo |] @?= [get| testData.foo |]
+      [runGet| (Tests.GetQQ.TH.testData).foo |] @?= [runGet| testData.foo |]
 
   , testProperty "Can query nested fields" $ \x ->
       let o = $(parseObject "{ foo: { bar: Int } }") [aesonQQ| { "foo": { "bar": #{x} } } |]
-      in [get| o.foo.bar |] === x
+      in [runGet| o.foo.bar |] === x
 
   , testProperty "Can generate a lambda expression" $ \x ->
       let o = $(parseObject "{ foo: Int }") [aesonQQ| { "foo": #{x} } |]
-      in [get| .foo |] o === x
+      in [runGet| .foo |] o === x
 
   , testProperty "Can extract a list of elements" $ \x y bar ->
       let o = $(parseObject "{ x: Int, y: Int, foo: { bar: Int } }") [aesonQQ|
@@ -108,7 +108,7 @@ testBasicExpressions = testGroup "Basic expressions"
               "foo": { "bar": #{bar} }
             }
           |]
-      in [get| o.[x, y, x, foo.bar] |] === [x, y, x, bar]
+      in [runGet| o.[x, y, x, foo.bar] |] === [x, y, x, bar]
 
   , testProperty "Can extract a tuple of elements" $ \x b bar ->
       let o = $(parseObject "{ x: Int, b: Bool, foo: { bar: Int } }") [aesonQQ|
@@ -118,27 +118,27 @@ testBasicExpressions = testGroup "Basic expressions"
               "foo": { "bar": #{bar} }
             }
           |]
-      in [get| o.(x,b,x,foo.bar) |] === (x, b, x, bar)
+      in [runGet| o.(x,b,x,foo.bar) |] === (x, b, x, bar)
   ]
 
 testNullableExpressions :: TestTree
 testNullableExpressions = testGroup "Nullable expressions"
   [ testCase "Get Maybe key from object with value" $ do
       let o = $(parseObject "{ foo: Maybe Bool }") [aesonQQ| { "foo": true } |]
-      [get| o.foo |] @?= Just True
-      [get| o.foo! |] @?= True
+      [runGet| o.foo |] @?= Just True
+      [runGet| o.foo! |] @?= True
 
   , testCase "Get Maybe key from object with null value" $
       let o = $(parseObject "{ foo: Maybe Bool }") [aesonQQ| { "foo": null } |]
-      in [get| o.foo |] @?= Nothing
+      in [runGet| o.foo |] @?= Nothing
 
   , testCase "Get Maybe key from object without value" $
       let o = $(parseObject "{ foo: Maybe Bool }") [aesonQQ| {} |]
-      in [get| o.foo |] @?= Nothing
+      in [runGet| o.foo |] @?= Nothing
 
   , testCase "Unwrapping a nonexistent value fails" $
       let o = $(parseObject "{ foo: Maybe Bool }") [aesonQQ| { "foo": null } |]
-      in try @SomeException ([get| o.foo! |] `seq` pure ()) >>= \case
+      in try @SomeException ([runGet| o.foo! |] `seq` pure ()) >>= \case
         Right _ -> error "Unexpectedly succeeded"
         Left e -> (head . lines . show) e @?= "Called 'fromJust' on null expression: o.foo"
 
@@ -152,11 +152,11 @@ testNullableExpressions = testGroup "Nullable expressions"
               ]
             }
           |]
-      in [get| o.foo?[].bar |] @?= Just [True, True, False]
+      in [runGet| o.foo?[].bar |] @?= Just [True, True, False]
 
   , testCase "Can run operations within nonexisting Maybe value" $
       let o = $(parseObject "{ foo: Maybe List { bar: Bool } }") [aesonQQ| { "foo": null } |]
-      in [get| o.foo?[].bar |] @?= Nothing
+      in [runGet| o.foo?[].bar |] @?= Nothing
 
   , testCase "Can run operations after unwrapping Maybe value" $
       let o = $(parseObject "{ foo: Maybe List { bar: Bool } }") [aesonQQ|
@@ -168,16 +168,16 @@ testNullableExpressions = testGroup "Nullable expressions"
               ]
             }
           |]
-      in [get| o.foo![].bar |] @?= [True, True, False]
+      in [runGet| o.foo![].bar |] @?= [True, True, False]
 
   , testCase "Get Try key from object with parsed value" $ do
       let o = $(parseObject "{ foo: Try Bool }") [aesonQQ| { "foo": true } |]
-      [get| o.foo |] @?= Just True
-      [get| o.foo! |] @?= True
+      [runGet| o.foo |] @?= Just True
+      [runGet| o.foo! |] @?= True
 
   , testCase "Get Try key from object with invalid value" $
       let o = $(parseObject "{ foo: Try Bool }") [aesonQQ| { "foo": 1 } |]
-      in [get| o.foo |] @?= Nothing
+      in [runGet| o.foo |] @?= Nothing
 
   , testCase "Can run operations within parsed Try value" $
       let o = $(parseObject "{ foo: Try List { bar: Bool } }") [aesonQQ|
@@ -189,11 +189,11 @@ testNullableExpressions = testGroup "Nullable expressions"
               ]
             }
           |]
-      in [get| o.foo?[].bar |] @?= Just [True, True, False]
+      in [runGet| o.foo?[].bar |] @?= Just [True, True, False]
 
   , testCase "Can run operations within invalid Try value" $
       let o = $(parseObject "{ foo: Try List { bar: Bool } }") [aesonQQ| { "foo": [{ "baz": 1 }] } |]
-      in [get| o.foo?[].bar |] @?= Nothing
+      in [runGet| o.foo?[].bar |] @?= Nothing
 
   , testCase "Can run operations after unwrapping Try value" $
       let o = $(parseObject "{ foo: Try List { bar: Bool } }") [aesonQQ|
@@ -205,18 +205,18 @@ testNullableExpressions = testGroup "Nullable expressions"
               ]
             }
           |]
-      in [get| o.foo![].bar |] @?= [True, True, False]
+      in [runGet| o.foo![].bar |] @?= [True, True, False]
   ]
 
 testListExpressions :: TestTree
 testListExpressions = testGroup "List expressions"
   [ testCase "Get List key from object" $
       let o = $(parseObject "{ foo: List Int }") [aesonQQ| { "foo": [1,2,3] } |]
-      in [get| o.foo |] @?= [1,2,3]
+      in [runGet| o.foo |] @?= [1,2,3]
 
   , testProperty "Ending with a `[]` operator is a noop" $ \(xs :: [Int]) ->
       let o = $(parseObject "{ foo: List Int }") [aesonQQ| { "foo": #{xs} } |]
-      in [get| o.foo |] === [get| o.foo[] |]
+      in [runGet| o.foo |] === [runGet| o.foo[] |]
 
   , testCase "Can run operations within list" $
       let o = $(parseObject "{ foo: List Maybe { bar: Int } }") [aesonQQ|
@@ -229,55 +229,55 @@ testListExpressions = testGroup "List expressions"
               ]
             }
           |]
-      in [get| o.foo[]?.bar |] @?= [Just 1, Just 2, Nothing, Just 3]
+      in [runGet| o.foo[]?.bar |] @?= [Just 1, Just 2, Nothing, Just 3]
   ]
 
 testUnionExpressions :: TestTree
 testUnionExpressions = testGroup "Union expressions"
   [ testCase "Get Union key from object" $ do
       let o = $(parseObject "{ foo: Bool | Int }") [aesonQQ| { "foo": 1 } |]
-      [get| o.foo |] @?= There (Here 1)
-      [get| o.foo@0 |] @?= Nothing
-      [get| o.foo@1 |] @?= Just 1
+      [runGet| o.foo |] @?= There (Here 1)
+      [runGet| o.foo@0 |] @?= Nothing
+      [runGet| o.foo@1 |] @?= Just 1
 
   , testCase "Can run operations after extracting branch" $ do
       let o = $(parseObject "{ foo: { bar: Bool } | { baz: Int } }") [aesonQQ| { "foo": { "bar": true } } |]
-      [get| o.foo@0?.bar |] @?= Just True
-      [get| o.foo@0!.bar |] @?= True
-      [get| o.foo@1?.baz |] @?= Nothing
+      [runGet| o.foo@0?.bar |] @?= Just True
+      [runGet| o.foo@0!.bar |] @?= True
+      [runGet| o.foo@1?.baz |] @?= Nothing
   ]
 
 testPhantomExpressions :: TestTree
 testPhantomExpressions = testGroup "Phantom expressions"
   [ testProperty "Get Phantom key from object" $ \x ->
       let o = $(parseObject "{ [foo]: { bar: Int } }") [aesonQQ| { "bar": #{x} } |]
-      in [get| o.foo.bar |] === x
+      in [runGet| o.foo.bar |] === x
   ]
 
 testNestedExpressions :: TestTree
 testNestedExpressions = testGroup "Nested expressions"
   [ testProperty "Extracted object from Object can be queried further" $ \x ->
       let o = $(parseObject "{ foo: { bar: Int } }") [aesonQQ| { "foo": { "bar": #{x} } } |]
-          foo = [get| o.foo |]
-      in [get| foo.bar |] === x
+          foo = [runGet| o.foo |]
+      in [runGet| foo.bar |] === x
 
   , testProperty "Extracted object from Maybe can be queried further" $ \x ->
       let o = $(parseObject "{ foo: Maybe { bar: Int } }") [aesonQQ| { "foo": { "bar": #{x} } } |]
-          foo = [get| o.foo! |]
-      in [get| foo.bar |] === x
+          foo = [runGet| o.foo! |]
+      in [runGet| foo.bar |] === x
 
   , testProperty "Extracted object from Try can be queried further" $ \x ->
       let o = $(parseObject "{ foo: Try { bar: Int } }") [aesonQQ| { "foo": { "bar": #{x} } } |]
-          foo = [get| o.foo! |]
-      in [get| foo.bar |] === x
+          foo = [runGet| o.foo! |]
+      in [runGet| foo.bar |] === x
 
   , testProperty "Extracted object from List can be queried further" $ \xs ->
       classify (length xs > 1) "non-trivial" $
         let bars = map (\x -> [aesonQQ| { "bar": #{x} } |]) xs
             o = $(parseObject "{ foo: List { bar: Int } }") [aesonQQ| { "foo": #{bars} } |]
             getBar :: Object [schema| { bar: Int } |] -> Int
-            getBar foo = [get| foo.bar |]
-        in map getBar [get| o.foo |] === xs
+            getBar foo = [runGet| foo.bar |]
+        in map getBar [runGet| o.foo |] === xs
 
   , testProperty "Extracted objects from list of keys can be queried further" $ \fooId barId ->
       let o = $(parseObject "{ foo: { id: Int }, bar: { id: Int } }") [aesonQQ|
@@ -287,8 +287,8 @@ testNestedExpressions = testGroup "Nested expressions"
             }
           |]
           getId :: Object [schema| { id: Int } |] -> Int
-          getId inner = [get| inner.id |]
-      in map getId [get| o.[foo, bar] |] === [fooId, barId]
+          getId inner = [runGet| inner.id |]
+      in map getId [runGet| o.[foo, bar] |] === [fooId, barId]
 
   , testProperty "Extracted objects from tuple of keys can be queried further" $ \a b ->
       let o = $(parseObject "{ foo: { a: Int }, bar: { b: Bool } }") [aesonQQ|
@@ -297,13 +297,13 @@ testNestedExpressions = testGroup "Nested expressions"
               "bar": { "b": #{b} }
             }
           |]
-          (foo, bar) = [get| o.(foo, bar) |]
-      in [get| foo.a |] === a .&&. [get| bar.b |] === b
+          (foo, bar) = [runGet| o.(foo, bar) |]
+      in [runGet| foo.a |] === a .&&. [runGet| bar.b |] === b
 
   , testProperty "Extracted objects from union can be queried further" $ \x ->
       let o = $(parseObject "{ foo: { x: Bool } | { x: Int } }") [aesonQQ| { "foo": { "x": #{x} } } |]
-      in case [get| o.foo |] of
-        There (Here foo) -> [get| foo.x |] === x
+      in case [runGet| o.foo |] of
+        There (Here foo) -> [runGet| foo.x |] === x
         foo -> error $ "Unexpected failure: o.foo = " ++ show foo ++ ", x = " ++ show x
   ]
 

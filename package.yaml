@@ -60,6 +60,7 @@ tests:
     dependencies:
       - aeson-schemas
       - aeson-qq
+      - mtl
       - interpolate
       - QuickCheck
       - raw-strings-qq
@@ -67,3 +68,4 @@ tests:
       - tasty-hunit
       - tasty-quickcheck
       - th-test-utils
+      - time
