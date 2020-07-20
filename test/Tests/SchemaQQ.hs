@@ -128,25 +128,25 @@ testValidSchemas = testGroup "Valid schemas"
 testInvalidSchemas :: TestTree
 testInvalidSchemas = testGroup "Invalid schemas"
   [ testCase "Object with a duplicate key" $
-      $(getSchemaQQErr "{ a: Int, a: Bool }") @?= "Key 'a' specified multiple times"
+      [schemaErr| { a: Int, a: Bool } |] @?= "Key 'a' specified multiple times"
 
   , testCase "Object with a duplicate phantom key" $
-      $(getSchemaQQErr "{ a: Int, [a]: { b: Bool } }") @?= "Key 'a' specified multiple times"
+      [schemaErr| { a: Int, [a]: { b: Bool } } |] @?= "Key 'a' specified multiple times"
 
   , testCase "Object with a duplicate key from extending" $
-      $(getSchemaQQErr "{ #ExtraSchema, #ExtraSchema2 }") @?= "Key 'extra' declared in multiple imported schemas"
+      [schemaErr| { #ExtraSchema, #ExtraSchema2 } |] @?= "Key 'extra' declared in multiple imported schemas"
 
   , testCase "Quasiquoter defining a non-object" $
-      $(getSchemaQQErr "List { a: Int }") @?= "`schema` definition must be an object"
+      [schemaErr| List { a: Int } |] @?= "`schema` definition must be an object"
 
   , testCase "Object with a field with an unknown type" $
-      $(getSchemaQQErr "{ a: HelloWorld }") @?= "Unknown type: HelloWorld"
+      [schemaErr| { a: HelloWorld } |] @?= "Unknown type: HelloWorld"
 
   , testCase "Object extending a non-schema" $
-      $(getSchemaQQErr "{ #Int }") @?= "'GHC.Types.Int' is not a Schema"
+      [schemaErr| { #Int } |] @?= "'GHC.Types.Int' is not a Schema"
 
   , testCase "Object with a phantom key for a non-object" $
-      $(getSchemaQQErr "{ [a]: Int }") @?= "Invalid schema for 'a': SchemaInt"
+      [schemaErr| { [a]: Int } |] @?= "Invalid schema for 'a': SchemaInt"
   ]
 
 {- Helpers -}
