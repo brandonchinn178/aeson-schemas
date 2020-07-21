@@ -6,12 +6,16 @@ module Tests.UnwrapQQ.TH
   , module Tests.UnwrapQQ.Types
   ) where
 
-import Language.Haskell.TH (ExpQ)
-import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
+import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.TestUtils (tryQErr')
 
 import Data.Aeson.Schema (unwrap)
 import Tests.UnwrapQQ.Types
 
-getUnwrapQQErr :: String -> ExpQ
-getUnwrapQQErr = tryQErr' . quoteType unwrap
+unwrapErr :: QuasiQuoter
+unwrapErr = QuasiQuoter
+  { quoteExp = tryQErr' . quoteType unwrap
+  , quoteDec = error "Cannot use `unwrapErr` for Dec"
+  , quoteType = error "Cannot use `unwrapErr` for Type"
+  , quotePat = error "Cannot use `unwrapErr` for Pat"
+  }

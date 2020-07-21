@@ -3,7 +3,6 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Tests.UnwrapQQ where
@@ -64,20 +63,20 @@ testValidUnwrapDefs = testGroup "Valid unwrap definitions"
 testInvalidUnwrapDefs :: TestTree
 testInvalidUnwrapDefs = testGroup "Invalid unwrap definitions"
   [ testCase "Unwrap maybe on non-maybe" $ do
-      $(getUnwrapQQErr "ListSchema.ids!") @?= "Cannot use `!` operator on schema: SchemaList Int"
-      $(getUnwrapQQErr "ListSchema.ids?") @?= "Cannot use `?` operator on schema: SchemaList Int"
+      [unwrapErr| ListSchema.ids! |] @?= "Cannot use `!` operator on schema: SchemaList Int"
+      [unwrapErr| ListSchema.ids? |] @?= "Cannot use `?` operator on schema: SchemaList Int"
 
   , testCase "Unwrap list on non-list" $
-      $(getUnwrapQQErr "MaybeSchema.class[]") @?= "Cannot use `[]` operator on schema: SchemaMaybe Text"
+      [unwrapErr| MaybeSchema.class[] |] @?= "Cannot use `[]` operator on schema: SchemaMaybe Text"
 
   , testCase "Unwrap nonexistent key" $
-      $(getUnwrapQQErr "ListSchema.foo") @?= [r|Key 'foo' does not exist in schema: SchemaObject {"ids": List Int}|]
+      [unwrapErr| ListSchema.foo |] @?= [r|Key 'foo' does not exist in schema: SchemaObject {"ids": List Int}|]
 
   , testCase "Unwrap branch on non-branch" $
-      $(getUnwrapQQErr "MaybeSchema.class@0") @?= "Cannot use `@` operator on schema: SchemaMaybe Text"
+      [unwrapErr| MaybeSchema.class@0 |] @?= "Cannot use `@` operator on schema: SchemaMaybe Text"
 
   , testCase "Unwrap out of bounds branch" $
-      $(getUnwrapQQErr "SumSchema.verbosity@10") @?= "Branch out of bounds for schema: SchemaUnion ( Int | Bool )"
+      [unwrapErr| SumSchema.verbosity@10 |] @?= "Branch out of bounds for schema: SchemaUnion ( Int | Bool )"
   ]
 
 assertSchemaResultMatches :: forall schema. ShowSchemaResult schema => String -> Assertion
