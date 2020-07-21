@@ -2,20 +2,40 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Tests.UnwrapQQ.TH
-  ( module Tests.UnwrapQQ.TH
-  , module Tests.UnwrapQQ.Types
-  ) where
+module Tests.UnwrapQQ.TH where
 
 import Control.DeepSeq (deepseq)
 import Language.Haskell.TH (appTypeE)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema (unwrap)
-import Tests.UnwrapQQ.Types
+import Data.Aeson.Schema (Object, schema, unwrap)
 import TestUtils (ShowSchemaResult(..), mkExpQQ)
 import TestUtils.DeepSeq ()
 import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, runMockQErr)
+
+type ListSchema = [schema| { ids: List Int } |]
+type MaybeSchema = [schema| { class: Maybe Text } |]
+type SumSchema = [schema| { verbosity: Int | Bool } |]
+type ABCSchema = [schema|
+  {
+    a: Bool,
+    b: Bool,
+    c: Double,
+  }
+|]
+
+type MySchema = [schema|
+  {
+    users: List {
+      name: Text,
+    },
+  }
+|]
+
+type MySchemaResult = Object MySchema
+
+-- Compile above types before reifying
+$(return [])
 
 mockQ :: MockQ
 mockQ = emptyMockQ

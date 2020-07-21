@@ -1,20 +1,30 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Tests.SchemaQQ.TH
-  ( module Tests.SchemaQQ.TH
-  , module Tests.SchemaQQ.Types
-  ) where
+module Tests.SchemaQQ.TH where
 
 import Control.DeepSeq (deepseq)
+import Data.Aeson (FromJSON)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema (schema)
 import Data.Aeson.Schema.Internal (ToSchemaObject, showSchemaType)
-import Tests.SchemaQQ.Types
 import TestUtils (mkExpQQ)
 import TestUtils.DeepSeq ()
 import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, runMockQErr)
+
+type UserSchema = [schema| { name: Text } |]
+type ExtraSchema = [schema| { extra: Text } |]
+type ExtraSchema2 = [schema| { extra: Maybe Text } |]
+
+newtype Status = Status Int
+  deriving (Show,FromJSON)
+
+-- Compile above types before reifying
+$(return [])
 
 mockQ :: MockQ
 mockQ = emptyMockQ
