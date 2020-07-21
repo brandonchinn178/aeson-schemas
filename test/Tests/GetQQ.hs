@@ -14,7 +14,6 @@ module Tests.GetQQ where
 import Control.Exception (SomeException, try)
 import Data.Aeson (FromJSON(..), ToJSON(..), withText)
 import Data.Aeson.QQ (aesonQQ)
-import Data.Either (isLeft)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Test.Tasty
@@ -310,16 +309,19 @@ testNestedExpressions = testGroup "Nested expressions"
 testInvalidExpressions :: TestTree
 testInvalidExpressions = testGroup "Invalid expressions"
   [ testCase "Empty expression" $
-      assertError $(tryGetQQ "")
+      assertErrorContains "unexpected end of input" [getErr| |]
   , testCase "No operators" $
-      assertError $(tryGetQQ "o")
+      assertErrorContains "unexpected space" [getErr| o |]
   , testCase "Operators after tuple of keys" $
       [getErr| o.(a,b).foo |] @?= ".(*) operation MUST be last."
   , testCase "Operators after list of keys" $
       [getErr| o.[a,b].foo |] @?= ".[*] operation MUST be last."
   ]
   where
-    assertError = assertBool "did not error" . isLeft
+    assertErrorContains msg e =
+      if msg `Text.isInfixOf` Text.pack e
+        then return ()
+        else assertFailure $ "incorrect error message: " ++ e
 
 {- Helpers -}
 
