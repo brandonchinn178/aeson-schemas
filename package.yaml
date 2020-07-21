@@ -61,7 +61,6 @@ tests:
       - aeson-schemas
       - aeson-qq
       - deepseq
-      - mtl
       - interpolate
       - QuickCheck
       - raw-strings-qq
@@ -70,3 +69,4 @@ tests:
       - tasty-quickcheck
       - th-orphans
       - time
+      - transformers

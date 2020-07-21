@@ -11,7 +11,8 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Data.Aeson.Schema (Object, schema, unwrap)
 import TestUtils (ShowSchemaResult(..), mkExpQQ)
 import TestUtils.DeepSeq ()
-import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, runMockQErr)
+import TestUtils.TestQ
+    (MockedMode(..), QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
 type ListSchema = [schema| { ids: List Int } |]
 type MaybeSchema = [schema| { class: Maybe Text } |]
@@ -37,9 +38,10 @@ type MySchemaResult = Object MySchema
 -- Compile above types before reifying
 $(return [])
 
-mockQ :: MockQ
-mockQ = emptyMockQ
-  { knownNames =
+qState :: QState 'FullyMocked
+qState = QState
+  { mode = MockQ
+  , knownNames =
       [ ("ListSchema", ''ListSchema)
       , ("MaybeSchema", ''MaybeSchema)
       , ("SumSchema", ''SumSchema)
@@ -66,7 +68,7 @@ mockQ = emptyMockQ
 unwrapRep :: QuasiQuoter
 unwrapRep = mkExpQQ $ \s ->
   let showSchemaResultQ = appTypeE [| showSchemaResult |] (quoteType unwrap s)
-  in [| runMockQ mockQ (quoteType unwrap s) `deepseq` $showSchemaResultQ |]
+  in [| runTestQ qState (quoteType unwrap s) `deepseq` $showSchemaResultQ |]
 
 unwrapErr :: QuasiQuoter
-unwrapErr = mkExpQQ $ \s -> [| runMockQErr mockQ (quoteType unwrap s) |]
+unwrapErr = mkExpQQ $ \s -> [| runTestQErr qState (quoteType unwrap s) |]

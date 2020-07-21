@@ -17,7 +17,7 @@ import Text.RawString.QQ (r)
 import Data.Aeson.Schema (Object, get, mkGetter, schema)
 import TestUtils (json, showSchemaResult)
 import TestUtils.DeepSeq ()
-import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, runMockQErr)
+import TestUtils.TestQ (QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
 type MySchema = [schema| { users: List { name: Text } } |]
 
@@ -38,16 +38,18 @@ test = runMkGetterQ `deepseq` testGroup "`mkGetter` helper"
       in map getName users @?= ["Alice", "Bob", "Claire"]
 
   , testCase "mkGetter expression should be a lambda expression" $
-      let msg = runMockQErr mockQ $ mkGetter "User" "getUsers" ''MySchema "foo.users[]"
+      let msg = runTestQErr qState $ mkGetter "User" "getUsers" ''MySchema "foo.users[]"
       in msg @?= "Getter expression should start with '.': foo.users[]"
   ]
   where
-    mockQ = emptyMockQ
-      { reifyInfo = $(loadNames [''MySchema])
+    qState = QState
+      { mode = MockQ
+      , knownNames = []
+      , reifyInfo = $(loadNames [''MySchema])
       }
 
     -- run same mkGetter expression that was spliced, for coverage
-    runMkGetterQ = runMockQ mockQ $ mkGetter "User" "getUsers" ''MySchema ".users[]"
+    runMkGetterQ = runTestQ qState $ mkGetter "User" "getUsers" ''MySchema ".users[]"
 
 testData :: Object MySchema
 testData = [json|

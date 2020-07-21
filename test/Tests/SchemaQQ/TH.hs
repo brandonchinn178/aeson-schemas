@@ -14,7 +14,8 @@ import Data.Aeson.Schema (schema)
 import Data.Aeson.Schema.Internal (ToSchemaObject, showSchemaType)
 import TestUtils (mkExpQQ)
 import TestUtils.DeepSeq ()
-import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, runMockQErr)
+import TestUtils.TestQ
+    (MockedMode(..), QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
 type UserSchema = [schema| { name: Text } |]
 type ExtraSchema = [schema| { extra: Text } |]
@@ -26,9 +27,10 @@ newtype Status = Status Int
 -- Compile above types before reifying
 $(return [])
 
-mockQ :: MockQ
-mockQ = emptyMockQ
-  { knownNames =
+qState :: QState 'FullyMocked
+qState = QState
+  { mode = MockQ
+  , knownNames =
       [ ("Status", ''Status)
       , ("UserSchema", ''UserSchema)
       , ("ExtraSchema", ''ExtraSchema)
@@ -46,7 +48,7 @@ mockQ = emptyMockQ
 schemaRep :: QuasiQuoter
 schemaRep = mkExpQQ $ \s ->
   let schemaType = quoteType schema s
-  in [| runMockQ mockQ (quoteType schema s) `deepseq` showSchemaType @(ToSchemaObject $schemaType) |]
+  in [| runTestQ qState (quoteType schema s) `deepseq` showSchemaType @(ToSchemaObject $schemaType) |]
 
 schemaErr :: QuasiQuoter
-schemaErr = mkExpQQ $ \s -> [| runMockQErr mockQ (quoteType schema s) |]
+schemaErr = mkExpQQ $ \s -> [| runTestQErr qState (quoteType schema s) |]
