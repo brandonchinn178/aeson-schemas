@@ -71,7 +71,7 @@ jobs:
 
             # build hlint/stylish-haskell for cache
             if [[ -n "${CI_LATEST}" ]]; then
-                stack build hlint stylish-haskell
+                STACK_YAML=stack-ghc-8.8.yaml stack build -j1 hlint stylish-haskell
             fi
       - save_cache:
           key: *cache_key
