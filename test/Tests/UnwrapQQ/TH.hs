@@ -13,7 +13,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Data.Aeson.Schema (unwrap)
 import Tests.UnwrapQQ.Types
 import TestUtils (ShowSchemaResult(..), mkExpQQ)
-import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, tryMockQ)
+import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, runMockQErr)
 
 mockQ :: MockQ
 mockQ = emptyMockQ
@@ -47,8 +47,4 @@ unwrapRep = mkExpQQ $ \s ->
   in [| runMockQ mockQ (quoteType unwrap s) `seq` $showSchemaResultQ |]
 
 unwrapErr :: QuasiQuoter
-unwrapErr = mkExpQQ $ \s -> [|
-      case tryMockQ mockQ (quoteType unwrap s) of
-        Right a -> error $ "Unexpected success: " ++ show a
-        Left e -> e
-    |]
+unwrapErr = mkExpQQ $ \s -> [| runMockQErr mockQ (quoteType unwrap s) |]

@@ -7,6 +7,7 @@
 module TestUtils.MockQ
   ( MockQ(..)
   , runMockQ
+  , runMockQErr
   , tryMockQ
   , emptyMockQ
   , loadNames
@@ -53,6 +54,11 @@ loadNames names = listE $ flip map names $ \name -> do
 
 runMockQ :: MockQ -> Q a -> a
 runMockQ mockQ = either error id . tryMockQ mockQ
+
+runMockQErr :: Show a => MockQ -> Q a -> String
+runMockQErr mockQ = either id (error . mkMsg) . tryMockQ mockQ
+  where
+    mkMsg a = "Unexpected success: " ++ show a
 
 tryMockQ :: MockQ -> Q a -> Either String a
 tryMockQ mockQ = runIdentity . runMockQMonad . runQ
