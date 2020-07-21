@@ -10,9 +10,9 @@ type MaybeSchema = [schema| { class: Maybe Text } |]
 type SumSchema = [schema| { verbosity: Int | Bool } |]
 type ABCSchema = [schema|
   {
-    a: Int,
-    b: Int,
-    c: Bool,
+    a: Bool,
+    b: Bool,
+    c: Double,
   }
 |]
 

@@ -28,10 +28,10 @@ testValidUnwrapDefs = testGroup "Valid unwrap definitions"
       [unwrapRep| ListSchema.ids[] |] @?= "Int"
 
   , testCase "Can unwrap a list of keys" $
-      [unwrapRep| ABCSchema.[a, b] |] @?= "[Int]"
+      [unwrapRep| ABCSchema.[a, b] |] @?= "[Bool]"
 
   , testCase "Can unwrap a tuple of keys" $
-      [unwrapRep| ABCSchema.(a, b, c) |] @?= "(Int,Int,Bool)"
+      [unwrapRep| ABCSchema.(a, b, c) |] @?= "(Bool,Bool,Double)"
 
   , testCase "Can unwrap a maybe" $ do
       [unwrapRep| MaybeSchema.class |] @?= "Maybe Text"
@@ -91,7 +91,7 @@ testInvalidUnwrapDefs = testGroup "Invalid unwrap definitions"
       [unwrapErr| ListSchema.foo |] @?= [r|Key 'foo' does not exist in schema: SchemaObject {"ids": List Int}|]
 
   , testCase "Unwrap list of keys with different types" $
-      [unwrapErr| ABCSchema.[a,b,c] |] @?= [r|List contains different types with schema: SchemaObject {"a": Int, "b": Int, "c": Bool}|]
+      [unwrapErr| ABCSchema.[a,b,c] |] @?= [r|List contains different types with schema: SchemaObject {"a": Bool, "b": Bool, "c": Double}|]
 
   , testCase "Unwrap list of keys on non-object schema" $
       [unwrapErr| ListSchema.ids.[a,b] |] @?= "Cannot get keys in schema: SchemaList Int"

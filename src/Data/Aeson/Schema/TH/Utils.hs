@@ -16,7 +16,6 @@ module Data.Aeson.Schema.TH.Utils where
 import Control.Monad ((>=>))
 import Data.Bifunctor (bimap, first, second)
 import Data.List (intercalate)
-import Data.Text (Text)
 import GHC.Stack (HasCallStack)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (Lift)
@@ -128,7 +127,7 @@ unwrapType keepFunctor getterOps schemaType =
     AppT (PromotedT ty) inner | ty == 'Schema -> go (AppT (PromotedT 'SchemaObject) inner) getterOps
     ty -> fail $ "Tried to unwrap something that wasn't a Schema: " ++ show ty
   where
-    go schema [] = fromSchemaType schema
+    go schema [] = [t| SchemaResult $(pure schema) |]
     go schema (op:ops) = case schema of
       AppT (PromotedT ty) inner ->
         case op of
@@ -166,23 +165,6 @@ unwrapType keepFunctor getterOps schemaType =
       _ -> fail $ unlines ["Cannot get type:", show schema, show op]
 
     withFunctor f = if keepFunctor then appT f else id
-
-    fromSchemaType schema = case schema of
-      AppT (PromotedT ty) inner
-        | ty == 'SchemaCustom -> [t| SchemaResult $(pure schema) |]
-        | ty == 'SchemaMaybe -> [t| Maybe $(fromSchemaType inner) |]
-        | ty == 'SchemaTry -> [t| Maybe $(fromSchemaType inner) |]
-        | ty == 'SchemaList -> [t| [$(fromSchemaType inner)] |]
-        | ty == 'SchemaObject -> [t| Object ('Schema $(pure inner)) |]
-        | ty == 'SchemaUnion -> [t| SchemaResult $(pure schema) |]
-      PromotedT ty
-        | ty == 'SchemaBool -> [t| Bool |]
-        | ty == 'SchemaInt -> [t| Int |]
-        | ty == 'SchemaDouble -> [t| Double |]
-        | ty == 'SchemaText -> [t| Text |]
-      AppT t1 t2 -> appT (fromSchemaType t1) (fromSchemaType t2)
-      TupleT _ -> pure schema
-      _ -> fail $ "Could not convert schema: " ++ show schema
 
 {- GetterOps -}
 
