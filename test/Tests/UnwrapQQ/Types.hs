@@ -3,11 +3,18 @@
 
 module Tests.UnwrapQQ.Types where
 
-import Data.Aeson.Schema (schema)
+import Data.Aeson.Schema (Object, schema)
 
 type ListSchema = [schema| { ids: List Int } |]
 type MaybeSchema = [schema| { class: Maybe Text } |]
 type SumSchema = [schema| { verbosity: Int | Bool } |]
+type ABCSchema = [schema|
+  {
+    a: Int,
+    b: Int,
+    c: Bool,
+  }
+|]
 
 type MySchema = [schema|
   {
@@ -16,3 +23,5 @@ type MySchema = [schema|
     },
   }
 |]
+
+type MySchemaResult = Object MySchema

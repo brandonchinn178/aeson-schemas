@@ -108,6 +108,14 @@ reifySchema = reify >=> \case
     , AppT (PromotedT name) _ <- ty
     , name == 'Schema
     -> pure $ stripSigs ty
+
+  -- also reify (Object schema)
+  TyConI (TySynD _ _ tyWithSigs)
+    | ty <- stripSigs tyWithSigs
+    , AppT (ConT name) (ConT schema) <- ty
+    , name == ''Object
+    -> reifySchema schema
+
   info -> fail $ "Unknown reified schema: " ++ show info
 
 -- | Unwrap the given type using the given getter operations.
@@ -134,7 +142,7 @@ unwrapType keepFunctor getterOps schemaType =
           GetterList elems | ty == 'SchemaObject -> do
             elemSchemas <- mapM (go schema) elems
             if all (== head elemSchemas) elemSchemas
-              then go (head elemSchemas) ops
+              then appT listT (pure $ head elemSchemas)
               else fail $ "List contains different types with schema: " ++ showSchemaType schema
           GetterList _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
           GetterTuple elems | ty == 'SchemaObject ->
@@ -155,9 +163,6 @@ unwrapType keepFunctor getterOps schemaType =
               else go (subTypes !! branch) ops
           GetterBranch _ -> fail $ "Cannot use `@` operator on schema: " ++ showSchemaType schema
 
-      -- allow starting from (Object schema)
-      AppT (ConT ty) inner | ty == ''Object -> go inner (op:ops)
-
       _ -> fail $ unlines ["Cannot get type:", show schema, show op]
 
     withFunctor f = if keepFunctor then appT f else id
@@ -177,7 +182,7 @@ unwrapType keepFunctor getterOps schemaType =
         | ty == 'SchemaText -> [t| Text |]
       AppT t1 t2 -> appT (fromSchemaType t1) (fromSchemaType t2)
       TupleT _ -> pure schema
-      _ -> fail $ "Could not convert schema: " ++ showSchemaType schema
+      _ -> fail $ "Could not convert schema: " ++ show schema
 
 {- GetterOps -}
 

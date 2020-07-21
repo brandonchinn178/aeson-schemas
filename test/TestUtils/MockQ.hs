@@ -6,9 +6,11 @@
 module TestUtils.MockQ
   ( MockQ(..)
   , runMockQ
+  , tryMockQ
   , emptyMockQ
   ) where
 
+import Control.Monad (when)
 import Control.Monad.Except
     (ExceptT, MonadError, catchError, runExceptT, throwError)
 #if !MIN_VERSION_base(4,13,0)
@@ -16,7 +18,9 @@ import Control.Monad.Fail (MonadFail(..))
 #endif
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
+import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
 import Data.Functor.Identity (Identity, runIdentity)
+import Data.Maybe (fromMaybe)
 import qualified Data.Time as Time
 import Language.Haskell.TH (Info, Name, Q, runQ)
 import Language.Haskell.TH.Instances ()
@@ -41,12 +45,24 @@ emptyMockQ = MockQ
   }
 
 runMockQ :: MockQ -> Q a -> a
-runMockQ mockQ = either error id . runIdentity . runMockQMonad . runQ
-  where
-    runMockQMonad = runExceptT . (`runReaderT` mockQ) . unMockQMonad
+runMockQ mockQ = either error id . tryMockQ mockQ
 
-newtype MockQMonad a = MockQMonad { unMockQMonad :: ReaderT MockQ (ExceptT String Identity) a }
-  deriving (Functor, Applicative, Monad, MonadReader MockQ, MonadError String)
+tryMockQ :: MockQ -> Q a -> Either String a
+tryMockQ mockQ = runIdentity . runMockQMonad . runQ
+  where
+    runMockQMonad = runExceptT . (`evalStateT` Nothing) . (`runReaderT` mockQ) . unMockQMonad
+
+newtype MockQMonad a = MockQMonad
+  { unMockQMonad
+      :: ReaderT MockQ
+          ( StateT (Maybe String) -- the last message sent to qReport
+              ( ExceptT String
+                  Identity
+              )
+          )
+          a
+  }
+  deriving (Functor, Applicative, Monad, MonadReader MockQ, MonadError String, MonadState (Maybe String))
 
 instance MonadIO MockQMonad where
   liftIO io = do
@@ -56,7 +72,11 @@ instance MonadIO MockQMonad where
       else error "IO actions not allowed"
 
 instance MonadFail MockQMonad where
-  fail = throwError
+  fail msg = do
+    -- The implementation of 'fail' for Q will send the message to qReport before calling 'fail'.
+    -- Check to see if qReport put any message in the state and throw that message if so.
+    lastMessage <- get
+    throwError $ fromMaybe msg lastMessage
 
 instance Quasi MockQMonad where
   qNewName name = return $ unsafePerformIO $ do
@@ -75,7 +95,7 @@ instance Quasi MockQMonad where
       Nothing -> error $ "Cannot reify " ++ show name
 
   qRecover (MockQMonad handler) (MockQMonad action) = MockQMonad $ action `catchError` const handler
-  qReport b msg = unsafePerformIO (qReport b msg) `seq` return ()
+  qReport b msg = when b $ put (Just msg)
 
   qReifyFixity = error "Cannot run 'qReifyFixity' using runMockQ"
   qReifyInstances = error "Cannot run 'qReifyInstances' using runMockQ"
