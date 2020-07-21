@@ -105,7 +105,7 @@ instance Quasi MockQMonad where
     MockQ{reifyInfo} <- ask
     case lookup name reifyInfo of
       Just info -> return info
-      Nothing -> error $ "Cannot reify " ++ show name
+      Nothing -> error $ "Cannot reify " ++ show name ++ " (did you mean to add it to reifyInfo?)"
 
   qRecover (MockQMonad handler) (MockQMonad action) = MockQMonad $ action `catchError` const handler
   qReport b msg = when b $ put (Just msg)

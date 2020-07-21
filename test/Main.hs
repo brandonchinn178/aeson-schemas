@@ -2,7 +2,7 @@ import Test.Tasty (defaultMain, testGroup)
 
 import qualified Tests.EnumTH
 import qualified Tests.GetQQ
-import qualified Tests.MkGetterQQ
+import qualified Tests.MkGetter
 import qualified Tests.Object
 import qualified Tests.SchemaQQ
 import qualified Tests.SumType
@@ -14,7 +14,7 @@ main = defaultMain $ testGroup "aeson-schemas"
   , Tests.GetQQ.test
   , Tests.UnwrapQQ.test
   , Tests.SchemaQQ.test
-  , Tests.MkGetterQQ.test
+  , Tests.MkGetter.test
   , Tests.EnumTH.test
   , Tests.SumType.test
   ]
