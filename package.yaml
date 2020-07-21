@@ -67,5 +67,6 @@ tests:
       - tasty
       - tasty-hunit
       - tasty-quickcheck
+      - th-orphans
       - th-test-utils
       - time

@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
@@ -17,23 +18,32 @@ import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (MonadReader, ReaderT, ask, runReaderT)
 import Data.Functor.Identity (Identity, runIdentity)
 import qualified Data.Time as Time
-import Language.Haskell.TH (Q, runQ)
-import Language.Haskell.TH.Syntax (Quasi(..), mkNameU)
+import Language.Haskell.TH (Info, Name, Q, runQ)
+import Language.Haskell.TH.Instances ()
+import Language.Haskell.TH.Syntax (Lift, Quasi(..), mkNameU)
 import System.IO.Unsafe (unsafePerformIO)
 
 -- | An implementation of Quasi.
 data MockQ = MockQ
   { runIOUnsafe :: Bool
     -- ^ If True, run IO actions in unsafePerformIO. Otherwise, IO actions are forbidden.
-  }
+  , knownNames  :: [(String, Name)]
+    -- ^ Names that can be looked up with `lookupName`/`lookupTypeName`/`lookupValueName`
+  , reifyInfo   :: [(Name, Info)]
+    -- ^ Info for Names that can be reified
+  } deriving (Lift)
 
 emptyMockQ :: MockQ
 emptyMockQ = MockQ
   { runIOUnsafe = False
+  , knownNames = []
+  , reifyInfo = []
   }
 
-runMockQ :: MockQ -> Q a -> Either String a
-runMockQ mockQ = runIdentity . runExceptT . (`runReaderT` mockQ) . unMockQMonad . runQ
+runMockQ :: MockQ -> Q a -> a
+runMockQ mockQ = either error id . runIdentity . runMockQMonad . runQ
+  where
+    runMockQMonad = runExceptT . (`runReaderT` mockQ) . unMockQMonad
 
 newtype MockQMonad a = MockQMonad { unMockQMonad :: ReaderT MockQ (ExceptT String Identity) a }
   deriving (Functor, Applicative, Monad, MonadReader MockQ, MonadError String)
@@ -54,11 +64,19 @@ instance Quasi MockQMonad where
     let n = Time.toModifiedJulianDay day + Time.diffTimeToPicoseconds time
     return $ mkNameU name $ fromInteger n
 
+  qLookupName _ name = do
+    MockQ{knownNames} <- ask
+    return $ lookup name knownNames
+
+  qReify name = do
+    MockQ{reifyInfo} <- ask
+    case lookup name reifyInfo of
+      Just info -> return info
+      Nothing -> error $ "Cannot reify " ++ show name
+
   qRecover (MockQMonad handler) (MockQMonad action) = MockQMonad $ action `catchError` const handler
   qReport b msg = unsafePerformIO (qReport b msg) `seq` return ()
 
-  qLookupName = error "Cannot run 'qLookupName' using runMockQ"
-  qReify = error "Cannot run 'qReify' using runMockQ"
   qReifyFixity = error "Cannot run 'qReifyFixity' using runMockQ"
   qReifyInstances = error "Cannot run 'qReifyInstances' using runMockQ"
   qReifyRoles = error "Cannot run 'qReifyRoles' using runMockQ"
