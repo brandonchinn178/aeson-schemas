@@ -7,13 +7,26 @@ module Tests.SchemaQQ.TH
   ) where
 
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
-import Language.Haskell.TH.TestUtils (tryQErr')
 
 import Data.Aeson.Schema (schema)
 import Data.Aeson.Schema.Internal (ToSchemaObject, showSchemaType)
 import Tests.SchemaQQ.Types
 import TestUtils (mkExpQQ)
-import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ)
+import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, runMockQErr)
+
+mockQ :: MockQ
+mockQ = emptyMockQ
+  { knownNames =
+      [ ("Status", ''Status)
+      , ("UserSchema", ''UserSchema)
+      , ("ExtraSchema", ''ExtraSchema)
+      , ("ExtraSchema2", ''ExtraSchema2)
+      , ("Tests.SchemaQQ.TH.UserSchema", ''UserSchema)
+      , ("Tests.SchemaQQ.TH.ExtraSchema", ''ExtraSchema)
+      , ("Int", ''Int)
+      ]
+  , reifyInfo = $(loadNames [''ExtraSchema, ''ExtraSchema2, ''Int])
+  }
 
 -- | A quasiquoter for generating the string representation of a schema.
 --
@@ -21,18 +34,7 @@ import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ)
 schemaRep :: QuasiQuoter
 schemaRep = mkExpQQ $ \s ->
   let schemaType = quoteType schema s
-      mockQ = emptyMockQ
-        { knownNames =
-            [ ("Status", ''Status)
-            , ("UserSchema", ''UserSchema)
-            , ("ExtraSchema", ''ExtraSchema)
-            , ("ExtraSchema2", ''ExtraSchema2)
-            , ("Tests.SchemaQQ.TH.UserSchema", ''UserSchema)
-            , ("Tests.SchemaQQ.TH.ExtraSchema", ''ExtraSchema)
-            ]
-        , reifyInfo = $(loadNames [''ExtraSchema])
-        }
   in [| runMockQ mockQ (quoteType schema s) `seq` showSchemaType @(ToSchemaObject $schemaType) |]
 
 schemaErr :: QuasiQuoter
-schemaErr = mkExpQQ $ \s -> [| $(tryQErr' $ quoteType schema s) :: String |]
+schemaErr = mkExpQQ $ \s -> [| runMockQErr mockQ (quoteType schema s) |]

@@ -7,11 +7,11 @@ module Tests.GetQQ.TH where
 import Data.Aeson.QQ (aesonQQ)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
-import Language.Haskell.TH.TestUtils (tryQ, tryQErr')
+import Language.Haskell.TH.TestUtils (tryQ)
 
 import Data.Aeson.Schema (Object, get, schema)
 import TestUtils (mkExpQQ, parseValue)
-import TestUtils.MockQ (emptyMockQ, runMockQ)
+import TestUtils.MockQ (emptyMockQ, runMockQ, runMockQErr)
 
 -- For testing namespaced object
 testData :: Object [schema| { foo: Int } |]
@@ -27,4 +27,4 @@ runGet :: QuasiQuoter
 runGet = mkExpQQ $ \s -> [| runMockQ emptyMockQ (quoteExp get s) `seq` $(quoteExp get s) |]
 
 getErr :: QuasiQuoter
-getErr = mkExpQQ $ \s -> [| $(tryQErr' $ quoteExp get s) :: String |]
+getErr = mkExpQQ $ \s -> [| runMockQErr emptyMockQ (quoteExp get s) |]
