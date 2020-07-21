@@ -12,7 +12,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema (unwrap)
 import Tests.UnwrapQQ.Types
-import TestUtils (ShowSchemaResult(..))
+import TestUtils (ShowSchemaResult(..), mkExpQQ)
 import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, tryMockQ)
 
 mockQ :: MockQ
@@ -42,23 +42,13 @@ mockQ = emptyMockQ
 --
 -- Also runs the `unwrap` quasiquoter at runtime, to get coverage information.
 unwrapRep :: QuasiQuoter
-unwrapRep = QuasiQuoter
-  { quoteExp = \s ->
-      let showSchemaResultQ = appTypeE [| showSchemaResult |] (quoteType unwrap s)
-      in [| runMockQ mockQ (quoteType unwrap s) `seq` $showSchemaResultQ |]
-  , quoteDec = error "Cannot use `unwrapRep` for Dec"
-  , quoteType = error "Cannot use `unwrapRep` for Type"
-  , quotePat = error "Cannot use `unwrapRep` for Pat"
-  }
+unwrapRep = mkExpQQ $ \s ->
+  let showSchemaResultQ = appTypeE [| showSchemaResult |] (quoteType unwrap s)
+  in [| runMockQ mockQ (quoteType unwrap s) `seq` $showSchemaResultQ |]
 
 unwrapErr :: QuasiQuoter
-unwrapErr = QuasiQuoter
-  { quoteExp = \s -> [|
+unwrapErr = mkExpQQ $ \s -> [|
       case tryMockQ mockQ (quoteType unwrap s) of
         Right a -> error $ "Unexpected success: " ++ show a
         Left e -> e
     |]
-  , quoteDec = error "Cannot use `unwrapErr` for Dec"
-  , quoteType = error "Cannot use `unwrapErr` for Type"
-  , quotePat = error "Cannot use `unwrapErr` for Pat"
-  }

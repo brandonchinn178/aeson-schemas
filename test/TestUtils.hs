@@ -11,6 +11,7 @@ module TestUtils
   , json
   , parseValue
   , parseObject
+  , mkExpQQ
   ) where
 
 import Data.Aeson (FromJSON(..), Value, eitherDecode)
@@ -20,7 +21,6 @@ import Data.String (fromString)
 import Data.Typeable (Typeable, typeRep)
 import Language.Haskell.TH (ExpQ)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
-import Language.Haskell.TH.Syntax (lift)
 
 import Data.Aeson.Schema (Object, schema)
 import qualified Data.Aeson.Schema.Internal as Internal
@@ -42,12 +42,7 @@ instance {-# OVERLAPPABLE #-} Typeable a => ShowSchemaResult a where
 {- Loading JSON data -}
 
 json :: QuasiQuoter
-json = QuasiQuoter
-  { quoteExp = \s -> [| (either error id . eitherDecode . fromString) $(lift s) |]
-  , quotePat = error "Cannot use the 'json' QuasiQuoter for patterns"
-  , quoteType = error "Cannot use the 'json' QuasiQuoter for types"
-  , quoteDec = error "Cannot use the 'json' QuasiQuoter for declarations"
-  }
+json = mkExpQQ $ \s -> [| (either error id . eitherDecode . fromString) s |]
 
 parseValue :: FromJSON a => Value -> a
 parseValue = either error id . parseEither parseJSON
@@ -56,3 +51,13 @@ parseObject :: String -> ExpQ
 parseObject schemaString = [| parseValue :: Value -> Object $schemaType |]
   where
     schemaType = quoteType schema schemaString
+
+{- QuasiQuotation -}
+
+mkExpQQ :: (String -> ExpQ) -> QuasiQuoter
+mkExpQQ f = QuasiQuoter
+  { quoteExp = f
+  , quotePat = error "Cannot use this QuasiQuoter for patterns"
+  , quoteType = error "Cannot use this QuasiQuoter for types"
+  , quoteDec = error "Cannot use this QuasiQuoter for declarations"
+  }

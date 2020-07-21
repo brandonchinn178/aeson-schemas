@@ -10,7 +10,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.TestUtils (tryQ, tryQErr')
 
 import Data.Aeson.Schema (Object, get, schema)
-import TestUtils (parseValue)
+import TestUtils (mkExpQQ, parseValue)
 import TestUtils.MockQ (emptyMockQ, runMockQ)
 
 -- For testing namespaced object
@@ -24,17 +24,7 @@ tryGetQQ = tryQ . quoteExp get
 --
 -- The `get` Quasiquoter doesn't reify anything, so this should work.
 runGet :: QuasiQuoter
-runGet = QuasiQuoter
-  { quoteExp = \s -> [| runMockQ emptyMockQ (quoteExp get s) `seq` $(quoteExp get s) |]
-  , quoteDec = error "Cannot use `runGet` for Dec"
-  , quoteType = error "Cannot use `runGet` for Type"
-  , quotePat = error "Cannot use `runGet` for Pat"
-  }
+runGet = mkExpQQ $ \s -> [| runMockQ emptyMockQ (quoteExp get s) `seq` $(quoteExp get s) |]
 
 getErr :: QuasiQuoter
-getErr = QuasiQuoter
-  { quoteExp = \s -> [| $(tryQErr' $ quoteExp get s) :: String |]
-  , quoteDec = error "Cannot use `getErr` for Dec"
-  , quoteType = error "Cannot use `getErr` for Type"
-  , quotePat = error "Cannot use `getErr` for Pat"
-  }
+getErr = mkExpQQ $ \s -> [| $(tryQErr' $ quoteExp get s) :: String |]
