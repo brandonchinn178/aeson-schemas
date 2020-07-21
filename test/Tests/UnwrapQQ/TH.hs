@@ -1,13 +1,13 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Tests.UnwrapQQ.TH
   ( module Tests.UnwrapQQ.TH
   , module Tests.UnwrapQQ.Types
   ) where
 
+import Language.Haskell.TH (appTypeE)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.Syntax (lift, reify)
 
@@ -43,7 +43,8 @@ mockQ = emptyMockQ
 unwrapRep :: QuasiQuoter
 unwrapRep = QuasiQuoter
   { quoteExp = \s ->
-      [| runMockQ mockQ (quoteType unwrap s) `seq` showSchemaResult @($(quoteType unwrap s)) |]
+      let showSchemaResultQ = appTypeE [| showSchemaResult |] (quoteType unwrap s)
+      in [| runMockQ mockQ (quoteType unwrap s) `seq` $showSchemaResultQ |]
   , quoteDec = error "Cannot use `unwrapRep` for Dec"
   , quoteType = error "Cannot use `unwrapRep` for Type"
   , quotePat = error "Cannot use `unwrapRep` for Pat"
