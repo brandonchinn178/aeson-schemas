@@ -2,12 +2,14 @@
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module TestUtils.MockQ
   ( MockQ(..)
   , runMockQ
   , tryMockQ
   , emptyMockQ
+  , loadNames
   ) where
 
 import Control.Monad (when)
@@ -22,9 +24,9 @@ import Control.Monad.State (MonadState, StateT, evalStateT, get, put)
 import Data.Functor.Identity (Identity, runIdentity)
 import Data.Maybe (fromMaybe)
 import qualified Data.Time as Time
-import Language.Haskell.TH (Info, Name, Q, runQ)
+import Language.Haskell.TH (ExpQ, Info, Name, Q, listE, reify, runQ)
 import Language.Haskell.TH.Instances ()
-import Language.Haskell.TH.Syntax (Lift, Quasi(..), mkNameU)
+import Language.Haskell.TH.Syntax (Lift(..), Quasi(..), mkNameU)
 import System.IO.Unsafe (unsafePerformIO)
 
 -- | An implementation of Quasi.
@@ -34,7 +36,7 @@ data MockQ = MockQ
   , knownNames  :: [(String, Name)]
     -- ^ Names that can be looked up with `lookupName`/`lookupTypeName`/`lookupValueName`
   , reifyInfo   :: [(Name, Info)]
-    -- ^ Info for Names that can be reified
+    -- ^ Info for Names that can be reified. Use `loadNames`.
   } deriving (Lift)
 
 emptyMockQ :: MockQ
@@ -43,6 +45,11 @@ emptyMockQ = MockQ
   , knownNames = []
   , reifyInfo = []
   }
+
+loadNames :: [Name] -> ExpQ
+loadNames names = listE $ flip map names $ \name -> do
+  info <- reify name
+  [| (name, info) |]
 
 runMockQ :: MockQ -> Q a -> a
 runMockQ mockQ = either error id . tryMockQ mockQ

@@ -7,13 +7,12 @@ module Tests.SchemaQQ.TH
   ) where
 
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
-import Language.Haskell.TH.Syntax (lift, reify)
 import Language.Haskell.TH.TestUtils (tryQErr')
 
 import Data.Aeson.Schema (schema)
 import Data.Aeson.Schema.Internal (ToSchemaObject, showSchemaType)
 import Tests.SchemaQQ.Types
-import TestUtils.MockQ (MockQ(..), emptyMockQ, runMockQ)
+import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ)
 
 -- | A quasiquoter for generating the string representation of a schema.
 --
@@ -31,9 +30,7 @@ schemaRep = QuasiQuoter
                 , ("Tests.SchemaQQ.TH.UserSchema", ''UserSchema)
                 , ("Tests.SchemaQQ.TH.ExtraSchema", ''ExtraSchema)
                 ]
-            , reifyInfo =
-                [ (''ExtraSchema, $(reify ''ExtraSchema >>= lift))
-                ]
+            , reifyInfo = $(loadNames [''ExtraSchema])
             }
       in [| runMockQ mockQ (quoteType schema s) `seq` showSchemaType @(ToSchemaObject $schemaType) |]
   , quoteDec = error "Cannot use `schemaRep` for Dec"

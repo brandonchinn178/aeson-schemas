@@ -9,12 +9,11 @@ module Tests.UnwrapQQ.TH
 
 import Language.Haskell.TH (appTypeE)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
-import Language.Haskell.TH.Syntax (lift, reify)
 
 import Data.Aeson.Schema (unwrap)
 import Tests.UnwrapQQ.Types
 import TestUtils (ShowSchemaResult(..))
-import TestUtils.MockQ (MockQ(..), emptyMockQ, runMockQ, tryMockQ)
+import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, tryMockQ)
 
 mockQ :: MockQ
 mockQ = emptyMockQ
@@ -26,15 +25,17 @@ mockQ = emptyMockQ
       , ("NotASchema", ''Maybe)
       , ("MySchemaResult", ''MySchemaResult)
       ]
-  , reifyInfo =
-      [ (''ListSchema, $(reify ''ListSchema >>= lift))
-      , (''MaybeSchema, $(reify ''MaybeSchema >>= lift))
-      , (''SumSchema, $(reify ''SumSchema >>= lift))
-      , (''ABCSchema, $(reify ''ABCSchema >>= lift))
-      , (''Maybe, $(reify ''Maybe >>= lift))
-      , (''MySchema, $(reify ''MySchema >>= lift))
-      , (''MySchemaResult, $(reify ''MySchemaResult >>= lift))
-      ]
+  , reifyInfo = $(
+      loadNames
+        [ ''ListSchema
+        , ''MaybeSchema
+        , ''SumSchema
+        , ''ABCSchema
+        , ''Maybe
+        , ''MySchema
+        , ''MySchemaResult
+        ]
+    )
   }
 
 -- | A quasiquoter for generating the string representation of an unwrapped schema.
