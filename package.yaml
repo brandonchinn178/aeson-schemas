@@ -60,6 +60,7 @@ tests:
     dependencies:
       - aeson-schemas
       - aeson-qq
+      - deepseq
       - mtl
       - interpolate
       - QuickCheck

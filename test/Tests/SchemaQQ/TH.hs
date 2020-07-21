@@ -6,12 +6,14 @@ module Tests.SchemaQQ.TH
   , module Tests.SchemaQQ.Types
   ) where
 
+import Control.DeepSeq (deepseq)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema (schema)
 import Data.Aeson.Schema.Internal (ToSchemaObject, showSchemaType)
 import Tests.SchemaQQ.Types
 import TestUtils (mkExpQQ)
+import TestUtils.DeepSeq ()
 import TestUtils.MockQ (MockQ(..), emptyMockQ, loadNames, runMockQ, runMockQErr)
 
 mockQ :: MockQ
@@ -34,7 +36,7 @@ mockQ = emptyMockQ
 schemaRep :: QuasiQuoter
 schemaRep = mkExpQQ $ \s ->
   let schemaType = quoteType schema s
-  in [| runMockQ mockQ (quoteType schema s) `seq` showSchemaType @(ToSchemaObject $schemaType) |]
+  in [| runMockQ mockQ (quoteType schema s) `deepseq` showSchemaType @(ToSchemaObject $schemaType) |]
 
 schemaErr :: QuasiQuoter
 schemaErr = mkExpQQ $ \s -> [| runMockQErr mockQ (quoteType schema s) |]
