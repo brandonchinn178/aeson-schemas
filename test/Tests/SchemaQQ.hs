@@ -1,11 +1,9 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Tests.SchemaQQ where
 
-import Data.Aeson (FromJSON)
 import qualified Data.Text as Text
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -148,9 +146,6 @@ testInvalidSchemas = testGroup "Invalid schemas"
   ]
 
 {- Helpers -}
-
-newtype Status = Status Int
-  deriving (Show,FromJSON)
 
 assertMatches :: String -> String -> Assertion
 assertMatches a b = strip a @?= strip b
