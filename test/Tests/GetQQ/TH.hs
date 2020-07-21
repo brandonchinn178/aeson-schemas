@@ -14,8 +14,8 @@ import TestUtils.DeepSeq ()
 import TestUtils.MockQ (emptyMockQ, runMockQ, runMockQErr)
 
 -- For testing namespaced object
-testData :: Object [schema| { foo: Int } |]
-testData = parseValue [aesonQQ| { "foo": 1 } |]
+testData :: Object [schema| { foo: Maybe Int } |]
+testData = parseValue [aesonQQ| { "foo": null } |]
 
 -- | Run the `get` quasiquoter at both runtime and compile-time, to get coverage.
 --

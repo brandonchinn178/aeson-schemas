@@ -11,6 +11,7 @@
 
 module Tests.GetQQ where
 
+import Control.DeepSeq (deepseq)
 import Control.Exception (SomeException, try)
 import Data.Aeson (FromJSON(..), ToJSON(..), withText)
 import Data.Aeson.QQ (aesonQQ)
@@ -135,12 +136,6 @@ testNullableExpressions = testGroup "Nullable expressions"
       let o = $(parseObject "{ foo: Maybe Bool }") [aesonQQ| {} |]
       in [runGet| o.foo |] @?= Nothing
 
-  , testCase "Unwrapping a nonexistent value fails" $
-      let o = $(parseObject "{ foo: Maybe Bool }") [aesonQQ| { "foo": null } |]
-      in try @SomeException ([runGet| o.foo! |] `seq` pure ()) >>= \case
-        Right _ -> error "Unexpectedly succeeded"
-        Left e -> (head . lines . show) e @?= "Called 'fromJust' on null expression: o.foo"
-
   , testCase "Can run operations within existing Maybe value" $
       let o = $(parseObject "{ foo: Maybe List { bar: Bool } }") [aesonQQ|
             {
@@ -205,7 +200,49 @@ testNullableExpressions = testGroup "Nullable expressions"
             }
           |]
       in [runGet| o.foo![].bar |] @?= [True, True, False]
+
+  , testFromJustErrors
   ]
+
+-- test error message for bang operator, to get some coverage on startDisplay + showGetterOps
+testFromJustErrors :: TestTree
+testFromJustErrors = testGroup "fromJust errors"
+  [ testCase "Plain fromJust" $
+      assertError "Called 'fromJust' on null expression" $ [runGet| ! |] (Nothing :: Maybe Int)
+
+  , testCase "With start" $ do
+      let o = $(parseObject "{ foo: Maybe Bool }") [aesonQQ| { "foo": null } |]
+      assertError "Called 'fromJust' on null expression: o.foo"
+        [runGet| o.foo! |]
+
+  , testCase "With qualified start" $
+      assertError "Called 'fromJust' on null expression: (Tests.GetQQ.TH.testData).foo"
+        [runGet| (Tests.GetQQ.TH.testData).foo! |]
+
+  , testCase "With lambda" $ do
+      let o = $(parseObject "{ foo: Maybe Bool }") [aesonQQ| { "foo": null } |]
+      assertError "Called 'fromJust' on null expression: .foo" $ [runGet| .foo! |] o
+
+  , testCase "Within list of keys" $ do
+      let o = $(parseObject "{ foo: Bool, bar: Maybe Bool }") [aesonQQ| { "foo": true, "bar": null } |]
+      assertError "Called 'fromJust' on null expression: o.bar" [runGet| o.[foo, bar!] |]
+
+  , testCase "Within tuple of keys" $ do
+      let o = $(parseObject "{ foo: Int, bar: Maybe Bool }") [aesonQQ| { "foo": 1, "bar": null } |]
+      assertError "Called 'fromJust' on null expression: o.bar" [runGet| o.(foo, bar!) |]
+
+  , testCase "Within list" $ do
+      let o = $(parseObject "{ foo: List Maybe Bool }") [aesonQQ| { "foo": [null] } |]
+      assertError "Called 'fromJust' on null expression: o.foo[]" [runGet| o.foo[]! |]
+
+  , testCase "On incorrect branch selector" $ do
+      let o = $(parseObject "{ foo: Bool | Int }") [aesonQQ| { "foo": 1 } |]
+      assertError "Called 'fromJust' on null expression: o.foo@0" [runGet| o.foo@0! |]
+  ]
+  where
+    assertError msg x = try @SomeException (x `deepseq` pure ()) >>= \case
+      Right _ -> error "Unexpectedly succeeded"
+      Left e -> (head . lines . show) e @?= msg
 
 testListExpressions :: TestTree
 testListExpressions = testGroup "List expressions"
