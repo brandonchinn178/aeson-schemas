@@ -63,6 +63,9 @@ newtype Object (schema :: Schema) = UnsafeObject (HashMap Text Dynamic)
 instance IsSchemaType ('SchemaObject schema) => Show (Object ('Schema schema)) where
   show = showValue @('SchemaObject schema)
 
+instance IsSchemaType ('SchemaObject schema) => Eq (Object ('Schema schema)) where
+  a == b = toJSON a == toJSON b
+
 instance IsSchemaType ('SchemaObject schema) => FromJSON (Object ('Schema schema)) where
   parseJSON = parseValue @('SchemaObject schema) []
 
