@@ -109,10 +109,20 @@ testValidSchemas = testGroup "Valid schemas"
         [schemaRep| { a: List (Int | Text) } |]
         [r| SchemaObject {"a": List ( Int | Text )} |]
 
-  , testCase "Object with a phantom key" $
+  , testCase "Object with a phantom key for an object" $
       assertMatches
         [schemaRep| { [a]: { b: Int } } |]
         [r| SchemaObject {"a": {"b": Int}} |]
+
+  , testCase "Object with a phantom key for a Try" $
+      assertMatches
+        [schemaRep| { [a]: Try { b: Int } } |]
+        [r| SchemaObject {"a": Try {"b": Int}} |]
+
+  , testCase "Object with a phantom key for a union of valid schemas" $
+      assertMatches
+        [schemaRep| { [a]: { b: Int } | Try { c: Int } } |]
+        [r| SchemaObject {"a": ( {"b": Int} | Try {"c": Int} )} |]
   ]
 
 testInvalidSchemas :: TestTree
@@ -143,6 +153,9 @@ testInvalidSchemas = testGroup "Invalid schemas"
 
   , testCase "Object with a phantom key for a non-object" $
       [schemaErr| { [a]: Int } |] @?= "Invalid schema for 'a': SchemaInt"
+
+  , testCase "Object with a phantom key for an invalid union" $
+      [schemaErr| { [a]: { b: Int } | Int } |] @?= "Invalid schema for 'a': SchemaUnion ( {\"b\": Int} | Int )"
   ]
 
 {- Helpers -}
