@@ -60,9 +60,13 @@ tests:
     dependencies:
       - aeson-schemas
       - aeson-qq
+      - deepseq
+      - interpolate
       - QuickCheck
       - raw-strings-qq
       - tasty
       - tasty-hunit
       - tasty-quickcheck
-      - th-test-utils
+      - th-orphans
+      - time
+      - transformers

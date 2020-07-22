@@ -1,9 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Tests.UnwrapQQ where
@@ -15,7 +11,7 @@ import Text.RawString.QQ (r)
 
 import Data.Aeson.Schema (Object, get, unwrap)
 import Tests.UnwrapQQ.TH
-import TestUtils (ShowSchemaResult(..), json)
+import TestUtils (json)
 
 test :: TestTree
 test = testGroup "`unwrap` quasiquoter"
@@ -28,17 +24,26 @@ type User = [unwrap| MySchema.users[] |]
 testValidUnwrapDefs :: TestTree
 testValidUnwrapDefs = testGroup "Valid unwrap definitions"
   [ testCase "Can unwrap a list" $ do
-      assertSchemaResultMatches @[unwrap| ListSchema.ids |] "[Int]"
-      assertSchemaResultMatches @[unwrap| ListSchema.ids[] |] "Int"
+      [unwrapRep| ListSchema.ids |] @?= "[Int]"
+      [unwrapRep| ListSchema.ids[] |] @?= "Int"
+
+  , testCase "Can unwrap a list of keys" $
+      [unwrapRep| ABCSchema.[a, b] |] @?= "[Bool]"
+
+  , testCase "Can unwrap a tuple of keys" $
+      [unwrapRep| ABCSchema.(a, b, c) |] @?= "(Bool,Bool,Double)"
 
   , testCase "Can unwrap a maybe" $ do
-      assertSchemaResultMatches @[unwrap| MaybeSchema.class |] "Maybe Text"
-      assertSchemaResultMatches @[unwrap| MaybeSchema.class! |] "Text"
-      assertSchemaResultMatches @[unwrap| MaybeSchema.class? |] "Text"
+      [unwrapRep| MaybeSchema.class |] @?= "Maybe Text"
+      [unwrapRep| MaybeSchema.class! |] @?= "Text"
+      [unwrapRep| MaybeSchema.class? |] @?= "Text"
+
+  , testCase "Can unwrap from an Object" $
+      [unwrapRep| MySchemaResult.users[].name |] @?= "Text"
 
   , testCase "Can unwrap a sum type" $ do
-      assertSchemaResultMatches @[unwrap| SumSchema.verbosity@0 |] "Int"
-      assertSchemaResultMatches @[unwrap| SumSchema.verbosity@1 |] "Bool"
+      [unwrapRep| SumSchema.verbosity@0 |] @?= "Int"
+      [unwrapRep| SumSchema.verbosity@1 |] @?= "Bool"
 
   , testCase "Can use unwrapped type" $ do
       let result :: Object MySchema
@@ -63,24 +68,40 @@ testValidUnwrapDefs = testGroup "Valid unwrap definitions"
 
 testInvalidUnwrapDefs :: TestTree
 testInvalidUnwrapDefs = testGroup "Invalid unwrap definitions"
-  [ testCase "Unwrap maybe on non-maybe" $ do
-      $(getUnwrapQQErr "ListSchema.ids!") @?= "Cannot use `!` operator on schema: SchemaList Int"
-      $(getUnwrapQQErr "ListSchema.ids?") @?= "Cannot use `?` operator on schema: SchemaList Int"
+  [ testCase "Unwrap unknown schema" $
+      [unwrapErr| FooSchema.asdf |] @?= "Unknown schema: FooSchema"
+
+  , testCase "Unwrap non-schema" $
+      let msg = [unwrapErr| NotASchema.foo |]
+          isPrefixOf a b = Text.isPrefixOf (Text.pack a) (Text.pack b)
+      in assertBool ("Error message does not match: " ++ msg) $
+        "Unknown reified schema: " `isPrefixOf` msg
+
+  , testCase "Unwrap key on non-object" $
+      [unwrapErr| ListSchema.ids.foo |] @?= "Cannot get key 'foo' in schema: SchemaList Int"
+
+  , testCase "Unwrap maybe on non-maybe" $ do
+      [unwrapErr| ListSchema.ids! |] @?= "Cannot use `!` operator on schema: SchemaList Int"
+      [unwrapErr| ListSchema.ids? |] @?= "Cannot use `?` operator on schema: SchemaList Int"
 
   , testCase "Unwrap list on non-list" $
-      $(getUnwrapQQErr "MaybeSchema.class[]") @?= "Cannot use `[]` operator on schema: SchemaMaybe Text"
+      [unwrapErr| MaybeSchema.class[] |] @?= "Cannot use `[]` operator on schema: SchemaMaybe Text"
 
   , testCase "Unwrap nonexistent key" $
-      $(getUnwrapQQErr "ListSchema.foo") @?= [r|Key 'foo' does not exist in schema: SchemaObject {"ids": List Int}|]
+      [unwrapErr| ListSchema.foo |] @?= [r|Key 'foo' does not exist in schema: SchemaObject {"ids": List Int}|]
+
+  , testCase "Unwrap list of keys with different types" $
+      [unwrapErr| ABCSchema.[a,b,c] |] @?= [r|List contains different types with schema: SchemaObject {"a": Bool, "b": Bool, "c": Double}|]
+
+  , testCase "Unwrap list of keys on non-object schema" $
+      [unwrapErr| ListSchema.ids.[a,b] |] @?= "Cannot get keys in schema: SchemaList Int"
+
+  , testCase "Unwrap tuple of keys on non-object schema" $
+      [unwrapErr| ListSchema.ids.(a,b) |] @?= "Cannot get keys in schema: SchemaList Int"
 
   , testCase "Unwrap branch on non-branch" $
-      $(getUnwrapQQErr "MaybeSchema.class@0") @?= "Cannot use `@` operator on schema: SchemaMaybe Text"
+      [unwrapErr| MaybeSchema.class@0 |] @?= "Cannot use `@` operator on schema: SchemaMaybe Text"
 
   , testCase "Unwrap out of bounds branch" $
-      $(getUnwrapQQErr "SumSchema.verbosity@10") @?= "Branch out of bounds for schema: SchemaUnion ( Int | Bool )"
+      [unwrapErr| SumSchema.verbosity@10 |] @?= "Branch out of bounds for schema: SchemaUnion ( Int | Bool )"
   ]
-
-assertSchemaResultMatches :: forall schema. ShowSchemaResult schema => String -> Assertion
-assertSchemaResultMatches = (schemaStr @?=)
-  where
-    schemaStr = showSchemaResult @schema

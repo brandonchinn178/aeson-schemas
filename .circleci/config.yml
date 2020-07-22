@@ -26,6 +26,9 @@ executors:
       STACK_YAML: << parameters.stack_yaml >>
       CI_LATEST: <<# parameters.latest >>1<</ parameters.latest >>
 
+orbs:
+  codecov: codecov/codecov@1.0.2
+
 jobs:
   run_build_and_test:
     parameters:
@@ -71,7 +74,8 @@ jobs:
 
             # build hlint/stylish-haskell for cache
             if [[ -n "${CI_LATEST}" ]]; then
-                stack build hlint stylish-haskell
+                STACK_YAML=stack-ghc-8.8.yaml stack build -j1 hlint stylish-haskell
+                stack install hpc-lcov --local-bin-path /usr/local/bin
             fi
       - save_cache:
           key: *cache_key
@@ -79,7 +83,22 @@ jobs:
             - ~/.stack
             - .stack-work
 
-      # lint, build, and test
+      # build
+      - run:
+          name: Build
+          command: |
+            STACK_ARGS=(
+                --test
+                --no-run-tests
+                --ghc-options -Werror
+            )
+            if [[ -n "${CI_LATEST}" ]]; then
+                STACK_ARGS+=(--coverage)
+            fi
+
+            stack build "${STACK_ARGS[@]}"
+
+      # lint
       - when:
           condition: << parameters.latest >>
           steps:
@@ -91,32 +110,24 @@ jobs:
                   scripts/hlint.sh || STATUS=1
                   scripts/stylish-haskell.sh || STATUS=1
                   exit "${STATUS}"
+
+      # test
       - run:
-          name: Build
+          name: Test
           command: |
-            STACK_ARGS=(
-                --test
-                --no-run-tests
-                --ghc-options -Werror
-            )
+            STACK_ARGS=(--test)
             if [[ -n "${CI_LATEST}" ]]; then
-                STACK_ARGS+=(--haddock)
+              STACK_ARGS+=(--coverage)
             fi
-
             stack build "${STACK_ARGS[@]}"
-
-            if [[ -n "${CI_LATEST}" ]]; then
-              mkdir -p .ci/
-              tar czf .ci/haddock-docs.tar.gz -C "$(find .stack-work/dist -regex '.*/doc/html/[^/]*')" .
-            fi
       - when:
           condition: << parameters.latest >>
           steps:
-            - store_artifacts:
-                path: .ci/
-      - run:
-          name: Test
-          command: stack test
+            - run:
+                name: Convert coverage output
+                command: hpc-lcov
+            - codecov/upload:
+                file: lcov.info
       - when:
           condition: << parameters.latest >>
           steps:
@@ -127,6 +138,21 @@ jobs:
                   scripts/md_extract_code.py README.md 0 -o "${TESTDIR}/README_Quickstart.hs"
                   stack runghc "${TESTDIR}/README_Quickstart.hs" | tee "${TESTDIR}/README_Quickstart.out"
                   diff -u  "${TESTDIR}/README_Quickstart.out" test/goldens/README_Quickstart.golden
+
+      # build haddock
+      - when:
+          condition: << parameters.latest >>
+          steps:
+            - run:
+                name: Build haddock
+                command: stack build --haddock
+            - run:
+                name: Bundle haddock docs
+                command: |
+                  mkdir -p .ci/
+                  tar czf .ci/haddock-docs.tar.gz -C "$(find .stack-work/dist -regex '.*/doc/html/[^/]*')" .
+            - store_artifacts:
+                path: .ci/
 
 workflows:
   version: 2

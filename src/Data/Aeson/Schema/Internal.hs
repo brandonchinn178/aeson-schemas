@@ -9,18 +9,13 @@ Internal definitions for declaring JSON schemas.
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
@@ -35,7 +30,7 @@ import Control.Monad.Fail (MonadFail)
 import Data.Aeson (FromJSON(..), Value(..))
 import Data.Aeson.Types (Parser)
 import Data.Bifunctor (first)
-import Data.Dynamic (Dynamic, fromDyn, fromDynamic, toDyn)
+import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
 import Data.Kind (Type)
@@ -61,22 +56,26 @@ import Data.Aeson.Schema.Utils.TypeFamilies (All)
 -- Has a 'FromJSON' instance, so you can use the usual 'Data.Aeson' decoding functions.
 --
 -- > obj = decode "{\"a\": 1}" :: Maybe (Object [schema| { a: Int } |])
-newtype Object (schema :: SchemaType) = UnsafeObject (HashMap Text Dynamic)
+newtype Object (schema :: Schema) = UnsafeObject (HashMap Text Dynamic)
 
--- | A constraint that checks if the given schema is a 'SchemaObject.
-type IsSchemaObject schema = (IsSchemaType schema, SchemaResult schema ~ Object schema)
+instance IsSchemaType ('SchemaObject schema) => Show (Object ('Schema schema)) where
+  show = showValue @('SchemaObject schema)
 
-instance IsSchemaObject schema => Show (Object schema) where
-  show = showValue @schema
-
-instance IsSchemaObject schema => FromJSON (Object schema) where
-  parseJSON = parseValue @schema []
+instance IsSchemaType ('SchemaObject schema) => FromJSON (Object ('Schema schema)) where
+  parseJSON = parseValue @('SchemaObject schema) []
 
 {- Type-level schema definitions -}
+
+type SchemaObjectMap = [(SchemaKey, SchemaType)]
 
 -- | The type-level schema definition for JSON data.
 --
 -- To view a schema for debugging, use 'showSchema'.
+data Schema = Schema SchemaObjectMap
+
+type family ToSchemaObject (schema :: Schema) where
+  ToSchemaObject ('Schema inner) = 'SchemaObject inner
+
 data SchemaType
   = SchemaBool
   | SchemaInt
@@ -86,7 +85,7 @@ data SchemaType
   | SchemaMaybe SchemaType
   | SchemaTry SchemaType -- ^ @since v1.2.0
   | SchemaList SchemaType
-  | SchemaObject [(SchemaKey, SchemaType)]
+  | SchemaObject SchemaObjectMap
   | SchemaUnion [SchemaType] -- ^ @since v1.1.0
 
 -- | Convert 'SchemaType' into 'SchemaShow.SchemaType'.
@@ -104,7 +103,7 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
       ("'SchemaList", [inner]) -> SchemaShow.SchemaList $ cast inner
       ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ map getSchemaObjectPair $ typeRepToList pairs
       ("'SchemaUnion", [schemas]) -> SchemaShow.SchemaUnion $ map cast $ typeRepToList schemas
-      _ -> error $ "Unknown schema type: " ++ show tyRep
+      _ -> unreachable $ "Unknown schema type: " ++ show tyRep
 
     getSchemaObjectPair tyRep =
       let (key, val) = typeRepToPair tyRep
@@ -112,24 +111,24 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
           schemaKey = case splitTypeRep key of
             ("'NormalKey", [key']) -> SchemaShow.NormalKey $ fromTypeRep key'
             ("'PhantomKey", [key']) -> SchemaShow.PhantomKey $ fromTypeRep key'
-            _ -> error $ "Unknown schema key: " ++ show key
+            _ -> unreachable $ "Unknown schema key: " ++ show key
       in (schemaKey, cast val)
 
     typeRepToPair tyRep = case splitTypeRep tyRep of
       ("'(,)", [a, b]) -> (a, b)
-      _ -> error $ "Unknown pair: " ++ show tyRep
+      _ -> unreachable $ "Unknown pair: " ++ show tyRep
 
     typeRepToList tyRep = case splitTypeRep tyRep of
       ("'[]", []) -> []
       ("':", [x, rest]) -> x : typeRepToList rest
-      _ -> error $ "Unknown list: " ++ show tyRep
+      _ -> unreachable $ "Unknown list: " ++ show tyRep
 
     splitTypeRep = first tyConName . splitTyConApp
     typeRepName = tyConName . typeRepTyCon
 
 -- | Pretty show the given SchemaType.
-showSchema :: forall (a :: SchemaType). Typeable a => String
-showSchema = SchemaShow.showSchemaType $ toSchemaTypeShow @a
+showSchemaType :: forall (a :: SchemaType). Typeable a => String
+showSchemaType = SchemaShow.showSchemaType $ toSchemaTypeShow @a
 
 -- | The type-level analogue of 'Data.Aeson.Schema.Key.SchemaKey'.
 data SchemaKey
@@ -148,12 +147,15 @@ class
   , KnownSymbol (FromSchemaKey schemaKey)
   ) => KnownSchemaKey (schemaKey :: SchemaKey) where
   getContext :: HashMap Text Value -> Value
+  showSchemaKey :: String
 
 instance KnownSymbol key => KnownSchemaKey ('NormalKey key) where
   getContext = fromMaybe Null . HashMap.lookup (fromSchemaKey @('NormalKey key))
+  showSchemaKey = show $ fromSchemaKey @('NormalKey key)
 
 instance KnownSymbol key => KnownSchemaKey ('PhantomKey key) where
   getContext = Object
+  showSchemaKey = Text.unpack $ Text.concat ["[", fromSchemaKey @('PhantomKey key), "]"]
 
 {- Conversions from schema types into Haskell types -}
 
@@ -167,7 +169,7 @@ type family SchemaResult (schema :: SchemaType) where
   SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaTry inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaList inner) = [SchemaResult inner]
-  SchemaResult ('SchemaObject inner) = Object ('SchemaObject inner)
+  SchemaResult ('SchemaObject inner) = Object ('Schema inner)
   SchemaResult ('SchemaUnion schemas) = SumType (SchemaResultList schemas)
 
 type family SchemaResultList (xs :: [SchemaType]) where
@@ -219,9 +221,9 @@ instance IsSchemaType ('SchemaObject '[]) where
 instance
   ( KnownSchemaKey schemaKey
   , IsSchemaType inner
+  , IsSchemaType ('SchemaObject rest)
   , Show (SchemaResult inner)
   , Typeable (SchemaResult inner)
-  , IsSchemaObject ('SchemaObject rest)
   , Typeable rest
   ) => IsSchemaType ('SchemaObject ('(schemaKey, inner) ': rest)) where
   parseValue path value = case value of
@@ -238,13 +240,16 @@ instance
   showValue (UnsafeObject hm) = case showValue @('SchemaObject rest) (UnsafeObject hm) of
     "{}" -> "{" ++ pair ++ "}"
     '{':s -> "{" ++ pair ++ ", " ++ s
-    s -> error $ "Unknown result when showing Object: " ++ s
+    s -> unreachable $ "Unknown result when showing Object: " ++ s
     where
       key = fromSchemaKey @schemaKey
-      value =
-        let dynValue = hm ! key
-        in maybe (show dynValue) show $ fromDynamic @(SchemaResult inner) dynValue
-      pair = show key ++ ": " ++ value
+      value = case fromDynamic @(SchemaResult inner) (hm ! key) of
+        Just v -> showValue @inner v
+        Nothing -> unreachable $
+          "Could not show key " ++ show key ++
+          " with schema " ++ showSchemaType @inner ++
+          ": " ++ show (hm ! key)
+      pair = showSchemaKey @schemaKey ++ ": " ++ value
 
 instance
   ( All IsSchemaType schemas
@@ -261,7 +266,7 @@ parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
       then "Could not parse schema " ++ schema'
       else "Could not parse path '" ++ path' ++ "' with schema " ++ schema'
     path' = Text.unpack . Text.intercalate "." $ reverse path
-    schema' = "`" ++ showSchema @schema ++ "`"
+    schema' = "`" ++ showSchemaType @schema ++ "`"
     ellipses n s = if length s > n then take n s ++ "..." else s
 
 {- Lookups within SchemaObject -}
@@ -274,8 +279,8 @@ type instance Fcf.Eval (UnSchemaKey ('PhantomKey key)) = Fcf.Eval (Fcf.Pure key)
 type Lookup a = Fcf.Map Fcf.Snd <=< Fcf.Find (Fcf.TyEq a <=< Fcf.Fst)
 
 -- | The type-level function that return the schema of the given key in a 'SchemaObject'.
-type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType where
-  LookupSchema key ('SchemaObject schema) = Fcf.Eval
+type family LookupSchema (key :: Symbol) (schema :: Schema) :: SchemaType where
+  LookupSchema key ('Schema schema) = Fcf.Eval
     ( Fcf.FromMaybe (TypeError
         (     'Text "Key '"
         ':<>: 'Text key
@@ -284,12 +289,6 @@ type family LookupSchema (key :: Symbol) (schema :: SchemaType) :: SchemaType wh
         )
       )
       =<< Lookup key =<< Fcf.Map (Fcf.Bimap UnSchemaKey Fcf.Pure) schema
-    )
-  LookupSchema key schema = TypeError
-    (     'Text "Attempted to lookup key '"
-    ':<>: 'Text key
-    ':<>: 'Text "' in the following schema:"
-    ':$$: 'ShowType schema
     )
 
 -- | Get a key from the given 'Data.Aeson.Schema.Internal.Object', returned as the type encoded in
@@ -320,7 +319,18 @@ getKey
   => Proxy key
   -> Object schema
   -> result
-getKey keyProxy (UnsafeObject object) = fromDyn (object ! Text.pack key) badCast
+getKey keyProxy (UnsafeObject object) =
+  fromMaybe (unreachable $ "Could not load key: " ++ key) $
+    fromDynamic (object ! Text.pack key)
   where
     key = symbolVal keyProxy
-    badCast = error $ "Could not load key: " ++ key
+
+{- Helpers -}
+
+-- | An error function to indicate that a branch is unreachable. Provides a useful error message
+-- if it ends up happening, pointing users to write a bug report.
+unreachable :: String -> a
+unreachable msg = error $ unlines
+  [ "`aeson-schemas` internal error: " ++ msg
+  , "Please file a bug report at https://github.com/LeapYear/aeson-schemas/issues/"
+  ]

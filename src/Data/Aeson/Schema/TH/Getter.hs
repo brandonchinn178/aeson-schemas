@@ -65,7 +65,6 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 -- > getMyBool = [get| .f?[].name |]
 mkGetter :: String -> String -> Name -> String -> DecsQ
 mkGetter unwrapName funcName startSchemaName ops = do
-  -- TODO: allow (Object schema)
   startSchemaType <- reifySchema startSchemaName
 
   getterExp'@GetterExp{..} <- parse getterExp ops

@@ -4,29 +4,32 @@
 
 module Tests.GetQQ.TH where
 
-import Data.Aeson (FromJSON, Value, parseJSON)
+import Control.DeepSeq (deepseq)
 import Data.Aeson.QQ (aesonQQ)
-import Data.Aeson.Types (parseEither)
-import Language.Haskell.TH
-import Language.Haskell.TH.Quote (QuasiQuoter(quoteExp, quoteType))
-import Language.Haskell.TH.TestUtils (tryQ, tryQErr')
+import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema (Object, get, schema)
-
-parseValue :: FromJSON a => Value -> a
-parseValue = either error id . parseEither parseJSON
-
-parseObject :: String -> ExpQ
-parseObject schemaString = [| parseValue :: Value -> Object $schemaType |]
-  where
-    schemaType = quoteType schema schemaString
+import TestUtils (mkExpQQ, parseValue)
+import TestUtils.DeepSeq ()
+import TestUtils.TestQ
+    (MockedMode(..), QMode(..), QState(..), runTestQ, runTestQErr)
 
 -- For testing namespaced object
-testData :: Object [schema| { foo: Int } |]
-testData = parseValue [aesonQQ| { "foo": 1 } |]
+testData :: Object [schema| { foo: Maybe Int } |]
+testData = parseValue [aesonQQ| { "foo": null } |]
 
-tryGetQQ :: String -> ExpQ
-tryGetQQ = tryQ . quoteExp get
+qState :: QState 'FullyMocked
+qState = QState
+  { mode = MockQ
+  , knownNames = []
+  , reifyInfo = []
+  }
 
-getGetQQErr :: String -> ExpQ
-getGetQQErr = tryQErr' . quoteExp get
+-- | Run the `get` quasiquoter at both runtime and compile-time, to get coverage.
+--
+-- The `get` Quasiquoter doesn't reify anything, so this should work.
+runGet :: QuasiQuoter
+runGet = mkExpQQ $ \s -> [| runTestQ qState (quoteExp get s) `deepseq` $(quoteExp get s) |]
+
+getErr :: QuasiQuoter
+getErr = mkExpQQ $ \s -> [| runTestQErr qState (quoteExp get s) |]

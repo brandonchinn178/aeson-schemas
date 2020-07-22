@@ -1,9 +1,8 @@
-resolver: lts-15.0
+resolver: lts-16.6
 
 packages:
   - .
 
 extra-deps:
   - aeson-1.4.5.0
-  - th-test-utils-1.0.1
   - time-compat-1.9.2.2

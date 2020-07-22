@@ -2,6 +2,3 @@ resolver: lts-13.22
 
 packages:
   - .
-
-extra-deps:
-  - th-test-utils-1.0.1

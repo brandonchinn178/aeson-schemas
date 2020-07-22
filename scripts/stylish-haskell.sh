@@ -35,6 +35,7 @@ while read -r -d $'\0'; do
     FILES+=("${REPLY}")
 done < <(get_files)
 
+export STACK_YAML=stack-ghc-8.8.yaml
 stack build stylish-haskell
 
 RUN_STYLISH=$(stack exec -- bash -c 'type -P stylish-haskell')

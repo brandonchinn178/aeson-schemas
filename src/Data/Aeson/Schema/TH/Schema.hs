@@ -7,7 +7,6 @@ Portability :  portable
 The 'schema' quasiquoter.
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -16,14 +15,14 @@ The 'schema' quasiquoter.
 
 module Data.Aeson.Schema.TH.Schema (schema) where
 
-import Control.Monad (unless, (<=<), (>=>))
+import Control.Monad (unless, (>=>))
 import Data.Bifunctor (second)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema.Internal (SchemaType(..))
+import Data.Aeson.Schema.Internal (Schema(..), SchemaType(..), ToSchemaObject)
 import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
 import qualified Data.Aeson.Schema.Show as SchemaShow
 import Data.Aeson.Schema.TH.Parse
@@ -91,15 +90,15 @@ schema = QuasiQuoter
   { quoteExp = error "Cannot use `schema` for Exp"
   , quoteDec = error "Cannot use `schema` for Dec"
   , quoteType = parse schemaDef >=> \case
-      SchemaDefObj items -> generateSchemaObject items
+      SchemaDefObj items -> [t| 'Schema $(generateSchemaObject items) |]
       _ -> fail "`schema` definition must be an object"
   , quotePat = error "Cannot use `schema` for Pat"
   }
 
 generateSchemaObject :: [SchemaDefObjItem] -> TypeQ
-generateSchemaObject items = [t| 'SchemaObject $(fromItems items) |]
+generateSchemaObject = concatMapM toParts >=> resolveParts >=> schemaPairsToTypeQ
   where
-    fromItems = schemaPairsToTypeQ <=< resolveParts . concat <=< mapM toParts
+    concatMapM f = fmap concat . mapM f
 
 generateSchema :: SchemaDef -> TypeQ
 generateSchema = \case
@@ -111,8 +110,8 @@ generateSchema = \case
   SchemaDefMaybe inner   -> [t| 'SchemaMaybe $(generateSchema inner) |]
   SchemaDefTry inner     -> [t| 'SchemaTry $(generateSchema inner) |]
   SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
-  SchemaDefInclude other -> getType other
-  SchemaDefObj items     -> generateSchemaObject items
+  SchemaDefInclude other -> [t| ToSchemaObject $(getType other) |]
+  SchemaDefObj items     -> [t| 'SchemaObject $(generateSchemaObject items) |]
   SchemaDefUnion schemas -> [t| 'SchemaUnion $(typeQListToTypeQ $ map generateSchema schemas) |]
 
 {- Helpers -}
@@ -145,9 +144,9 @@ toParts = \case
   SchemaDefObjExtend other -> do
     name <- getName other
     reify name >>= \case
-      TyConI (TySynD _ _ (AppT (PromotedT ty) inner)) | ty == 'SchemaObject ->
+      TyConI (TySynD _ _ (AppT (PromotedT ty) inner)) | ty == 'Schema ->
         pure . tagAs Imported . map (second pure) $ typeToSchemaPairs inner
-      _ -> fail $ "'" ++ show name ++ "' is not a SchemaObject"
+      _ -> fail $ "'" ++ show name ++ "' is not a Schema"
   where
     tagAs source = map $ \(k,v) -> (k,v,source)
     schemaDefToSchemaKey = \case
