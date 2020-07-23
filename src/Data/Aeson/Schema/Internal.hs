@@ -99,11 +99,7 @@ showSchema :: forall (schema :: Schema). IsSchema schema => String
 showSchema = showSchemaType @(ToSchemaObject schema)
 
 data SchemaType
-  = SchemaBool
-  | SchemaInt
-  | SchemaDouble
-  | SchemaText
-  | SchemaCustom Type
+  = SchemaScalar Type
   | SchemaMaybe SchemaType
   | SchemaTry SchemaType -- ^ @since v1.2.0
   | SchemaList SchemaType
@@ -126,11 +122,7 @@ keyName = Text.pack $ symbolVal $ Proxy @key
 
 -- | A type family mapping SchemaType to the corresponding Haskell type.
 type family SchemaResult (schema :: SchemaType) where
-  SchemaResult 'SchemaBool = Bool
-  SchemaResult 'SchemaInt = Int
-  SchemaResult 'SchemaDouble = Double
-  SchemaResult 'SchemaText = Text
-  SchemaResult ('SchemaCustom inner) = inner
+  SchemaResult ('SchemaScalar inner) = inner
   SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaTry inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaList inner) = [SchemaResult inner]
@@ -157,20 +149,8 @@ class IsSchemaType (schema :: SchemaType) where
   default showValue :: Show (SchemaResult schema) => SchemaResult schema -> String
   showValue = show
 
-instance IsSchemaType 'SchemaBool where
-  toSchemaTypeShow = SchemaShow.SchemaBool
-
-instance IsSchemaType 'SchemaInt where
-  toSchemaTypeShow = SchemaShow.SchemaInt
-
-instance IsSchemaType 'SchemaDouble where
-  toSchemaTypeShow = SchemaShow.SchemaDouble
-
-instance IsSchemaType 'SchemaText where
-  toSchemaTypeShow = SchemaShow.SchemaText
-
-instance (Show inner, Typeable inner, FromJSON inner, ToJSON inner) => IsSchemaType ('SchemaCustom inner) where
-  toSchemaTypeShow = SchemaShow.SchemaCustom (tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)
+instance (Show inner, Typeable inner, FromJSON inner, ToJSON inner) => IsSchemaType ('SchemaScalar inner) where
+  toSchemaTypeShow = SchemaShow.SchemaScalar (tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)
 
 instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => IsSchemaType ('SchemaMaybe inner) where
   toSchemaTypeShow = SchemaShow.SchemaMaybe (toSchemaTypeShow @inner)
@@ -189,9 +169,9 @@ instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult in
 instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => IsSchemaType ('SchemaList inner) where
   toSchemaTypeShow = SchemaShow.SchemaList (toSchemaTypeShow @inner)
 
-  parseValue path value = case value of
+  parseValue path = \case
     Array a -> traverse (parseValue @inner path) (toList a)
-    _ -> parseFail @('SchemaList inner) path value
+    value -> parseFail @('SchemaList inner) path value
 
 instance
   ( IsSchemaTypeList schemas

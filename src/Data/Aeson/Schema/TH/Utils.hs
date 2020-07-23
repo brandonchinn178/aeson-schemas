@@ -32,13 +32,8 @@ showSchemaType = SchemaShow.showSchemaType . parseSchemaType
 
 parseSchemaType :: HasCallStack => Type -> SchemaShow.SchemaType
 parseSchemaType = \case
-  PromotedT name
-    | name == 'SchemaBool -> SchemaShow.SchemaBool
-    | name == 'SchemaInt -> SchemaShow.SchemaInt
-    | name == 'SchemaDouble -> SchemaShow.SchemaDouble
-    | name == 'SchemaText -> SchemaShow.SchemaText
   AppT (PromotedT name) (ConT inner)
-    | name == 'SchemaCustom -> SchemaShow.SchemaCustom $ nameBase inner
+    | name == 'SchemaScalar -> SchemaShow.SchemaScalar $ nameBase inner
   AppT (PromotedT name) inner
     | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ parseSchemaType inner
     | name == 'SchemaTry -> SchemaShow.SchemaTry $ parseSchemaType inner

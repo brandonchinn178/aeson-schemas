@@ -19,6 +19,7 @@ import Control.Monad (unless, (>=>))
 import Data.Bifunctor (second)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
+import Data.Text (Text)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
@@ -102,11 +103,12 @@ generateSchemaObject = concatMapM toParts >=> resolveParts >=> schemaPairsToType
 
 generateSchema :: SchemaDef -> TypeQ
 generateSchema = \case
-  SchemaDefType "Bool"   -> [t| 'SchemaBool |]
-  SchemaDefType "Int"    -> [t| 'SchemaInt |]
-  SchemaDefType "Double" -> [t| 'SchemaDouble |]
-  SchemaDefType "Text"   -> [t| 'SchemaText |]
-  SchemaDefType other    -> [t| 'SchemaCustom $(getType other) |]
+  -- some hardcoded cases
+  SchemaDefType "Bool"   -> [t| 'SchemaScalar Bool |]
+  SchemaDefType "Int"    -> [t| 'SchemaScalar Int |]
+  SchemaDefType "Double" -> [t| 'SchemaScalar Double |]
+  SchemaDefType "Text"   -> [t| 'SchemaScalar Text |]
+  SchemaDefType other    -> [t| 'SchemaScalar $(getType other) |]
   SchemaDefMaybe inner   -> [t| 'SchemaMaybe $(generateSchema inner) |]
   SchemaDefTry inner     -> [t| 'SchemaTry $(generateSchema inner) |]
   SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]

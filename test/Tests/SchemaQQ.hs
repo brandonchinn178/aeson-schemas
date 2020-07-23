@@ -152,7 +152,7 @@ testInvalidSchemas = testGroup "Invalid schemas"
       [schemaErr| { #FooSchema } |] @?= "Unknown type: FooSchema"
 
   , testCase "Object with a phantom key for a non-object" $
-      [schemaErr| { [a]: Int } |] @?= "Invalid schema for 'a': SchemaInt"
+      [schemaErr| { [a]: Int } |] @?= "Invalid schema for 'a': SchemaScalar Int"
 
   , testCase "Object with a phantom key for an invalid union" $
       [schemaErr| { [a]: { b: Int } | Int } |] @?= "Invalid schema for 'a': SchemaUnion ( {\"b\": Int} | Int )"

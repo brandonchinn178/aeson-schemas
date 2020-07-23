@@ -28,7 +28,7 @@ test = testGroup "FromJSON instance"
   , testCase "Bool invalid" $
       let o :: ParseResult [schema| { foo: Bool } |]
           o = parse [aesonQQ| { "foo": 1 } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaBool`: Number 1.0"
+      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaScalar Bool`: Number 1.0"
 
   , testProperty "Int valid" $ \(x :: Int) ->
       let o :: ParseResult [schema| { foo: Int } |]
@@ -37,7 +37,7 @@ test = testGroup "FromJSON instance"
   , testCase "Int invalid" $
       let o :: ParseResult [schema| { foo: Int } |]
           o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaInt`: Bool True"
+      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaScalar Int`: Bool True"
 
   , testProperty "Double valid" $ \(x :: Double) ->
       let o :: ParseResult [schema| { foo: Double } |]
@@ -46,7 +46,7 @@ test = testGroup "FromJSON instance"
   , testCase "Double invalid" $
       let o :: ParseResult [schema| { foo: Double } |]
           o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaDouble`: Bool True"
+      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaScalar Double`: Bool True"
 
   , testProperty "Text valid" $ \(x :: String) ->
       let o :: ParseResult [schema| { foo: Text } |]
@@ -55,7 +55,7 @@ test = testGroup "FromJSON instance"
   , testCase "Text invalid" $
       let o :: ParseResult [schema| { foo: Text } |]
           o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaText`: Bool True"
+      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaScalar Text`: Bool True"
 
   , testProperty "Custom valid" $ \(x :: Coordinate) ->
       let o :: ParseResult [schema| { foo: Coordinate } |]
@@ -64,7 +64,7 @@ test = testGroup "FromJSON instance"
   , testCase "Custom invalid" $
       let o :: ParseResult [schema| { foo: Coordinate } |]
           o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaCustom Coordinate`: Bool True"
+      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaScalar Coordinate`: Bool True"
 
   , testProperty "Maybe valid" $ \(x :: Maybe Int) ->
       let o :: ParseResult [schema| { foo: Maybe Int } |]
@@ -73,7 +73,7 @@ test = testGroup "FromJSON instance"
   , testCase "Maybe invalid" $
       let o :: ParseResult [schema| { foo: Maybe Int } |]
           o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaInt`: Bool True"
+      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaScalar Int`: Bool True"
 
   , testProperty "Try valid with valid parse" $ \(x :: Int) ->
       let o :: ParseResult [schema| { foo: Try Int } |]
@@ -95,7 +95,7 @@ test = testGroup "FromJSON instance"
   , testCase "List invalid inner" $
       let o :: ParseResult [schema| { foo: List Int } |]
           o = parse [aesonQQ| { "foo": [true] } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaInt`: Bool True"
+      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaScalar Int`: Bool True"
 
   , testCase "Object invalid" $
       let o :: ParseResult [schema| { foo: Int } |]
@@ -104,7 +104,7 @@ test = testGroup "FromJSON instance"
   , testCase "Object invalid in later keys" $
       let o :: ParseResult [schema| { foo: Int, bar: Int } |]
           o = parse [aesonQQ| { foo: 1, bar: true } |]
-      in assertError o "Error in $: Could not parse path 'bar' with schema `SchemaInt`: Bool True"
+      in assertError o "Error in $: Could not parse path 'bar' with schema `SchemaScalar Int`: Bool True"
 
   , testProperty "Nested object valid" $ \(x :: Int) ->
       let o :: ParseResult [schema| { foo: { bar: Int } } |]
@@ -117,7 +117,7 @@ test = testGroup "FromJSON instance"
   , testCase "Nested object invalid inner" $
       let o :: ParseResult [schema| { foo: { bar: Int } } |]
           o = parse [aesonQQ| { "foo": { "bar": true } } |]
-      in assertError o "Error in $: Could not parse path 'foo.bar' with schema `SchemaInt`: Bool True"
+      in assertError o "Error in $: Could not parse path 'foo.bar' with schema `SchemaScalar Int`: Bool True"
 
   , testProperty "Union object valid" $ \(x :: Int) ->
       let o :: ParseResult [schema| { foo: Int | Text } |]
@@ -146,7 +146,7 @@ test = testGroup "FromJSON instance"
             }
           |]
       in assertError o $ concat
-        [ "Error in $: Could not parse path 'foo' with schema `SchemaInt`: Array ["
+        [ "Error in $: Could not parse path 'foo' with schema `SchemaScalar Int`: Array ["
         , "Object (fromList [(\"baz\",String \"a\"),(\"bar\",Number 1.0)]),"
         , "Object (fromList [(\"baz\",String \"b\"),(\"bar\",Number 2.0)]),"
         , "Object (fromList [(\"baz\",String \"c\"),(\"bar\",Number 3.0)]),"

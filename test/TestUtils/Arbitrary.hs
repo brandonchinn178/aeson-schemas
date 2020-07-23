@@ -21,6 +21,8 @@ module TestUtils.Arbitrary
 import Data.Aeson (FromJSON, ToJSON(..), Value(..))
 import qualified Data.Aeson as Aeson
 import Data.Proxy (Proxy(..))
+import Data.Text (Text)
+import Data.Typeable (Typeable, tyConName, typeRep, typeRepTyCon)
 import GHC.TypeLits (KnownSymbol, symbolVal)
 import Language.Haskell.TH (ExpQ, listE)
 import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
@@ -100,11 +102,7 @@ getKeys = \case
 
 getSchemaTypes :: SchemaShow.SchemaType -> [String]
 getSchemaTypes = \case
-  SchemaShow.SchemaBool -> ["SchemaBool"]
-  SchemaShow.SchemaInt -> ["SchemaInt"]
-  SchemaShow.SchemaDouble -> ["SchemaDouble"]
-  SchemaShow.SchemaText -> ["SchemaText"]
-  SchemaShow.SchemaCustom _ -> ["SchemaCustom"]
+  SchemaShow.SchemaScalar s -> [s]
   SchemaShow.SchemaMaybe inner -> "SchemaMaybe" : getSchemaTypes inner
   SchemaShow.SchemaTry inner -> "SchemaTry" : getSchemaTypes inner
   SchemaShow.SchemaList inner -> "SchemaList" : getSchemaTypes inner
@@ -123,17 +121,11 @@ tabulate' _ _ = id
 class ArbitrarySchema (schema :: SchemaType) where
   genSchema :: Gen (Value, SchemaShow.SchemaType)
 
-instance ArbitrarySchema 'SchemaBool where
-  genSchema = (, SchemaShow.SchemaBool) . toJSON <$> arbitrary @Bool
+instance {-# OVERLAPS #-} ArbitrarySchema ('SchemaScalar Text) where
+  genSchema = (, SchemaShow.SchemaScalar "Text") . toJSON <$> arbitrary @String
 
-instance ArbitrarySchema 'SchemaInt where
-  genSchema = (, SchemaShow.SchemaInt) . toJSON <$> arbitrary @Int
-
-instance ArbitrarySchema 'SchemaDouble where
-  genSchema = (, SchemaShow.SchemaDouble) . toJSON <$> arbitrary @Double
-
-instance ArbitrarySchema 'SchemaText where
-  genSchema = (, SchemaShow.SchemaText) . toJSON <$> arbitrary @String
+instance (Arbitrary inner, ToJSON inner, Typeable inner) => ArbitrarySchema ('SchemaScalar inner) where
+  genSchema = (, SchemaShow.SchemaScalar (tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)) . toJSON <$> arbitrary @inner
 
 instance ArbitraryObjectMap schema => ArbitrarySchema ('SchemaObject schema) where
   genSchema = do

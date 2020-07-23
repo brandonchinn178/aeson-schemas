@@ -21,11 +21,7 @@ import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
 
 -- | 'Data.Aeson.Schema.Internal.SchemaType', but for printing.
 data SchemaType
-  = SchemaBool
-  | SchemaInt
-  | SchemaDouble
-  | SchemaText
-  | SchemaCustom String
+  = SchemaScalar String
   | SchemaMaybe SchemaType
   | SchemaTry SchemaType
   | SchemaList SchemaType
@@ -36,11 +32,7 @@ data SchemaType
 -- | Pretty show the given SchemaType.
 showSchemaType :: SchemaType -> String
 showSchemaType schema = case schema of
-  SchemaBool -> "SchemaBool"
-  SchemaInt -> "SchemaInt"
-  SchemaDouble -> "SchemaDouble"
-  SchemaText -> "SchemaText"
-  SchemaCustom s -> "SchemaCustom " ++ s
+  SchemaScalar s -> "SchemaScalar " ++ s
   SchemaMaybe inner -> "SchemaMaybe " ++ showSchemaType' inner
   SchemaTry inner -> "SchemaTry " ++ showSchemaType' inner
   SchemaList inner -> "SchemaList " ++ showSchemaType' inner
@@ -48,11 +40,7 @@ showSchemaType schema = case schema of
   SchemaObject _ -> "SchemaObject " ++ showSchemaType' schema
   where
     showSchemaType' = \case
-      SchemaBool -> "Bool"
-      SchemaInt -> "Int"
-      SchemaDouble -> "Double"
-      SchemaText -> "Text"
-      SchemaCustom s -> s
+      SchemaScalar s -> s
       SchemaMaybe inner -> "Maybe " ++ showSchemaType' inner
       SchemaTry inner -> "Try " ++ showSchemaType' inner
       SchemaList inner -> "List " ++ showSchemaType' inner
