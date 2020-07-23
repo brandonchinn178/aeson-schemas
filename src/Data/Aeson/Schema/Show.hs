@@ -17,7 +17,7 @@ module Data.Aeson.Schema.Show
 
 import Data.List (intercalate)
 
-import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
+import Data.Aeson.Schema.Key (SchemaKey(..), showSchemaKey)
 
 -- | 'Data.Aeson.Schema.Internal.SchemaType', but for printing.
 data SchemaType
@@ -46,6 +46,6 @@ showSchemaType schema = case schema of
       SchemaList inner -> "List " ++ showSchemaType' inner
       SchemaUnion schemas -> "( " ++ mapJoin showSchemaType' " | " schemas ++ " )"
       SchemaObject pairs -> "{" ++ mapJoin showPair ", " pairs ++ "}"
-    showPair (key, inner) = "\"" ++ fromSchemaKey key ++ "\": " ++ showSchemaType' inner
+    showPair (key, inner) = showSchemaKey key ++ ": " ++ showSchemaType' inner
 
     mapJoin f delim = intercalate delim . map f

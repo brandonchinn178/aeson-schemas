@@ -10,6 +10,7 @@ Defines a SchemaKey.
 module Data.Aeson.Schema.Key
   ( SchemaKey(..)
   , fromSchemaKey
+  , showSchemaKey
   ) where
 
 -- | A key in a JSON object schema.
@@ -23,3 +24,7 @@ data SchemaKey
 fromSchemaKey :: SchemaKey -> String
 fromSchemaKey (NormalKey key) = key
 fromSchemaKey (PhantomKey key) = key
+
+showSchemaKey :: SchemaKey -> String
+showSchemaKey (NormalKey key) = show key
+showSchemaKey (PhantomKey key) = "[" ++ key ++ "]"
