@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -12,6 +13,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module TestUtils.Arbitrary
   ( ArbitraryObject(..)
@@ -20,11 +22,13 @@ module TestUtils.Arbitrary
 
 import Data.Aeson (FromJSON, ToJSON(..), Value(..))
 import qualified Data.Aeson as Aeson
+import Data.List (stripPrefix)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Language.Haskell.TH (ExpQ, listE)
 import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
+import Language.Haskell.TH.Syntax (Lift)
 import Test.QuickCheck
 
 import Data.Aeson.Schema (Object, schema)
@@ -32,6 +36,10 @@ import Data.Aeson.Schema.Internal (SchemaType(..))
 import qualified Data.Aeson.Schema.Internal as Internal
 import qualified Data.Aeson.Schema.Show as SchemaShow
 import TestUtils (parseValue)
+
+-- Orphan instances
+deriving instance Lift SchemaShow.SchemaKey
+deriving instance Lift SchemaShow.SchemaType
 
 data ArbitraryObject where
   ArbitraryObject
@@ -52,15 +60,20 @@ arbitraryObject :: ExpQ
 arbitraryObject = do
   -- TODO: generate
   let arbitrarySchemas =
-        [ "{ foo: Bool }"
-        , "{ foo: Int }"
-        , "{ foo: Double }"
-        , "{ foo: Text }"
+        [ SchemaShow.SchemaObject [(SchemaShow.NormalKey "foo", SchemaShow.SchemaScalar "Bool")]
+        , SchemaShow.SchemaObject [(SchemaShow.NormalKey "foo", SchemaShow.SchemaScalar "Int")]
+        , SchemaShow.SchemaObject [(SchemaShow.NormalKey "foo", SchemaShow.SchemaScalar "Double")]
+        , SchemaShow.SchemaObject [(SchemaShow.NormalKey "foo", SchemaShow.SchemaScalar "Text")]
         ]
 
   [| oneof $(listE $ map mkSchemaGen arbitrarySchemas) |]
   where
-    mkSchemaGen s = [| genSchema' (Proxy :: Proxy $(quoteType schema s)) |]
+    mkSchemaGen schemaShow =
+      let schemaTypeShow = SchemaShow.showSchemaType schemaShow
+          schemaType = case "SchemaObject " `stripPrefix` schemaTypeShow of
+            Just s -> quoteType schema s
+            Nothing -> error $ "Invalid schema: " ++ schemaTypeShow
+      in [| genSchema' (Proxy :: Proxy $schemaType) schemaShow |]
 
 -- | Splices to a 'forAll' with 'arbitraryObject', outputting information about the object
 -- generated, to ensure we get good generation.
@@ -79,12 +92,11 @@ genSchema' :: forall schema inner.
   , ArbitrarySchema ('SchemaObject inner)
   , Internal.IsSchemaType ('SchemaObject inner)
   )
-  => Proxy schema -> Gen ArbitraryObject
-genSchema' _ = do
+  => Proxy schema -> SchemaShow.SchemaType -> Gen ArbitraryObject
+genSchema' _ schemaType = do
   v <- genSchema @('SchemaObject inner)
 
   let o = parseValue @(Object schema) v
-      schemaType = Internal.toSchemaTypeShow @('SchemaObject inner)
 
   return $ ArbitraryObject o schemaType
 
