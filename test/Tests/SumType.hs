@@ -7,7 +7,9 @@ module Tests.SumType where
 
 import Data.Aeson (ToJSON, eitherDecode, encode)
 import Data.Proxy (Proxy(..))
+import Data.String (fromString)
 import Test.Tasty
+import Test.Tasty.Golden
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
 
@@ -48,8 +50,10 @@ testDecode = testGroup "Decode SumType"
       toSpecialJSON' x === Right (There (Here x))
   , testProperty "branch 3" $ \(l :: [String]) ->
       toSpecialJSON' l === Right (There (There (Here l)))
-  , testCase "invalid SumType" $
-      toSpecialJSON' [True] @?= Left "Error in $: Could not parse sum type"
+  , goldenVsString "invalid SumType" "test/goldens/sumtype_decode_invalid.golden" $
+      case toSpecialJSON' [True] of
+        Right v -> error $ "Unexpectedly decoded value: " ++ show v
+        Left e -> pure $ fromString e
   ]
 
 testFromSumType :: TestTree
