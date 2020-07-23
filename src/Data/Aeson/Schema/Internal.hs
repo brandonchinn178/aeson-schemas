@@ -28,13 +28,14 @@ import Control.Applicative ((<|>))
 import Control.Monad.Fail (MonadFail)
 #endif
 import Data.Aeson (FromJSON(..), ToJSON(..), Value(..))
+import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Parser)
 import Data.Bifunctor (first)
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
-import qualified Data.HashMap.Lazy as HashMapL
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
 import Data.Kind (Type)
+import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
@@ -59,9 +60,6 @@ import Data.Aeson.Schema.Utils.TypeFamilies (All)
 -- > obj = decode "{\"a\": 1}" :: Maybe (Object [schema| { a: Int } |])
 newtype Object (schema :: Schema) = UnsafeObject (HashMap Text Dynamic)
 
-unsafeCastObject :: Object schema0 -> Object schema1
-unsafeCastObject (UnsafeObject o) = UnsafeObject o
-
 instance IsSchemaType ('SchemaObject schema) => Show (Object ('Schema schema)) where
   show = showValue @('SchemaObject schema)
 
@@ -69,13 +67,10 @@ instance IsSchemaType ('SchemaObject schema) => FromJSON (Object ('Schema schema
   parseJSON = parseValue @('SchemaObject schema) []
 
 instance IsSchemaType ('SchemaObject schema) => ToJSON (Object ('Schema schema)) where
-  toJSON = Object . toMap
+  toJSON = toValue @('SchemaObject schema)
 
-toMap :: forall schema inner. (schema ~ 'Schema inner, IsSchemaType (ToSchemaObject schema))
-  => Object schema -> HashMapL.HashMap Text Value
-toMap o = case toValue @(ToSchemaObject schema) o of
-  Object o' -> o'
-  v -> unreachable $ "Expected Object to encode as a JSON object; got: " ++ show v
+toMap :: forall schema. IsSchemaObjectMap schema => Object ('Schema schema) -> Aeson.Object
+toMap = toValueMap @schema
 
 {- Type-level schema definitions -}
 
@@ -148,32 +143,8 @@ data SchemaKey
   = NormalKey Symbol
   | PhantomKey Symbol
 
-type family FromSchemaKey (schemaKey :: SchemaKey) where
-  FromSchemaKey ('NormalKey key) = key
-  FromSchemaKey ('PhantomKey key) = key
-
-fromSchemaKey :: forall schemaKey. KnownSymbol (FromSchemaKey schemaKey) => Text
-fromSchemaKey = Text.pack $ symbolVal $ Proxy @(FromSchemaKey schemaKey)
-
-class
-  ( Typeable schemaKey
-  , KnownSymbol (FromSchemaKey schemaKey)
-  ) => KnownSchemaKey (schemaKey :: SchemaKey) where
-  getContext :: HashMap Text Value -> Value
-  toContext :: Value -> HashMapL.HashMap Text Value
-  showSchemaKey :: String
-
-instance KnownSymbol key => KnownSchemaKey ('NormalKey key) where
-  getContext = fromMaybe Null . HashMap.lookup (fromSchemaKey @('NormalKey key))
-  toContext = HashMapL.singleton (fromSchemaKey @('NormalKey key))
-  showSchemaKey = show $ fromSchemaKey @('NormalKey key)
-
-instance KnownSymbol key => KnownSchemaKey ('PhantomKey key) where
-  getContext = Object
-  toContext = \case
-    Object o -> o
-    v -> unreachable $ "Phantom key cannot realize non-object: " ++ show v
-  showSchemaKey = Text.unpack $ Text.concat ["[", fromSchemaKey @('PhantomKey key), "]"]
+keyName :: forall key. KnownSymbol key => Text
+keyName = Text.pack $ symbolVal $ Proxy @key
 
 {- Conversions from schema types into Haskell types -}
 
@@ -233,53 +204,80 @@ instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult in
     Array a -> traverse (parseValue @inner path) (toList a)
     _ -> parseFail @('SchemaList inner) path value
 
-instance IsSchemaType ('SchemaObject '[]) where
+instance (Typeable schema, IsSchemaObjectMap schema) => IsSchemaType ('SchemaObject schema) where
   parseValue path = \case
-    Object _ -> return $ UnsafeObject mempty
-    value -> parseFail @('SchemaObject '[]) path value
+    Object o -> UnsafeObject <$> parseValueMap @schema path o
+    value -> parseFail @('SchemaObject schema) path value
 
-  toValue _ = Object mempty
+  toValue = Object . toValueMap @schema
 
-  showValue _ = "{}"
+  showValue o =
+    let pairs = showValueMap @schema o
+    in "{" ++ intercalate ", " (map fromPair pairs) ++ "}"
+    where
+      fromPair (k, v) = k ++ ": " ++ v
+
+class IsSchemaObjectMap (a :: SchemaObjectMap) where
+  parseValueMap :: [Text] -> HashMap Text Value -> Parser (HashMap Text Dynamic)
+  toValueMap :: Object schema -> Aeson.Object
+  showValueMap :: Object schema -> [(String, String)]
+
+instance IsSchemaObjectMap '[] where
+  parseValueMap _ _ = return mempty
+  toValueMap _ = mempty
+  showValueMap _ = []
 
 instance
-  ( KnownSchemaKey schemaKey
+  ( KnownSymbol (FromSchemaKey key)
+  , IsSchemaKey key
   , IsSchemaType inner
-  , IsSchemaType ('SchemaObject rest)
-  , Show (SchemaResult inner)
   , Typeable (SchemaResult inner)
-  , Typeable rest
-  ) => IsSchemaType ('SchemaObject ('(schemaKey, inner) ': rest)) where
-  parseValue path value = case value of
-    Object o -> do
-      let key = fromSchemaKey @schemaKey
-          innerVal = getContext @schemaKey o
+  , IsSchemaObjectMap rest
+  ) => IsSchemaObjectMap ( '(key, inner) ': rest ) where
 
-      inner <- parseValue @inner (key:path) innerVal
-      UnsafeObject rest <- parseValue @('SchemaObject rest) path value
+  parseValueMap path o = do
+    let key = fromSchemaKey @key
 
-      return $ UnsafeObject $ HashMap.insert key (toDyn inner) rest
-    _ -> parseFail @('SchemaObject ('(schemaKey, inner) ': rest)) path value
+    inner <- parseValue @inner (key:path) $ getContext @key o
+    rest <- parseValueMap @rest path o
 
-  toValue o =
-    let val = toValue @inner $ unsafeGetKey @inner (Proxy @(FromSchemaKey schemaKey)) o
-        inner = toContext @schemaKey val
-        rest = toMap @('Schema rest) (unsafeCastObject o)
-    in Object $ HashMapL.union inner rest
+    return $ HashMap.insert key (toDyn inner) rest
 
-  showValue (UnsafeObject hm) = case showValue @('SchemaObject rest) (UnsafeObject hm) of
-    "{}" -> "{" ++ pair ++ "}"
-    '{':s -> "{" ++ pair ++ ", " ++ s
-    s -> unreachable $ "Unknown result when showing Object: " ++ s
+  toValueMap o =
+    let val = toValue @inner $ unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
+        rest = toValueMap @rest o
+    in buildContext @key val rest
+
+  showValueMap o =
+    let key = showSchemaKey @key
+        val = showValue @inner $ unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
+        rest = showValueMap @rest o
+    in (key, val) : rest
+
+class IsSchemaKey (key :: SchemaKey) where
+  type FromSchemaKey key :: Symbol
+  fromSchemaKey :: Text
+  getContext :: HashMap Text Value -> Value
+  buildContext :: Value -> (Aeson.Object -> Aeson.Object)
+  showSchemaKey :: String
+
+instance KnownSymbol key => IsSchemaKey ('NormalKey key) where
+  type FromSchemaKey ('NormalKey key) = key
+  fromSchemaKey = keyName @key
+  getContext = HashMap.lookupDefault Null (keyName @key)
+  buildContext val = HashMap.insert (keyName @key) val
+  showSchemaKey = show (keyName @key)
+
+instance KnownSymbol key => IsSchemaKey ('PhantomKey key) where
+  type FromSchemaKey ('PhantomKey key) = key
+  fromSchemaKey = keyName @key
+  getContext = Object
+  buildContext val = HashMap.union context
     where
-      key = fromSchemaKey @schemaKey
-      value = case fromDynamic @(SchemaResult inner) (hm ! key) of
-        Just v -> showValue @inner v
-        Nothing -> unreachable $
-          "Could not show key " ++ show key ++
-          " with schema " ++ showSchemaType @inner ++
-          ": " ++ show (hm ! key)
-      pair = showSchemaKey @schemaKey ++ ": " ++ value
+      context = case val of
+        Object o -> o
+        _ -> unreachable $ "Invalid value for phantom key: " ++ show val
+  showSchemaKey = Text.unpack $ Text.concat ["[", keyName @key, "]"]
 
 instance
   ( All IsSchemaType schemas
