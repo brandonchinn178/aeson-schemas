@@ -158,8 +158,6 @@ instance
     (rest, restSchema) <- genSchemaMap @rest
     return (Internal.buildContext @key inner rest, (toSchemaKeyShow @key, innerSchema) : restSchema)
 
-{- Generating schema keys -}
-
 class SchemaKeyShow (key :: SchemaKey) where
   toSchemaKeyShow :: SchemaShow.SchemaKey
 
