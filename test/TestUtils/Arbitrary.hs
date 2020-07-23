@@ -22,14 +22,13 @@ import Data.Aeson (FromJSON, ToJSON(..), Value(..))
 import qualified Data.Aeson as Aeson
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
-import Data.Typeable (Typeable, tyConName, typeRep, typeRepTyCon)
-import GHC.TypeLits (KnownSymbol, symbolVal)
+import Data.Typeable (Typeable)
 import Language.Haskell.TH (ExpQ, listE)
 import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
 import Test.QuickCheck
 
 import Data.Aeson.Schema (Object, schema)
-import Data.Aeson.Schema.Internal (SchemaKey(..), SchemaType(..))
+import Data.Aeson.Schema.Internal (SchemaType(..))
 import qualified Data.Aeson.Schema.Internal as Internal
 import qualified Data.Aeson.Schema.Show as SchemaShow
 import TestUtils (parseValue)
@@ -82,8 +81,11 @@ genSchema' :: forall schema inner.
   )
   => Proxy schema -> Gen ArbitraryObject
 genSchema' _ = do
-  (v, schemaType) <- genSchema @('SchemaObject inner)
+  v <- genSchema @('SchemaObject inner)
+
   let o = parseValue @(Object schema) v
+      schemaType = Internal.toSchemaTypeShow @('SchemaObject inner)
+
   return $ ArbitraryObject o schemaType
 
 getKeyType :: SchemaShow.SchemaKey -> String
@@ -119,42 +121,30 @@ tabulate' _ _ = id
 {- Generating schemas -}
 
 class ArbitrarySchema (schema :: SchemaType) where
-  genSchema :: Gen (Value, SchemaShow.SchemaType)
+  genSchema :: Gen Value
 
 instance {-# OVERLAPS #-} ArbitrarySchema ('SchemaScalar Text) where
-  genSchema = (, SchemaShow.SchemaScalar "Text") . toJSON <$> arbitrary @String
+  genSchema = toJSON <$> arbitrary @String
 
 instance (Arbitrary inner, ToJSON inner, Typeable inner) => ArbitrarySchema ('SchemaScalar inner) where
-  genSchema = (, SchemaShow.SchemaScalar (tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)) . toJSON <$> arbitrary @inner
+  genSchema = toJSON <$> arbitrary @inner
 
 instance ArbitraryObjectMap schema => ArbitrarySchema ('SchemaObject schema) where
-  genSchema = do
-    (o, schemaType) <- genSchemaMap @schema
-    return (Object o, SchemaShow.SchemaObject schemaType)
+  genSchema = Object <$> genSchemaMap @schema
 
 class ArbitraryObjectMap (a :: Internal.SchemaObjectMap) where
-  genSchemaMap :: Gen (Aeson.Object, [(SchemaShow.SchemaKey, SchemaShow.SchemaType)])
+  genSchemaMap :: Gen Aeson.Object
 
 instance ArbitraryObjectMap '[] where
-  genSchemaMap = return (mempty, [])
+  genSchemaMap = return mempty
 
 instance
   ( Internal.IsSchemaKey key
-  , SchemaKeyShow key
   , ArbitrarySchema inner
   , ArbitraryObjectMap rest
   ) => ArbitraryObjectMap ( '(key, inner) ': rest ) where
 
   genSchemaMap = do
-    (inner, innerSchema) <- genSchema @inner
-    (rest, restSchema) <- genSchemaMap @rest
-    return (Internal.buildContext @key inner rest, (toSchemaKeyShow @key, innerSchema) : restSchema)
-
-class SchemaKeyShow (key :: SchemaKey) where
-  toSchemaKeyShow :: SchemaShow.SchemaKey
-
-instance KnownSymbol key => SchemaKeyShow ('NormalKey key) where
-  toSchemaKeyShow = SchemaShow.NormalKey $ symbolVal $ Proxy @key
-
-instance KnownSymbol key => SchemaKeyShow ('PhantomKey key) where
-  toSchemaKeyShow = SchemaShow.PhantomKey $ symbolVal $ Proxy @key
+    inner <- genSchema @inner
+    rest <- genSchemaMap @rest
+    return $ Internal.buildContext @key inner rest
