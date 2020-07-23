@@ -111,8 +111,8 @@ generateSchema = \case
   SchemaDefTry inner     -> [t| 'SchemaTry $(generateSchema inner) |]
   SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
   SchemaDefInclude other -> [t| ToSchemaObject $(getType other) |]
-  SchemaDefObj items     -> [t| 'SchemaObject $(generateSchemaObject items) |]
   SchemaDefUnion schemas -> [t| 'SchemaUnion $(typeQListToTypeQ $ map generateSchema schemas) |]
+  SchemaDefObj items     -> [t| 'SchemaObject $(generateSchemaObject items) |]
 
 {- Helpers -}
 
@@ -154,8 +154,8 @@ toParts = \case
       SchemaDefObjKeyPhantom key -> PhantomKey key
     isValidPhantomSchema = \case
       SchemaShow.SchemaTry _ -> True
-      SchemaShow.SchemaObject _ -> True
       SchemaShow.SchemaUnion schemas -> all isValidPhantomSchema schemas
+      SchemaShow.SchemaObject _ -> True
       _ -> False
 
 -- | Resolve the parts returned by 'toParts' as such:

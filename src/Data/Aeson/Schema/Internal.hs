@@ -93,8 +93,8 @@ data SchemaType
   | SchemaMaybe SchemaType
   | SchemaTry SchemaType -- ^ @since v1.2.0
   | SchemaList SchemaType
-  | SchemaObject SchemaObjectMap
   | SchemaUnion [SchemaType] -- ^ @since v1.1.0
+  | SchemaObject SchemaObjectMap
 
 -- | Convert 'SchemaType' into 'SchemaShow.SchemaType'.
 toSchemaTypeShow :: forall (a :: SchemaType). Typeable a => SchemaShow.SchemaType
@@ -109,8 +109,8 @@ toSchemaTypeShow = cast $ typeRep (Proxy @a)
       ("'SchemaMaybe", [inner]) -> SchemaShow.SchemaMaybe $ cast inner
       ("'SchemaTry", [inner]) -> SchemaShow.SchemaTry $ cast inner
       ("'SchemaList", [inner]) -> SchemaShow.SchemaList $ cast inner
-      ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ map getSchemaObjectPair $ typeRepToList pairs
       ("'SchemaUnion", [schemas]) -> SchemaShow.SchemaUnion $ map cast $ typeRepToList schemas
+      ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ map getSchemaObjectPair $ typeRepToList pairs
       _ -> unreachable $ "Unknown schema type: " ++ show tyRep
 
     getSchemaObjectPair tyRep =
@@ -158,8 +158,8 @@ type family SchemaResult (schema :: SchemaType) where
   SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaTry inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaList inner) = [SchemaResult inner]
-  SchemaResult ('SchemaObject inner) = Object ('Schema inner)
   SchemaResult ('SchemaUnion schemas) = SumType (SchemaResultList schemas)
+  SchemaResult ('SchemaObject inner) = Object ('Schema inner)
 
 type family SchemaResultList (xs :: [SchemaType]) where
   SchemaResultList '[] = '[]
@@ -203,6 +203,14 @@ instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult in
   parseValue path value = case value of
     Array a -> traverse (parseValue @inner path) (toList a)
     _ -> parseFail @('SchemaList inner) path value
+
+instance
+  ( All IsSchemaType schemas
+  , Typeable schemas
+  , Show (SchemaResult ('SchemaUnion schemas))
+  , FromJSON (SchemaResult ('SchemaUnion schemas))
+  , ToJSON (SchemaResult ('SchemaUnion schemas))
+  ) => IsSchemaType ('SchemaUnion schemas)
 
 instance (Typeable schema, IsSchemaObjectMap schema) => IsSchemaType ('SchemaObject schema) where
   parseValue path = \case
@@ -278,14 +286,6 @@ instance KnownSymbol key => IsSchemaKey ('PhantomKey key) where
         Object o -> o
         _ -> unreachable $ "Invalid value for phantom key: " ++ show val
   showSchemaKey = Text.unpack $ Text.concat ["[", keyName @key, "]"]
-
-instance
-  ( All IsSchemaType schemas
-  , Typeable schemas
-  , Show (SchemaResult ('SchemaUnion schemas))
-  , FromJSON (SchemaResult ('SchemaUnion schemas))
-  , ToJSON (SchemaResult ('SchemaUnion schemas))
-  ) => IsSchemaType ('SchemaUnion schemas)
 
 -- | A helper for creating fail messages when parsing a schema.
 parseFail :: forall (schema :: SchemaType) m a. (MonadFail m, Typeable schema) => [Text] -> Value -> m a

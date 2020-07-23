@@ -43,8 +43,8 @@ parseSchemaType = \case
     | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ parseSchemaType inner
     | name == 'SchemaTry -> SchemaShow.SchemaTry $ parseSchemaType inner
     | name == 'SchemaList -> SchemaShow.SchemaList $ parseSchemaType inner
-    | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
     | name == 'SchemaUnion -> SchemaShow.SchemaUnion $ map parseSchemaType $ typeToList inner
+    | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
   ty -> error $ "Unknown type: " ++ show ty
   where
     fromPairs pairs = map (second parseSchemaType) $ typeToSchemaPairs pairs
