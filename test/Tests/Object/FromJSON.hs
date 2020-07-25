@@ -78,9 +78,12 @@ test = testGroup "FromJSON instance" $ map runTestCase
       [schemaProxy| { foo: Int | Text } |]
       [aesonQQ| { "foo": true } |]
 
-  , CheckValid "Phantom key valid"
+  , CheckValid "Phantom key valid object"
       [schemaProxy| { [foo]: { bar: Int } } |]
       $ \(x :: Int) -> [aesonQQ| { "bar": #{x} } |]
+  , CheckValid "Phantom key valid non-object try"
+      [schemaProxy| { [foo]: Try Bool } |]
+      $ \(b :: Bool) -> [aesonQQ| { "bar": #{b} } |]
   , CheckError "Phantom key invalid" "fromjson_phantom_invalid.golden"
       [schemaProxy| { [foo]: { bar: Int } } |]
       [aesonQQ| 1 |]

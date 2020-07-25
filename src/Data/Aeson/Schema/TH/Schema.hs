@@ -154,9 +154,11 @@ toParts = \case
     schemaDefToSchemaKey = \case
       SchemaDefObjKeyNormal key -> NormalKey key
       SchemaDefObjKeyPhantom key -> PhantomKey key
+    -- should return true if it's at all possible to get a valid parse
     isValidPhantomSchema = \case
-      SchemaShow.SchemaTry _ -> True
-      SchemaShow.SchemaUnion schemas -> all isValidPhantomSchema schemas
+      SchemaShow.SchemaMaybe inner -> isValidPhantomSchema inner
+      SchemaShow.SchemaTry _ -> True -- even if inner is a non-object schema, it'll still parse to be Nothing
+      SchemaShow.SchemaUnion schemas -> any isValidPhantomSchema schemas
       SchemaShow.SchemaObject _ -> True
       _ -> False
 

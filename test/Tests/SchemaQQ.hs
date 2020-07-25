@@ -114,6 +114,11 @@ testValidSchemas = testGroup "Valid schemas"
         [schemaRep| { [a]: { b: Int } } |]
         [r| SchemaObject {[a]: {"b": Int}} |]
 
+  , testCase "Object with a phantom key for a Maybe" $
+      assertMatches
+        [schemaRep| { [a]: Maybe { b: Int } } |]
+        [r| SchemaObject {[a]: Maybe {"b": Int}} |]
+
   , testCase "Object with a phantom key for a Try" $
       assertMatches
         [schemaRep| { [a]: Try { b: Int } } |]
@@ -126,8 +131,8 @@ testValidSchemas = testGroup "Valid schemas"
 
   , testCase "Object with a phantom key for a union of valid schemas" $
       assertMatches
-        [schemaRep| { [a]: { b: Int } | Try { c: Int } } |]
-        [r| SchemaObject {[a]: ( {"b": Int} | Try {"c": Int} )} |]
+        [schemaRep| { [a]: { b: Int } | Int } |]
+        [r| SchemaObject {[a]: ( {"b": Int} | Int )} |]
   ]
 
 testInvalidSchemas :: TestTree
@@ -156,11 +161,17 @@ testInvalidSchemas = testGroup "Invalid schemas"
   , testCase "Object extending an unknown schema" $
       [schemaErr| { #FooSchema } |] @?= "Unknown type: FooSchema"
 
-  , testCase "Object with a phantom key for a non-object" $
+  , testCase "Object with a phantom key for a scalar" $
       [schemaErr| { [a]: Int } |] @?= "Invalid schema for 'a': SchemaScalar Int"
 
+  , testCase "Object with a phantom key for a list" $
+      [schemaErr| { [a]: List Int } |] @?= "Invalid schema for 'a': SchemaList Int"
+
+  , testCase "Object with a phantom key for a non-object Maybe" $
+      [schemaErr| { [a]: Maybe Int } |] @?= "Invalid schema for 'a': SchemaMaybe Int"
+
   , testCase "Object with a phantom key for an invalid union" $
-      [schemaErr| { [a]: { b: Int } | Int } |] @?= "Invalid schema for 'a': SchemaUnion ( {\"b\": Int} | Int )"
+      [schemaErr| { [a]: Bool | Int } |] @?= "Invalid schema for 'a': SchemaUnion ( Bool | Int )"
   ]
 
 {- Helpers -}
