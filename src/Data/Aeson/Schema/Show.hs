@@ -27,7 +27,7 @@ data SchemaType
   | SchemaList SchemaType
   | SchemaObject [(SchemaKey, SchemaType)]
   | SchemaUnion [SchemaType]
-  deriving (Show)
+  deriving (Show,Eq)
 
 -- | Pretty show the given SchemaType.
 showSchemaType :: SchemaType -> String

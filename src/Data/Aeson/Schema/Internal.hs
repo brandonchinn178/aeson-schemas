@@ -271,7 +271,7 @@ instance KnownSymbol key => IsSchemaKey ('PhantomKey key) where
     where
       context = case val of
         Object o -> o
-        _ -> unreachable $ "Invalid value for phantom key: " ++ show val
+        _ -> mempty
   showSchemaKey = Text.unpack $ Text.concat ["[", keyName @key, "]"]
 
 -- | A helper for creating fail messages when parsing a schema.

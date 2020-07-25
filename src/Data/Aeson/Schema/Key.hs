@@ -19,7 +19,7 @@ data SchemaKey
   | PhantomKey String
     -- ^ A key that doesn't actually exist in the object, but whose content should be parsed from
     -- the current object.
-  deriving (Show)
+  deriving (Show,Eq)
 
 fromSchemaKey :: SchemaKey -> String
 fromSchemaKey (NormalKey key) = key
