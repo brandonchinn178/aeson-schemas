@@ -119,6 +119,11 @@ testValidSchemas = testGroup "Valid schemas"
         [schemaRep| { [a]: Try { b: Int } } |]
         [r| SchemaObject {[a]: Try {"b": Int}} |]
 
+  , testCase "Object with a phantom key for a non-object Try" $
+      assertMatches
+        [schemaRep| { [a]: Try Bool } |]
+        [r| SchemaObject {[a]: Try Bool} |]
+
   , testCase "Object with a phantom key for a union of valid schemas" $
       assertMatches
         [schemaRep| { [a]: { b: Int } | Try { c: Int } } |]
