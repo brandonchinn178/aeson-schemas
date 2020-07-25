@@ -194,10 +194,10 @@ instance (IsSchemaObjectMap schema) => IsSchemaType ('SchemaObject schema) where
   toSchemaTypeShow = SchemaShow.SchemaObject (toSchemaTypeShowMap @schema)
 
   parseValue path = \case
-    Object o -> UnsafeObject <$> parseValueMap @schema path o
+    Aeson.Object o -> UnsafeObject <$> parseValueMap @schema path o
     value -> parseFail @('SchemaObject schema) path value
 
-  toValue = Object . toValueMap @schema
+  toValue = Aeson.Object . toValueMap @schema
 
   showValue o =
     let pairs = showValueMap @schema o
@@ -207,7 +207,7 @@ instance (IsSchemaObjectMap schema) => IsSchemaType ('SchemaObject schema) where
 
 class IsSchemaObjectMap (a :: SchemaObjectMap) where
   toSchemaTypeShowMap :: [(SchemaShow.SchemaKey, SchemaShow.SchemaType)]
-  parseValueMap :: [Text] -> HashMap Text Value -> Parser (HashMap Text Dynamic)
+  parseValueMap :: [Text] -> Aeson.Object -> Parser (HashMap Text Dynamic)
   toValueMap :: Object schema -> Aeson.Object
   showValueMap :: Object schema -> [(String, String)]
 
@@ -250,7 +250,11 @@ class IsSchemaKey (key :: SchemaKey) where
   type FromSchemaKey key :: Symbol
   toSchemaKey :: SchemaShow.SchemaKey
   fromSchemaKey :: Text
-  getContext :: HashMap Text Value -> Value
+  -- | Given schema `{ key: innerSchema }` for JSON data `{ key: val1 }`, get the JSON
+  -- Value that `innerSchema` should parse.
+  getContext :: Aeson.Object -> Value
+  -- | Given JSON data `val` adhering to `innerSchema`, how should `val` be inserted into the JSON
+  -- object to build a JSON object adhering to the schema `{ key: innerSchema }`?
   buildContext :: Value -> (Aeson.Object -> Aeson.Object)
   showSchemaKey :: String
 
@@ -258,7 +262,9 @@ instance KnownSymbol key => IsSchemaKey ('NormalKey key) where
   type FromSchemaKey ('NormalKey key) = key
   toSchemaKey = SchemaShow.NormalKey (Text.unpack $ keyName @key)
   fromSchemaKey = keyName @key
+  -- | `innerSchema` should parse `val1`
   getContext = HashMap.lookupDefault Null (keyName @key)
+  -- | `val` should be inserted with key `key`
   buildContext val = HashMap.insert (keyName @key) val
   showSchemaKey = show (keyName @key)
 
@@ -266,12 +272,15 @@ instance KnownSymbol key => IsSchemaKey ('PhantomKey key) where
   type FromSchemaKey ('PhantomKey key) = key
   toSchemaKey = SchemaShow.PhantomKey (Text.unpack $ keyName @key)
   fromSchemaKey = keyName @key
-  getContext = Object
-  buildContext val = HashMap.union context
-    where
-      context = case val of
-        Object o -> o
-        _ -> mempty
+  -- | `innerSchema` should parse the same object that `key` is in
+  getContext = Aeson.Object
+  -- | If `val` is an object, it should be merged with the JSON object.
+  buildContext = \case
+    Aeson.Object o -> HashMap.union o
+    -- `val` should always be an object if `buildContext` is used on the result of a `FromJSON`
+    -- decoding of `Object`. Noop here instead of error, in case `buildContext` is called outside of
+    -- this use-case.
+    _ -> id
   showSchemaKey = Text.unpack $ Text.concat ["[", keyName @key, "]"]
 
 -- | A helper for creating fail messages when parsing a schema.
