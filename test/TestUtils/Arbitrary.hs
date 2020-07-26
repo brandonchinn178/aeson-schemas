@@ -23,7 +23,6 @@ module TestUtils.Arbitrary
 import Control.Monad (forM)
 import Data.Aeson (FromJSON, ToJSON(..), Value(..))
 import qualified Data.Aeson as Aeson
-import qualified Data.Aeson.Types as Aeson
 import Data.List (nub, stripPrefix)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
@@ -51,7 +50,8 @@ data ArbitraryObject where
        , FromJSON (Object schema)
        , ToJSON (Object schema)
        )
-    => Object schema
+    => Proxy (Object schema)
+    -> Value
     -> SchemaShow.SchemaType
     -> ArbitraryObject
 
@@ -73,7 +73,7 @@ arbitraryObject = do
           schemaType = case "SchemaObject " `stripPrefix` schemaTypeShow of
             Just s -> quoteType schema s
             Nothing -> error $ "Invalid schema: " ++ schemaTypeShow
-      in [| genSchema' (Proxy :: Proxy $schemaType) schemaShow |]
+      in [| genSchema' (Proxy :: Proxy (Object $schemaType)) schemaShow |]
 
 -- | Splices to a 'forAll' with 'arbitraryObject', outputting information about the object
 -- generated, to ensure we get good generation.
@@ -81,7 +81,7 @@ arbitraryObject = do
 -- $(forAllArbitraryObjects) :: Testable prop => ArbitraryObject -> prop
 forAllArbitraryObjects :: ExpQ
 forAllArbitraryObjects = [| \runTest ->
-  forAll $arbitraryObject $ \o@(ArbitraryObject _ schemaType) ->
+  forAll $arbitraryObject $ \o@(ArbitraryObject _ _ schemaType) ->
     tabulate' "Key types" (map getKeyType $ getKeys schemaType) $
     tabulate' "Schema types" (getSchemaTypes schemaType) $
     tabulate' "Object sizes" (map show $ getObjectSizes schemaType) $
@@ -91,22 +91,14 @@ forAllArbitraryObjects = [| \runTest ->
 
 {- Run time helpers -}
 
-genSchema' :: forall schema inner.
-  ( schema ~ 'Internal.Schema inner
-  , ArbitrarySchema ('SchemaObject inner)
-  , Internal.IsSchemaType ('SchemaObject inner)
+genSchema' :: forall schema.
+  ( ArbitrarySchema ('SchemaObject schema)
+  , Internal.IsSchemaType ('SchemaObject schema)
   )
-  => Proxy schema -> SchemaShow.SchemaType -> Gen ArbitraryObject
-genSchema' _ schemaType = do
-  v <- genSchema @('SchemaObject inner)
-
-  case Aeson.parseEither Aeson.parseJSON v of
-    Right (o :: Object schema) -> return $ ArbitraryObject o schemaType
-    Left e -> error $ unlines
-      [ "Could not parse " ++ SchemaShow.showSchemaType schemaType
-      , show v
-      , e
-      ]
+  => Proxy (Object ('Internal.Schema schema)) -> SchemaShow.SchemaType -> Gen ArbitraryObject
+genSchema' proxy schemaType = do
+  v <- genSchema @('SchemaObject schema)
+  return $ ArbitraryObject proxy v schemaType
 
 getKeyType :: SchemaShow.SchemaKey -> String
 getKeyType = \case
@@ -192,6 +184,7 @@ instance ArbitrarySchema inner => ArbitrarySchema ('SchemaList inner) where
 instance (ArbitrarySchemaList schemas) => ArbitrarySchema ('SchemaUnion schemas) where
   genSchema = oneof $ genSchemaElems @schemas
 
+-- TODO: generalize type-level list operations
 class ArbitrarySchemaList xs where
   genSchemaElems :: [Gen Value]
 
@@ -204,6 +197,7 @@ instance (ArbitrarySchema x, ArbitrarySchemaList xs) => ArbitrarySchemaList (x '
 instance ArbitraryObjectMap schema => ArbitrarySchema ('SchemaObject schema) where
   genSchema = Object <$> genSchemaMap @schema
 
+-- TODO: generalize type-level list operations
 class ArbitraryObjectMap (a :: Internal.SchemaObjectMap) where
   genSchemaMap :: Gen Aeson.Object
 

@@ -10,13 +10,15 @@ import qualified Data.Aeson.Types as Aeson
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
+import TestUtils (parseProxy)
 import TestUtils.Arbitrary (ArbitraryObject(..), forAllArbitraryObjects)
 
 test :: TestTree
 test = testGroup "ToJSON instance"
   [ testProperty "parseJSON . toJSON === pure" $
-      $(forAllArbitraryObjects) $ \(ArbitraryObject o _) ->
-        (parseJSON . toJSON) o === pure o
+      $(forAllArbitraryObjects) $ \(ArbitraryObject proxy v _) ->
+        let o = either error id $ parseProxy proxy v
+        in (parseJSON . toJSON) o === pure o
   ]
 
 {- Realizing Aeson.Parser -}

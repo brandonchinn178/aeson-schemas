@@ -12,6 +12,7 @@ module TestUtils
   , json
   , parseValue
   , parseObject
+  , parseProxy
   , mkExpQQ
   ) where
 
@@ -47,6 +48,9 @@ json = mkExpQQ $ \s -> [| (either error id . eitherDecode . fromString) s |]
 
 parseValue :: FromJSON a => Value -> a
 parseValue = either error id . parseEither parseJSON
+
+parseProxy :: FromJSON a => Proxy a -> Value -> Either String a
+parseProxy _ = parseEither parseJSON
 
 parseObject :: String -> ExpQ
 parseObject schemaString = [| parseValue :: Value -> Object $schemaType |]

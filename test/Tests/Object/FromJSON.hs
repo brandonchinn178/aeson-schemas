@@ -6,6 +6,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Tests.Object.FromJSON where
 
@@ -19,11 +20,28 @@ import Test.Tasty.Golden
 import Test.Tasty.QuickCheck
 
 import Data.Aeson.Schema (Object)
+import Data.Aeson.Schema.Show (showSchemaType)
 import Tests.Object.FromJSON.TH
+import TestUtils (parseProxy)
+import TestUtils.Arbitrary (ArbitraryObject(..), forAllArbitraryObjects)
 
 test :: TestTree
-test = testGroup "FromJSON instance" $ map runTestCase
-  [ CheckValid "Scalar valid"
+test = testGroup "FromJSON instance" $
+  map runTestCase testCases ++
+  [ testProperty "QuickCheck arbitrary Schema" $
+      $(forAllArbitraryObjects) $ \(ArbitraryObject proxy v schemaType) ->
+        case parseProxy proxy v of
+          Right _ -> property ()
+          Left e -> error $ unlines
+            [ "Could not parse " ++ showSchemaType schemaType
+            , show v
+            , e
+            ]
+  ]
+
+testCases :: [FromJSONTestCase]
+testCases =
+ [ CheckValid "Scalar valid"
       [schemaProxy| { foo: Text } |]
       $ \(s :: String) -> [aesonQQ| { "foo": #{s} } |]
   , CheckError "Scalar invalid" "fromjson_scalar_invalid.golden"

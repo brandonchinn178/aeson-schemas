@@ -181,6 +181,7 @@ instance
   ) => IsSchemaType ('SchemaUnion schemas) where
   toSchemaTypeShow = SchemaShow.SchemaUnion (toSchemaTypeListShow @schemas)
 
+-- TODO: generalize type-level list operations
 class IsSchemaTypeList schemas where
   toSchemaTypeListShow :: [SchemaShow.SchemaType]
 
@@ -205,6 +206,7 @@ instance (IsSchemaObjectMap schema) => IsSchemaType ('SchemaObject schema) where
     where
       fromPair (k, v) = k ++ ": " ++ v
 
+-- TODO: generalize type-level list operations
 class IsSchemaObjectMap (a :: SchemaObjectMap) where
   toSchemaTypeShowMap :: [(SchemaShow.SchemaKey, SchemaShow.SchemaType)]
   parseValueMap :: [Text] -> Aeson.Object -> Parser (HashMap Text Dynamic)
