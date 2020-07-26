@@ -191,32 +191,23 @@ instance All IsSchemaObjectPair pairs => IsSchemaType ('SchemaObject pairs) wher
     value -> parseFail @('SchemaObject pairs) path value
     where
       parseValueMap :: Aeson.Object -> Parser [(Text, Dynamic)]
-      parseValueMap o = sequence $ mapAll @IsSchemaObjectPair @pairs (flip parseValuePair' o)
-
-      parseValuePair' :: forall pair. IsSchemaObjectPair pair => Proxy pair -> Aeson.Object -> Parser (Text, Dynamic)
-      parseValuePair' _ = parseValuePair @pair path
+      parseValueMap o = sequence $ mapAll @IsSchemaObjectPair @pairs $ \proxy -> parseValuePair proxy path o
 
   toValue = Aeson.Object . toValueMap
 
   showValue o = "{" ++ intercalate ", " (map fromPair pairs) ++ "}"
     where
       fromPair (k, v) = k ++ ": " ++ v
-      pairs = mapAll @IsSchemaObjectPair @pairs showValuePair'
-
-      showValuePair' :: forall pair. IsSchemaObjectPair pair => Proxy pair -> (String, String)
-      showValuePair' _ = showValuePair @pair o
+      pairs = mapAll @IsSchemaObjectPair @pairs $ \proxy -> showValuePair proxy o
 
 toValueMap :: forall pairs. All IsSchemaObjectPair pairs => Object ('Schema pairs) -> Aeson.Object
-toValueMap o = foldrAll @IsSchemaObjectPair @pairs toValuePair' mempty
-  where
-    toValuePair' :: forall pair. IsSchemaObjectPair pair => Proxy pair -> (Aeson.Object -> Aeson.Object)
-    toValuePair' _ = toValuePair @pair o
+toValueMap o = foldrAll @IsSchemaObjectPair @pairs (\proxy -> toValuePair proxy o) mempty
 
 class IsSchemaObjectPair (a :: (SchemaKey, SchemaType)) where
   toSchemaTypeShowPair :: Proxy a -> (SchemaShow.SchemaKey, SchemaShow.SchemaType)
-  parseValuePair :: [Text] -> Aeson.Object -> Parser (Text, Dynamic)
-  toValuePair :: Object schema -> (Aeson.Object -> Aeson.Object)
-  showValuePair :: Object schema -> (String, String)
+  parseValuePair :: Proxy a -> [Text] -> Aeson.Object -> Parser (Text, Dynamic)
+  toValuePair :: Proxy a -> Object schema -> (Aeson.Object -> Aeson.Object)
+  showValuePair :: Proxy a -> Object schema -> (String, String)
 
 instance
   ( KnownSymbol (FromSchemaKey key)
@@ -226,16 +217,16 @@ instance
   ) => IsSchemaObjectPair '(key, inner) where
   toSchemaTypeShowPair _ = (toSchemaKey @key, toSchemaTypeShow $ Proxy @inner)
 
-  parseValuePair path o = do
+  parseValuePair _ path o = do
     let key = fromSchemaKey @key
     inner <- parseValue @inner (key:path) $ getContext @key o
     return (key, toDyn inner)
 
-  toValuePair o = buildContext @key (toValue @inner val)
+  toValuePair _ o = buildContext @key (toValue @inner val)
     where
       val = unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
 
-  showValuePair o = (showSchemaKey @key, showValue @inner val)
+  showValuePair _ o = (showSchemaKey @key, showValue @inner val)
     where
       val = unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
 
