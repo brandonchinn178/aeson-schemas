@@ -11,8 +11,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module TestUtils.Arbitrary
@@ -38,6 +40,7 @@ import Data.Aeson.Schema (Object, schema)
 import Data.Aeson.Schema.Internal (SchemaType(..))
 import qualified Data.Aeson.Schema.Internal as Internal
 import qualified Data.Aeson.Schema.Show as SchemaShow
+import Data.Aeson.Schema.Utils.All (All(..))
 
 -- Orphan instances
 deriving instance Lift SchemaShow.SchemaKey
@@ -181,38 +184,22 @@ instance ArbitrarySchema inner => ArbitrarySchema ('SchemaTry inner) where
 instance ArbitrarySchema inner => ArbitrarySchema ('SchemaList inner) where
   genSchema = Array . fromList <$> listOf (genSchema @inner)
 
-instance (ArbitrarySchemaList schemas) => ArbitrarySchema ('SchemaUnion schemas) where
-  genSchema = oneof $ genSchemaElems @schemas
+instance All ArbitrarySchema schemas => ArbitrarySchema ('SchemaUnion schemas) where
+  genSchema = oneof $ mapAll @ArbitrarySchema @schemas genSchemaElem
+    where
+      genSchemaElem :: forall schema. ArbitrarySchema schema => Proxy schema -> Gen Value
+      genSchemaElem _ = genSchema @schema
 
--- TODO: generalize type-level list operations
-class ArbitrarySchemaList xs where
-  genSchemaElems :: [Gen Value]
+instance All ArbitraryObjectPair pairs => ArbitrarySchema ('SchemaObject pairs) where
+  genSchema = Object <$> foldrAll @ArbitraryObjectPair @pairs genSchemaPair (pure mempty)
 
-instance ArbitrarySchemaList '[] where
-  genSchemaElems = []
+class ArbitraryObjectPair (a :: (Internal.SchemaKey, Internal.SchemaType)) where
+  genSchemaPair :: Proxy a -> Gen Aeson.Object -> Gen Aeson.Object
 
-instance (ArbitrarySchema x, ArbitrarySchemaList xs) => ArbitrarySchemaList (x ': xs) where
-  genSchemaElems = genSchema @x : genSchemaElems @xs
-
-instance ArbitraryObjectMap schema => ArbitrarySchema ('SchemaObject schema) where
-  genSchema = Object <$> genSchemaMap @schema
-
--- TODO: generalize type-level list operations
-class ArbitraryObjectMap (a :: Internal.SchemaObjectMap) where
-  genSchemaMap :: Gen Aeson.Object
-
-instance ArbitraryObjectMap '[] where
-  genSchemaMap = return mempty
-
-instance
-  ( Internal.IsSchemaKey key
-  , ArbitrarySchema inner
-  , ArbitraryObjectMap rest
-  ) => ArbitraryObjectMap ( '(key, inner) ': rest ) where
-
-  genSchemaMap = do
+instance (Internal.IsSchemaKey key, ArbitrarySchema inner) => ArbitraryObjectPair '(key, inner) where
+  genSchemaPair _ genRest = do
     inner <- genSchema @inner
-    rest <- genSchemaMap @rest
+    rest <- genRest
     return $ Internal.buildContext @key inner rest
 
 {- Generating schema definitions -}

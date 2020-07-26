@@ -12,6 +12,7 @@ Internal definitions for declaring JSON schemas.
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -49,6 +50,7 @@ import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
 
 import qualified Data.Aeson.Schema.Show as SchemaShow
+import Data.Aeson.Schema.Utils.All (All(..))
 import Data.Aeson.Schema.Utils.Sum (SumType)
 
 {- Schema-validated JSON object -}
@@ -72,8 +74,8 @@ instance IsSchemaType ('SchemaObject schema) => FromJSON (Object ('Schema schema
 instance IsSchemaType ('SchemaObject schema) => ToJSON (Object ('Schema schema)) where
   toJSON = toValue @('SchemaObject schema)
 
-toMap :: forall schema. IsSchemaObjectMap schema => Object ('Schema schema) -> Aeson.Object
-toMap = toValueMap @schema
+toMap :: IsSchema ('Schema schema) => Object ('Schema schema) -> Aeson.Object
+toMap = toValueMap
 
 {- Type-level schema definitions -}
 
@@ -92,7 +94,7 @@ type family FromSchema (schema :: Schema) where
 
 type IsSchema (schema :: Schema) =
   ( IsSchemaType (ToSchemaObject schema)
-  , IsSchemaObjectMap (FromSchema schema)
+  , All IsSchemaObjectPair (FromSchema schema)
   )
 
 showSchema :: forall (schema :: Schema). IsSchema schema => String
@@ -174,79 +176,74 @@ instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult in
     value -> parseFail @('SchemaList inner) path value
 
 instance
-  ( IsSchemaTypeList schemas
+  ( All IsSchemaType schemas
   , Show (SchemaResult ('SchemaUnion schemas))
   , FromJSON (SchemaResult ('SchemaUnion schemas))
   , ToJSON (SchemaResult ('SchemaUnion schemas))
-  ) => IsSchemaType ('SchemaUnion schemas) where
-  toSchemaTypeShow = SchemaShow.SchemaUnion (toSchemaTypeListShow @schemas)
+  ) => IsSchemaType ('SchemaUnion (schemas :: [SchemaType])) where
+  toSchemaTypeShow = SchemaShow.SchemaUnion (mapAll @IsSchemaType @schemas toSchemaTypeShow')
+    where
+      toSchemaTypeShow' :: forall schema. IsSchemaType schema => Proxy schema -> SchemaShow.SchemaType
+      toSchemaTypeShow' _ = toSchemaTypeShow @schema
 
--- TODO: generalize type-level list operations
-class IsSchemaTypeList schemas where
-  toSchemaTypeListShow :: [SchemaShow.SchemaType]
-
-instance IsSchemaTypeList '[] where
-  toSchemaTypeListShow = []
-
-instance (IsSchemaType schema, IsSchemaTypeList schemas) => IsSchemaTypeList (schema ': schemas) where
-  toSchemaTypeListShow = toSchemaTypeShow @schema : toSchemaTypeListShow @schemas
-
-instance (IsSchemaObjectMap schema) => IsSchemaType ('SchemaObject schema) where
-  toSchemaTypeShow = SchemaShow.SchemaObject (toSchemaTypeShowMap @schema)
+instance All IsSchemaObjectPair pairs => IsSchemaType ('SchemaObject pairs) where
+  toSchemaTypeShow = SchemaShow.SchemaObject $ mapAll @IsSchemaObjectPair @pairs toSchemaTypeShowPair'
+    where
+      toSchemaTypeShowPair' :: forall pair. IsSchemaObjectPair pair => Proxy pair -> (SchemaShow.SchemaKey, SchemaShow.SchemaType)
+      toSchemaTypeShowPair' _ = toSchemaTypeShowPair @pair
 
   parseValue path = \case
-    Aeson.Object o -> UnsafeObject <$> parseValueMap @schema path o
-    value -> parseFail @('SchemaObject schema) path value
+    Aeson.Object o -> UnsafeObject . HashMap.fromList <$> parseValueMap o
+    value -> parseFail @('SchemaObject pairs) path value
+    where
+      parseValueMap :: Aeson.Object -> Parser [(Text, Dynamic)]
+      parseValueMap o = sequence $ mapAll @IsSchemaObjectPair @pairs (flip parseValuePair' o)
 
-  toValue = Aeson.Object . toValueMap @schema
+      parseValuePair' :: forall pair. IsSchemaObjectPair pair => Proxy pair -> Aeson.Object -> Parser (Text, Dynamic)
+      parseValuePair' _ = parseValuePair @pair path
 
-  showValue o =
-    let pairs = showValueMap @schema o
-    in "{" ++ intercalate ", " (map fromPair pairs) ++ "}"
+  toValue = Aeson.Object . toValueMap
+
+  showValue o = "{" ++ intercalate ", " (map fromPair pairs) ++ "}"
     where
       fromPair (k, v) = k ++ ": " ++ v
+      pairs = mapAll @IsSchemaObjectPair @pairs showValuePair'
 
--- TODO: generalize type-level list operations
-class IsSchemaObjectMap (a :: SchemaObjectMap) where
-  toSchemaTypeShowMap :: [(SchemaShow.SchemaKey, SchemaShow.SchemaType)]
-  parseValueMap :: [Text] -> Aeson.Object -> Parser (HashMap Text Dynamic)
-  toValueMap :: Object schema -> Aeson.Object
-  showValueMap :: Object schema -> [(String, String)]
+      showValuePair' :: forall pair. IsSchemaObjectPair pair => Proxy pair -> (String, String)
+      showValuePair' _ = showValuePair @pair o
 
-instance IsSchemaObjectMap '[] where
-  toSchemaTypeShowMap = []
-  parseValueMap _ _ = return mempty
-  toValueMap _ = mempty
-  showValueMap _ = []
+toValueMap :: forall pairs. All IsSchemaObjectPair pairs => Object ('Schema pairs) -> Aeson.Object
+toValueMap o = foldrAll @IsSchemaObjectPair @pairs toValuePair' mempty
+  where
+    toValuePair' :: forall pair. IsSchemaObjectPair pair => Proxy pair -> (Aeson.Object -> Aeson.Object)
+    toValuePair' _ = toValuePair @pair o
+
+class IsSchemaObjectPair (a :: (SchemaKey, SchemaType)) where
+  toSchemaTypeShowPair :: (SchemaShow.SchemaKey, SchemaShow.SchemaType)
+  parseValuePair :: [Text] -> Aeson.Object -> Parser (Text, Dynamic)
+  toValuePair :: Object schema -> (Aeson.Object -> Aeson.Object)
+  showValuePair :: Object schema -> (String, String)
 
 instance
   ( KnownSymbol (FromSchemaKey key)
   , IsSchemaKey key
   , IsSchemaType inner
   , Typeable (SchemaResult inner)
-  , IsSchemaObjectMap rest
-  ) => IsSchemaObjectMap ( '(key, inner) ': rest ) where
+  ) => IsSchemaObjectPair '(key, inner) where
+  toSchemaTypeShowPair = (toSchemaKey @key, toSchemaTypeShow @inner)
 
-  toSchemaTypeShowMap = (toSchemaKey @key, toSchemaTypeShow @inner) : toSchemaTypeShowMap @rest
-
-  parseValueMap path o = do
+  parseValuePair path o = do
     let key = fromSchemaKey @key
-
     inner <- parseValue @inner (key:path) $ getContext @key o
-    rest <- parseValueMap @rest path o
+    return (key, toDyn inner)
 
-    return $ HashMap.insert key (toDyn inner) rest
+  toValuePair o = buildContext @key (toValue @inner val)
+    where
+      val = unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
 
-  toValueMap o =
-    let val = toValue @inner $ unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
-        rest = toValueMap @rest o
-    in buildContext @key val rest
-
-  showValueMap o =
-    let key = showSchemaKey @key
-        val = showValue @inner $ unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
-        rest = showValueMap @rest o
-    in (key, val) : rest
+  showValuePair o = (showSchemaKey @key, showValue @inner val)
+    where
+      val = unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
 
 class IsSchemaKey (key :: SchemaKey) where
   type FromSchemaKey key :: Symbol
