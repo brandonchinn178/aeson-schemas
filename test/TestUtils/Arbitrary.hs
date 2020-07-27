@@ -25,19 +25,21 @@ module TestUtils.Arbitrary
 import Control.Monad (forM)
 import Data.Aeson (FromJSON, ToJSON(..), Value(..))
 import qualified Data.Aeson as Aeson
+import qualified Data.HashMap.Strict as HashMap
 import Data.List (nub, stripPrefix)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable)
 import GHC.Exts (fromList)
+import GHC.TypeLits (KnownSymbol)
 import Language.Haskell.TH (ExpQ, listE, runIO)
 import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
 import Language.Haskell.TH.Syntax (Lift)
 import Test.QuickCheck
 
 import Data.Aeson.Schema (Object, schema)
-import Data.Aeson.Schema.Internal (SchemaType(..))
+import Data.Aeson.Schema.Internal (SchemaKey(..), SchemaType(..))
 import qualified Data.Aeson.Schema.Internal as Internal
 import qualified Data.Aeson.Schema.Show as SchemaShow
 import Data.Aeson.Schema.Utils.All (All(..))
@@ -190,17 +192,43 @@ instance All ArbitrarySchema schemas => ArbitrarySchema ('SchemaUnion schemas) w
       genSchemaElem :: forall schema. ArbitrarySchema schema => Proxy schema -> Gen Value
       genSchemaElem _ = genSchema @schema
 
-instance All ArbitraryObjectPair pairs => ArbitrarySchema ('SchemaObject pairs) where
-  genSchema = Object <$> foldrAll @ArbitraryObjectPair @pairs genSchemaPair (pure mempty)
+instance All ArbitraryObjectPair pairs => ArbitrarySchema ('SchemaObject (pairs :: [(SchemaKey, SchemaType)])) where
+  genSchema = Object . HashMap.unions <$> genSchemaPairs
+    where
+      genSchemaPairs :: Gen [Aeson.Object]
+      genSchemaPairs = sequence $ mapAll @ArbitraryObjectPair @pairs genSchemaPair
 
-class ArbitraryObjectPair (a :: (Internal.SchemaKey, Internal.SchemaType)) where
-  genSchemaPair :: Proxy a -> Gen Aeson.Object -> Gen Aeson.Object
+class Internal.IsSchemaKey (Fst pair) => ArbitraryObjectPair (pair :: (SchemaKey, SchemaType)) where
+  genSchemaPair :: Proxy pair -> Gen Aeson.Object
+  genSchemaPair _ = Internal.toContext @(Fst pair) <$> genInnerSchema @pair
 
-instance (Internal.IsSchemaKey key, ArbitrarySchema inner) => ArbitraryObjectPair '(key, inner) where
-  genSchemaPair _ genRest = do
-    inner <- genSchema @inner
-    rest <- genRest
-    return $ Internal.buildContext @key inner rest
+  genInnerSchema :: Gen Value
+
+instance (Internal.IsSchemaKey key, ArbitrarySchema schema) => ArbitraryObjectPair '(key, schema) where
+  genInnerSchema = genSchema @schema
+
+-- For phantom keys, Maybe is only valid for Objects. Since phantom keys parse the schema with
+-- the current object as the context, we should guarantee that this only generates objects, and
+-- not Null.
+instance {-# OVERLAPS #-} (KnownSymbol key, inner ~ 'SchemaObject a, ArbitrarySchema inner)
+  => ArbitraryObjectPair '( 'PhantomKey key, 'SchemaMaybe inner ) where
+  genInnerSchema = genSchema @inner
+
+-- For phantom keys, Try can be used on any schema, but for all non-object schemas, need to ensure
+-- we generate 'Null', because Try on a non-object schema will always be an invalid parse.
+instance {-# OVERLAPS #-} (KnownSymbol key, ArbitrarySchema ('SchemaTry inner))
+  => ArbitraryObjectPair '( 'PhantomKey key, 'SchemaTry inner ) where
+  genInnerSchema = castNull <$> genSchema @('SchemaTry inner)
+    where
+      castNull inner =
+        case inner of
+          Object _ -> inner
+          _ -> Null
+
+-- For phantom keys, Union can be used on any schemas, as long as at least one is an object schema.
+instance {-# OVERLAPS #-} (KnownSymbol key, FilterObjectSchemas schemas ~ objectSchemas, ArbitrarySchema ('SchemaUnion objectSchemas))
+  => ArbitraryObjectPair '( 'PhantomKey key, 'SchemaUnion schemas ) where
+  genInnerSchema = genSchema @('SchemaUnion objectSchemas)
 
 {- Generating schema definitions -}
 
@@ -273,3 +301,13 @@ genUniqList1 gen = sized $ \n -> do
 -- | Scale the generator size by half
 scaleHalf :: Gen a -> Gen a
 scaleHalf = scale (`div` 2)
+
+{- Helper type families -}
+
+type family Fst x where
+  Fst '(a, _) = a
+
+type family FilterObjectSchemas schemas where
+  FilterObjectSchemas '[] = '[]
+  FilterObjectSchemas ('SchemaObject inner ': xs) = 'SchemaObject inner : FilterObjectSchemas xs
+  FilterObjectSchemas (_ ': xs) = FilterObjectSchemas xs

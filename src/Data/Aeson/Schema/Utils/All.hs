@@ -17,13 +17,13 @@ import Data.Proxy (Proxy(..))
 
 -- | A type family for traversing a type-level list.
 class All f (xs :: [k]) where
-  mapAll :: forall a. (forall x. f x => Proxy x -> a) -> [a]
+  mapAll :: forall a. (forall (x :: k). f x => Proxy x -> a) -> [a]
   mapAll f = foldrAll @f @xs f' []
     where
-      f' :: forall x. f x => Proxy x -> [a] -> [a]
+      f' :: forall (x :: k). f x => Proxy x -> [a] -> [a]
       f' proxy acc = f proxy : acc
 
-  foldrAll :: (forall x. f x => Proxy x -> a -> a) -> a -> a
+  foldrAll :: (forall (x :: k). f x => Proxy x -> a -> a) -> a -> a
 
 instance All f '[] where
   foldrAll _ acc = acc
