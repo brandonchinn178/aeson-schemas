@@ -26,7 +26,7 @@ Internal definitions for declaring JSON schemas.
 
 module Data.Aeson.Schema.Internal where
 
-import Control.Applicative ((<|>))
+import Control.Applicative (Alternative(..))
 #if !MIN_VERSION_base(4,13,0)
 import Control.Monad.Fail (MonadFail)
 #endif
@@ -51,7 +51,7 @@ import GHC.TypeLits
 
 import qualified Data.Aeson.Schema.Show as SchemaShow
 import Data.Aeson.Schema.Utils.All (All(..))
-import Data.Aeson.Schema.Utils.Sum (SumType)
+import Data.Aeson.Schema.Utils.Sum (SumType(..))
 
 {- Schema-validated JSON object -}
 
@@ -180,8 +180,23 @@ instance
   , Show (SchemaResult ('SchemaUnion schemas))
   , FromJSON (SchemaResult ('SchemaUnion schemas))
   , ToJSON (SchemaResult ('SchemaUnion schemas))
+  , ParseSumType schemas
   ) => IsSchemaType ('SchemaUnion (schemas :: [SchemaType])) where
   toSchemaTypeShow _ = SchemaShow.SchemaUnion (mapAll @IsSchemaType @schemas toSchemaTypeShow)
+
+  parseValue path value = parseSumType @schemas path value <|> parseFail @('SchemaUnion schemas) path value
+
+class ParseSumType xs where
+  parseSumType :: [Text] -> Value -> Parser (SumType (SchemaResultList xs))
+
+instance ParseSumType '[] where
+  parseSumType _ _ = empty
+
+instance (IsSchemaType schema, ParseSumType schemas) => ParseSumType (schema ': schemas) where
+  parseSumType path value = parseHere <|> parseThere
+    where
+      parseHere = Here <$> parseValue @schema path value
+      parseThere = There <$> parseSumType @schemas path value
 
 instance All IsSchemaObjectPair pairs => IsSchemaType ('SchemaObject pairs) where
   toSchemaTypeShow _ = SchemaShow.SchemaObject (mapAll @IsSchemaObjectPair @pairs toSchemaTypeShowPair)
