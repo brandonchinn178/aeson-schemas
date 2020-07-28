@@ -23,7 +23,7 @@ module TestUtils.Arbitrary
   ) where
 
 import Control.Monad (forM)
-import Data.Aeson (FromJSON, ToJSON(..), Value(..))
+import Data.Aeson (FromJSON, ToJSON(..), Value(..), encode)
 import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (nub, stripPrefix)
@@ -60,7 +60,13 @@ data ArbitraryObject where
     -> SchemaShow.SchemaType
     -> ArbitraryObject
 
-deriving instance Show ArbitraryObject
+-- Show the value and schema as something that could be copied/pasted into GHCi.
+instance Show ArbitraryObject where
+  show (ArbitraryObject _ v schemaType) = unlines
+    [ "ArbitraryObject:"
+    , "  " ++ show (encode v)
+    , "  [schema| " ++ showSchemaType schemaType ++ " |]"
+    ]
 
 -- | A Template Haskell function to generate a splice for QuickCheck tests to generate arbitrary
 -- objects with arbitrary schemas.
@@ -74,10 +80,7 @@ arbitraryObject = do
   [| oneof $(listE $ map mkSchemaGen arbitrarySchemas) |]
   where
     mkSchemaGen schemaShow =
-      let schemaTypeShow = SchemaShow.showSchemaType schemaShow
-          schemaType = case "SchemaObject " `stripPrefix` schemaTypeShow of
-            Just s -> quoteType schema s
-            Nothing -> error $ "Invalid schema: " ++ schemaTypeShow
+      let schemaType = quoteType schema $ showSchemaType schemaShow
       in [| genSchema' (Proxy :: Proxy (Object $schemaType)) schemaShow |]
 
 -- | Splices to a 'forAll' with 'arbitraryObject', outputting information about the object
@@ -301,6 +304,15 @@ genUniqList1 gen = sized $ \n -> do
 -- | Scale the generator size by half
 scaleHalf :: Gen a -> Gen a
 scaleHalf = scale (`div` 2)
+
+-- | Show the given SchemaType as appropriate for the schema quasiquoter.
+showSchemaType :: SchemaShow.SchemaType -> String
+showSchemaType schemaType =
+  case "SchemaObject " `stripPrefix` schemaType' of
+    Just s -> s
+    Nothing -> error $ "Invalid schema: " ++ schemaType'
+  where
+    schemaType' = SchemaShow.showSchemaType schemaType
 
 {- Helper type families -}
 

@@ -20,7 +20,6 @@ import Test.Tasty.Golden
 import Test.Tasty.QuickCheck
 
 import Data.Aeson.Schema (Object)
-import Data.Aeson.Schema.Show (showSchemaType)
 import Tests.Object.FromJSON.TH
 import TestUtils (parseProxy)
 import TestUtils.Arbitrary (ArbitraryObject(..), forAllArbitraryObjects)
@@ -29,14 +28,10 @@ test :: TestTree
 test = testGroup "FromJSON instance" $
   map runTestCase testCases ++
   [ testProperty "QuickCheck arbitrary Schema" $
-      $(forAllArbitraryObjects) $ \(ArbitraryObject proxy v schemaType) ->
+      $(forAllArbitraryObjects) $ \(ArbitraryObject proxy v _) ->
         case parseProxy proxy v of
           Right _ -> property ()
-          Left e -> error $ unlines
-            [ "Could not parse " ++ showSchemaType schemaType
-            , show v
-            , e
-            ]
+          Left e -> error $ "Could not parse: " ++ e
   ]
 
 testCases :: [FromJSONTestCase]
