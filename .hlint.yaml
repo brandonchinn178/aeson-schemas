@@ -13,3 +13,5 @@
     name: Reduce duplication
 - ignore:
     name: Redundant do
+- ignore:
+    name: Avoid lambda using `infix`
