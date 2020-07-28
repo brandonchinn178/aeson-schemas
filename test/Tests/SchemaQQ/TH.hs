@@ -7,7 +7,7 @@
 module Tests.SchemaQQ.TH where
 
 import Control.DeepSeq (deepseq)
-import Data.Aeson (FromJSON)
+import Data.Aeson (FromJSON, ToJSON)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema (schema)
@@ -22,7 +22,7 @@ type ExtraSchema = [schema| { extra: Text } |]
 type ExtraSchema2 = [schema| { extra: Maybe Text } |]
 
 newtype Status = Status Int
-  deriving (Show,FromJSON)
+  deriving (Show,FromJSON,ToJSON)
 
 -- Compile above types before reifying
 $(return [])

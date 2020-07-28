@@ -2,6 +2,7 @@
 
 ![CircleCI](https://img.shields.io/hackage/v/aeson-schemas)
 ![Hackage](https://img.shields.io/circleci/build/github/LeapYear/aeson-schemas)
+[![codecov](https://codecov.io/gh/LeapYear/aeson-schemas/branch/master/graph/badge.svg)](https://codecov.io/gh/LeapYear/aeson-schemas)
 
 A library that extracts information from JSON input using type-level schemas
 and quasiquoters, consuming JSON data in a type-safe manner. Better than

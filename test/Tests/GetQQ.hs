@@ -285,9 +285,17 @@ testUnionExpressions = testGroup "Union expressions"
 
 testPhantomExpressions :: TestTree
 testPhantomExpressions = testGroup "Phantom expressions"
-  [ testProperty "Get Phantom key from object" $ \x ->
+  [ testProperty "Get Phantom object key from object" $ \x ->
       let o = $(parseObject "{ [foo]: { bar: Int } }") [aesonQQ| { "bar": #{x} } |]
       in [runGet| o.foo.bar |] === x
+
+  , testProperty "Get Phantom object Try key from object" $ \x ->
+      let o = $(parseObject "{ [foo]: Try { bar: Int } }") [aesonQQ| { "bar": #{x} } |]
+      in [runGet| o.foo?.bar |] === Just x
+
+  , testProperty "Get Phantom non-object Try key from object" $ \(x :: Int) ->
+      let o = $(parseObject "{ [foo]: Try Int }") [aesonQQ| { "foo": #{x} } |]
+      in [runGet| o.foo |] === Nothing
   ]
 
 testNestedExpressions :: TestTree

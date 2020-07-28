@@ -19,6 +19,7 @@ import Control.Monad (unless, (>=>))
 import Data.Bifunctor (second)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe (mapMaybe)
+import Data.Text (Text)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
@@ -102,17 +103,18 @@ generateSchemaObject = concatMapM toParts >=> resolveParts >=> schemaPairsToType
 
 generateSchema :: SchemaDef -> TypeQ
 generateSchema = \case
-  SchemaDefType "Bool"   -> [t| 'SchemaBool |]
-  SchemaDefType "Int"    -> [t| 'SchemaInt |]
-  SchemaDefType "Double" -> [t| 'SchemaDouble |]
-  SchemaDefType "Text"   -> [t| 'SchemaText |]
-  SchemaDefType other    -> [t| 'SchemaCustom $(getType other) |]
+  -- some hardcoded cases
+  SchemaDefType "Bool"   -> [t| 'SchemaScalar Bool |]
+  SchemaDefType "Int"    -> [t| 'SchemaScalar Int |]
+  SchemaDefType "Double" -> [t| 'SchemaScalar Double |]
+  SchemaDefType "Text"   -> [t| 'SchemaScalar Text |]
+  SchemaDefType other    -> [t| 'SchemaScalar $(getType other) |]
   SchemaDefMaybe inner   -> [t| 'SchemaMaybe $(generateSchema inner) |]
   SchemaDefTry inner     -> [t| 'SchemaTry $(generateSchema inner) |]
   SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
   SchemaDefInclude other -> [t| ToSchemaObject $(getType other) |]
-  SchemaDefObj items     -> [t| 'SchemaObject $(generateSchemaObject items) |]
   SchemaDefUnion schemas -> [t| 'SchemaUnion $(typeQListToTypeQ $ map generateSchema schemas) |]
+  SchemaDefObj items     -> [t| 'SchemaObject $(generateSchemaObject items) |]
 
 {- Helpers -}
 
@@ -152,10 +154,12 @@ toParts = \case
     schemaDefToSchemaKey = \case
       SchemaDefObjKeyNormal key -> NormalKey key
       SchemaDefObjKeyPhantom key -> PhantomKey key
+    -- should return true if it's at all possible to get a valid parse
     isValidPhantomSchema = \case
-      SchemaShow.SchemaTry _ -> True
+      SchemaShow.SchemaMaybe inner -> isValidPhantomSchema inner
+      SchemaShow.SchemaTry _ -> True -- even if inner is a non-object schema, it'll still parse to be Nothing
+      SchemaShow.SchemaUnion schemas -> any isValidPhantomSchema schemas
       SchemaShow.SchemaObject _ -> True
-      SchemaShow.SchemaUnion schemas -> all isValidPhantomSchema schemas
       _ -> False
 
 -- | Resolve the parts returned by 'toParts' as such:

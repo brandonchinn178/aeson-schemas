@@ -66,6 +66,7 @@ tests:
       - raw-strings-qq
       - tasty
       - tasty-hunit
+      - tasty-golden
       - tasty-quickcheck
       - th-orphans
       - time

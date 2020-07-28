@@ -12,8 +12,11 @@ Internal definitions for declaring JSON schemas.
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
@@ -23,22 +26,23 @@ Internal definitions for declaring JSON schemas.
 
 module Data.Aeson.Schema.Internal where
 
-import Control.Applicative ((<|>))
+import Control.Applicative (Alternative(..))
 #if !MIN_VERSION_base(4,13,0)
 import Control.Monad.Fail (MonadFail)
 #endif
-import Data.Aeson (FromJSON(..), Value(..))
+import Data.Aeson (FromJSON(..), ToJSON(..), Value(..))
+import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Parser)
-import Data.Bifunctor (first)
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
 import Data.Kind (Type)
+import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
-import Data.Typeable (Typeable, splitTyConApp, tyConName, typeRep, typeRepTyCon)
+import Data.Typeable (Typeable, tyConName, typeRep, typeRepTyCon)
 import Fcf (type (<=<), type (=<<))
 import qualified Fcf
 import GHC.Exts (toList)
@@ -46,8 +50,8 @@ import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
 
 import qualified Data.Aeson.Schema.Show as SchemaShow
-import Data.Aeson.Schema.Utils.Sum (SumType)
-import Data.Aeson.Schema.Utils.TypeFamilies (All)
+import Data.Aeson.Schema.Utils.All (All(..))
+import Data.Aeson.Schema.Utils.Sum (SumType(..))
 
 {- Schema-validated JSON object -}
 
@@ -61,8 +65,17 @@ newtype Object (schema :: Schema) = UnsafeObject (HashMap Text Dynamic)
 instance IsSchemaType ('SchemaObject schema) => Show (Object ('Schema schema)) where
   show = showValue @('SchemaObject schema)
 
+instance IsSchemaType ('SchemaObject schema) => Eq (Object ('Schema schema)) where
+  a == b = toJSON a == toJSON b
+
 instance IsSchemaType ('SchemaObject schema) => FromJSON (Object ('Schema schema)) where
   parseJSON = parseValue @('SchemaObject schema) []
+
+instance IsSchemaType ('SchemaObject schema) => ToJSON (Object ('Schema schema)) where
+  toJSON = toValue @('SchemaObject schema)
+
+toMap :: IsSchema ('Schema schema) => Object ('Schema schema) -> Aeson.Object
+toMap = toValueMap
 
 {- Type-level schema definitions -}
 
@@ -74,192 +87,203 @@ type SchemaObjectMap = [(SchemaKey, SchemaType)]
 data Schema = Schema SchemaObjectMap
 
 type family ToSchemaObject (schema :: Schema) where
-  ToSchemaObject ('Schema inner) = 'SchemaObject inner
+  ToSchemaObject ('Schema schema) = 'SchemaObject schema
+
+type family FromSchema (schema :: Schema) where
+  FromSchema ('Schema schema) = schema
+
+type IsSchema (schema :: Schema) =
+  ( IsSchemaType (ToSchemaObject schema)
+  , All IsSchemaObjectPair (FromSchema schema)
+  )
+
+showSchema :: forall (schema :: Schema). IsSchema schema => String
+showSchema = showSchemaType @(ToSchemaObject schema)
 
 data SchemaType
-  = SchemaBool
-  | SchemaInt
-  | SchemaDouble
-  | SchemaText
-  | SchemaCustom Type
+  = SchemaScalar Type
   | SchemaMaybe SchemaType
   | SchemaTry SchemaType -- ^ @since v1.2.0
   | SchemaList SchemaType
-  | SchemaObject SchemaObjectMap
   | SchemaUnion [SchemaType] -- ^ @since v1.1.0
-
--- | Convert 'SchemaType' into 'SchemaShow.SchemaType'.
-toSchemaTypeShow :: forall (a :: SchemaType). Typeable a => SchemaShow.SchemaType
-toSchemaTypeShow = cast $ typeRep (Proxy @a)
-  where
-    cast tyRep = case splitTypeRep tyRep of
-      ("'SchemaBool", _) -> SchemaShow.SchemaBool
-      ("'SchemaInt", _) -> SchemaShow.SchemaInt
-      ("'SchemaDouble", _) -> SchemaShow.SchemaDouble
-      ("'SchemaText", _) -> SchemaShow.SchemaText
-      ("'SchemaCustom", [inner]) -> SchemaShow.SchemaCustom $ typeRepName inner
-      ("'SchemaMaybe", [inner]) -> SchemaShow.SchemaMaybe $ cast inner
-      ("'SchemaTry", [inner]) -> SchemaShow.SchemaTry $ cast inner
-      ("'SchemaList", [inner]) -> SchemaShow.SchemaList $ cast inner
-      ("'SchemaObject", [pairs]) -> SchemaShow.SchemaObject $ map getSchemaObjectPair $ typeRepToList pairs
-      ("'SchemaUnion", [schemas]) -> SchemaShow.SchemaUnion $ map cast $ typeRepToList schemas
-      _ -> unreachable $ "Unknown schema type: " ++ show tyRep
-
-    getSchemaObjectPair tyRep =
-      let (key, val) = typeRepToPair tyRep
-          fromTypeRep = tail . init . typeRepName -- strip leading + trailing quote
-          schemaKey = case splitTypeRep key of
-            ("'NormalKey", [key']) -> SchemaShow.NormalKey $ fromTypeRep key'
-            ("'PhantomKey", [key']) -> SchemaShow.PhantomKey $ fromTypeRep key'
-            _ -> unreachable $ "Unknown schema key: " ++ show key
-      in (schemaKey, cast val)
-
-    typeRepToPair tyRep = case splitTypeRep tyRep of
-      ("'(,)", [a, b]) -> (a, b)
-      _ -> unreachable $ "Unknown pair: " ++ show tyRep
-
-    typeRepToList tyRep = case splitTypeRep tyRep of
-      ("'[]", []) -> []
-      ("':", [x, rest]) -> x : typeRepToList rest
-      _ -> unreachable $ "Unknown list: " ++ show tyRep
-
-    splitTypeRep = first tyConName . splitTyConApp
-    typeRepName = tyConName . typeRepTyCon
+  | SchemaObject SchemaObjectMap
 
 -- | Pretty show the given SchemaType.
-showSchemaType :: forall (a :: SchemaType). Typeable a => String
-showSchemaType = SchemaShow.showSchemaType $ toSchemaTypeShow @a
+showSchemaType :: forall (schema :: SchemaType). IsSchemaType schema => String
+showSchemaType = SchemaShow.showSchemaType $ toSchemaTypeShow $ Proxy @schema
 
 -- | The type-level analogue of 'Data.Aeson.Schema.Key.SchemaKey'.
 data SchemaKey
   = NormalKey Symbol
   | PhantomKey Symbol
 
-type family FromSchemaKey (schemaKey :: SchemaKey) where
-  FromSchemaKey ('NormalKey key) = key
-  FromSchemaKey ('PhantomKey key) = key
-
-fromSchemaKey :: forall schemaKey. KnownSymbol (FromSchemaKey schemaKey) => Text
-fromSchemaKey = Text.pack $ symbolVal $ Proxy @(FromSchemaKey schemaKey)
-
-class
-  ( Typeable schemaKey
-  , KnownSymbol (FromSchemaKey schemaKey)
-  ) => KnownSchemaKey (schemaKey :: SchemaKey) where
-  getContext :: HashMap Text Value -> Value
-  showSchemaKey :: String
-
-instance KnownSymbol key => KnownSchemaKey ('NormalKey key) where
-  getContext = fromMaybe Null . HashMap.lookup (fromSchemaKey @('NormalKey key))
-  showSchemaKey = show $ fromSchemaKey @('NormalKey key)
-
-instance KnownSymbol key => KnownSchemaKey ('PhantomKey key) where
-  getContext = Object
-  showSchemaKey = Text.unpack $ Text.concat ["[", fromSchemaKey @('PhantomKey key), "]"]
+keyName :: forall key. KnownSymbol key => Text
+keyName = Text.pack $ symbolVal $ Proxy @key
 
 {- Conversions from schema types into Haskell types -}
 
 -- | A type family mapping SchemaType to the corresponding Haskell type.
 type family SchemaResult (schema :: SchemaType) where
-  SchemaResult 'SchemaBool = Bool
-  SchemaResult 'SchemaInt = Int
-  SchemaResult 'SchemaDouble = Double
-  SchemaResult 'SchemaText = Text
-  SchemaResult ('SchemaCustom inner) = inner
+  SchemaResult ('SchemaScalar inner) = inner
   SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaTry inner) = Maybe (SchemaResult inner)
   SchemaResult ('SchemaList inner) = [SchemaResult inner]
-  SchemaResult ('SchemaObject inner) = Object ('Schema inner)
   SchemaResult ('SchemaUnion schemas) = SumType (SchemaResultList schemas)
+  SchemaResult ('SchemaObject inner) = Object ('Schema inner)
 
 type family SchemaResultList (xs :: [SchemaType]) where
   SchemaResultList '[] = '[]
   SchemaResultList (x ': xs) = SchemaResult x ': SchemaResultList xs
 
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
-class Typeable schema => IsSchemaType (schema :: SchemaType) where
+class IsSchemaType (schema :: SchemaType) where
+  toSchemaTypeShow :: Proxy schema -> SchemaShow.SchemaType
+
   parseValue :: [Text] -> Value -> Parser (SchemaResult schema)
   default parseValue :: FromJSON (SchemaResult schema) => [Text] -> Value -> Parser (SchemaResult schema)
   parseValue path value = parseJSON value <|> parseFail @schema path value
+
+  toValue :: SchemaResult schema -> Value
+  default toValue :: ToJSON (SchemaResult schema) => SchemaResult schema -> Value
+  toValue = toJSON
 
   showValue :: SchemaResult schema -> String
   default showValue :: Show (SchemaResult schema) => SchemaResult schema -> String
   showValue = show
 
-instance IsSchemaType 'SchemaBool
+instance (Show inner, Typeable inner, FromJSON inner, ToJSON inner) => IsSchemaType ('SchemaScalar inner) where
+  toSchemaTypeShow _ = SchemaShow.SchemaScalar (tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)
 
-instance IsSchemaType 'SchemaInt
+instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => IsSchemaType ('SchemaMaybe inner) where
+  toSchemaTypeShow _ = SchemaShow.SchemaMaybe (toSchemaTypeShow $ Proxy @inner)
 
-instance IsSchemaType 'SchemaDouble
-
-instance IsSchemaType 'SchemaText
-
-instance (Show inner, Typeable inner, FromJSON inner) => IsSchemaType ('SchemaCustom inner)
-
-instance (IsSchemaType inner, Show (SchemaResult inner)) => IsSchemaType ('SchemaMaybe inner) where
   parseValue path = \case
     Null -> return Nothing
     value -> (Just <$> parseValue @inner path value)
 
-instance (IsSchemaType inner, Show (SchemaResult inner)) => IsSchemaType ('SchemaTry inner) where
+instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => IsSchemaType ('SchemaTry inner) where
+  toSchemaTypeShow _ = SchemaShow.SchemaTry (toSchemaTypeShow $ Proxy @inner)
+
   parseValue path = wrapTry . parseValue @inner path
     where
       wrapTry parser = (Just <$> parser) <|> pure Nothing
 
-instance (IsSchemaType inner, Show (SchemaResult inner)) => IsSchemaType ('SchemaList inner) where
-  parseValue path value = case value of
-    Array a -> traverse (parseValue @inner path) (toList a)
-    _ -> parseFail @('SchemaList inner) path value
+instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => IsSchemaType ('SchemaList inner) where
+  toSchemaTypeShow _ = SchemaShow.SchemaList (toSchemaTypeShow $ Proxy @inner)
 
-instance IsSchemaType ('SchemaObject '[]) where
   parseValue path = \case
-    Object _ -> return $ UnsafeObject mempty
-    value -> parseFail @('SchemaObject '[]) path value
-
-  showValue _ = "{}"
-
-instance
-  ( KnownSchemaKey schemaKey
-  , IsSchemaType inner
-  , IsSchemaType ('SchemaObject rest)
-  , Show (SchemaResult inner)
-  , Typeable (SchemaResult inner)
-  , Typeable rest
-  ) => IsSchemaType ('SchemaObject ('(schemaKey, inner) ': rest)) where
-  parseValue path value = case value of
-    Object o -> do
-      let key = fromSchemaKey @schemaKey
-          innerVal = getContext @schemaKey o
-
-      inner <- parseValue @inner (key:path) innerVal
-      UnsafeObject rest <- parseValue @('SchemaObject rest) path value
-
-      return $ UnsafeObject $ HashMap.insert key (toDyn inner) rest
-    _ -> parseFail @('SchemaObject ('(schemaKey, inner) ': rest)) path value
-
-  showValue (UnsafeObject hm) = case showValue @('SchemaObject rest) (UnsafeObject hm) of
-    "{}" -> "{" ++ pair ++ "}"
-    '{':s -> "{" ++ pair ++ ", " ++ s
-    s -> unreachable $ "Unknown result when showing Object: " ++ s
-    where
-      key = fromSchemaKey @schemaKey
-      value = case fromDynamic @(SchemaResult inner) (hm ! key) of
-        Just v -> showValue @inner v
-        Nothing -> unreachable $
-          "Could not show key " ++ show key ++
-          " with schema " ++ showSchemaType @inner ++
-          ": " ++ show (hm ! key)
-      pair = showSchemaKey @schemaKey ++ ": " ++ value
+    Array a -> traverse (parseValue @inner path) (toList a)
+    value -> parseFail @('SchemaList inner) path value
 
 instance
   ( All IsSchemaType schemas
-  , Typeable schemas
   , Show (SchemaResult ('SchemaUnion schemas))
   , FromJSON (SchemaResult ('SchemaUnion schemas))
-  ) => IsSchemaType ('SchemaUnion schemas)
+  , ToJSON (SchemaResult ('SchemaUnion schemas))
+  , ParseSumType schemas
+  ) => IsSchemaType ('SchemaUnion (schemas :: [SchemaType])) where
+  toSchemaTypeShow _ = SchemaShow.SchemaUnion (mapAll @IsSchemaType @schemas toSchemaTypeShow)
+
+  parseValue path value = parseSumType @schemas path value <|> parseFail @('SchemaUnion schemas) path value
+
+class ParseSumType xs where
+  parseSumType :: [Text] -> Value -> Parser (SumType (SchemaResultList xs))
+
+instance ParseSumType '[] where
+  parseSumType _ _ = empty
+
+instance (IsSchemaType schema, ParseSumType schemas) => ParseSumType (schema ': schemas) where
+  parseSumType path value = parseHere <|> parseThere
+    where
+      parseHere = Here <$> parseValue @schema path value
+      parseThere = There <$> parseSumType @schemas path value
+
+instance All IsSchemaObjectPair pairs => IsSchemaType ('SchemaObject pairs) where
+  toSchemaTypeShow _ = SchemaShow.SchemaObject (mapAll @IsSchemaObjectPair @pairs toSchemaTypeShowPair)
+
+  parseValue path = \case
+    Aeson.Object o -> UnsafeObject . HashMap.fromList <$> parseValueMap o
+    value -> parseFail @('SchemaObject pairs) path value
+    where
+      parseValueMap :: Aeson.Object -> Parser [(Text, Dynamic)]
+      parseValueMap o = sequence $ mapAll @IsSchemaObjectPair @pairs $ \proxy -> parseValuePair proxy path o
+
+  toValue = Aeson.Object . toValueMap
+
+  showValue o = "{ " ++ intercalate ", " (map fromPair pairs) ++ " }"
+    where
+      fromPair (k, v) = k ++ ": " ++ v
+      pairs = mapAll @IsSchemaObjectPair @pairs $ \proxy -> showValuePair proxy o
+
+toValueMap :: forall pairs. All IsSchemaObjectPair pairs => Object ('Schema pairs) -> Aeson.Object
+toValueMap o = HashMap.unions $ mapAll @IsSchemaObjectPair @pairs (\proxy -> toValuePair proxy o)
+
+class IsSchemaObjectPair (a :: (SchemaKey, SchemaType)) where
+  toSchemaTypeShowPair :: Proxy a -> (SchemaShow.SchemaKey, SchemaShow.SchemaType)
+  parseValuePair :: Proxy a -> [Text] -> Aeson.Object -> Parser (Text, Dynamic)
+  toValuePair :: Proxy a -> Object schema -> Aeson.Object
+  showValuePair :: Proxy a -> Object schema -> (String, String)
+
+instance
+  ( KnownSymbol (FromSchemaKey key)
+  , IsSchemaKey key
+  , IsSchemaType inner
+  , Typeable (SchemaResult inner)
+  ) => IsSchemaObjectPair '(key, inner) where
+  toSchemaTypeShowPair _ = (toSchemaKey @key, toSchemaTypeShow $ Proxy @inner)
+
+  parseValuePair _ path o = do
+    let key = fromSchemaKey @key
+    inner <- parseValue @inner (key:path) $ getContext @key o
+    return (key, toDyn inner)
+
+  toValuePair _ o = toContext @key (toValue @inner val)
+    where
+      val = unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
+
+  showValuePair _ o = (showSchemaKey @key, showValue @inner val)
+    where
+      val = unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
+
+class IsSchemaKey (key :: SchemaKey) where
+  type FromSchemaKey key :: Symbol
+  toSchemaKey :: SchemaShow.SchemaKey
+  fromSchemaKey :: Text
+  -- | Given schema `{ key: innerSchema }` for JSON data `{ key: val1 }`, get the JSON
+  -- Value that `innerSchema` should parse.
+  getContext :: Aeson.Object -> Value
+  -- | Given JSON data `val` adhering to `innerSchema`, get the JSON object that should be
+  -- merged with the outer JSON object.
+  toContext :: Value -> Aeson.Object
+  showSchemaKey :: String
+
+instance KnownSymbol key => IsSchemaKey ('NormalKey key) where
+  type FromSchemaKey ('NormalKey key) = key
+  toSchemaKey = SchemaShow.NormalKey (Text.unpack $ keyName @key)
+  fromSchemaKey = keyName @key
+  -- | `innerSchema` should parse `val1`
+  getContext = HashMap.lookupDefault Null (keyName @key)
+  -- | `val` should be inserted with key `key`
+  toContext val = HashMap.singleton (keyName @key) val
+  showSchemaKey = show (keyName @key)
+
+instance KnownSymbol key => IsSchemaKey ('PhantomKey key) where
+  type FromSchemaKey ('PhantomKey key) = key
+  toSchemaKey = SchemaShow.PhantomKey (Text.unpack $ keyName @key)
+  fromSchemaKey = keyName @key
+  -- | `innerSchema` should parse the same object that `key` is in
+  getContext = Aeson.Object
+  -- | If `val` is an object, it should be merged with the JSON object.
+  toContext = \case
+    Aeson.Object o -> o
+    -- `Try` schema could store `Nothing`, which would return `Null`. In this case, there is no
+    -- context to merge
+    Null -> mempty
+    v -> unreachable $ "Invalid value for phantom key: " ++ show v
+  showSchemaKey = Text.unpack $ Text.concat ["[", keyName @key, "]"]
 
 -- | A helper for creating fail messages when parsing a schema.
-parseFail :: forall (schema :: SchemaType) m a. (MonadFail m, Typeable schema) => [Text] -> Value -> m a
+parseFail :: forall (schema :: SchemaType) m a. (MonadFail m, IsSchemaType schema) => [Text] -> Value -> m a
 parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
   where
     msg = if null path
@@ -310,7 +334,8 @@ type family LookupSchema (key :: Symbol) (schema :: Schema) :: SchemaType where
 -- > getKey (Proxy @"baz") o                  :: Maybe Bool
 --
 getKey
-  :: ( endSchema ~ LookupSchema key schema
+  :: forall (key :: Symbol) (schema :: Schema) (endSchema :: SchemaType) result.
+     ( endSchema ~ LookupSchema key schema
      , result ~ SchemaResult endSchema
      , KnownSymbol key
      , Typeable result
@@ -319,7 +344,13 @@ getKey
   => Proxy key
   -> Object schema
   -> result
-getKey keyProxy (UnsafeObject object) =
+getKey = unsafeGetKey @endSchema
+
+unsafeGetKey
+  :: forall (endSchema :: SchemaType) (key :: Symbol) (schema :: Schema)
+  . (KnownSymbol key, Typeable (SchemaResult endSchema))
+  => Proxy key -> Object schema -> SchemaResult endSchema
+unsafeGetKey keyProxy (UnsafeObject object) =
   fromMaybe (unreachable $ "Could not load key: " ++ key) $
     fromDynamic (object ! Text.pack key)
   where

@@ -26,7 +26,7 @@ mkGetter "User" "getUsers" ''MySchema ".users[]"
 test :: TestTree
 test = runMkGetterQ `deepseq` testGroup "`mkGetter` helper"
   [ testCase "Type synonym is generated" $
-      showSchemaResult @User @?= [r|Object (SchemaObject {"name": Text})|]
+      showSchemaResult @User @?= [r|Object (SchemaObject { "name": Text })|]
 
   , testCase "Getter function is generated" $
       let users :: [User]

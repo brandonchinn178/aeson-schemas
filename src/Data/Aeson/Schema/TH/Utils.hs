@@ -32,19 +32,14 @@ showSchemaType = SchemaShow.showSchemaType . parseSchemaType
 
 parseSchemaType :: HasCallStack => Type -> SchemaShow.SchemaType
 parseSchemaType = \case
-  PromotedT name
-    | name == 'SchemaBool -> SchemaShow.SchemaBool
-    | name == 'SchemaInt -> SchemaShow.SchemaInt
-    | name == 'SchemaDouble -> SchemaShow.SchemaDouble
-    | name == 'SchemaText -> SchemaShow.SchemaText
   AppT (PromotedT name) (ConT inner)
-    | name == 'SchemaCustom -> SchemaShow.SchemaCustom $ nameBase inner
+    | name == 'SchemaScalar -> SchemaShow.SchemaScalar $ nameBase inner
   AppT (PromotedT name) inner
     | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ parseSchemaType inner
     | name == 'SchemaTry -> SchemaShow.SchemaTry $ parseSchemaType inner
     | name == 'SchemaList -> SchemaShow.SchemaList $ parseSchemaType inner
-    | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
     | name == 'SchemaUnion -> SchemaShow.SchemaUnion $ map parseSchemaType $ typeToList inner
+    | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
   ty -> error $ "Unknown type: " ++ show ty
   where
     fromPairs pairs = map (second parseSchemaType) $ typeToSchemaPairs pairs

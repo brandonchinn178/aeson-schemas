@@ -1,173 +1,157 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Tests.Object.FromJSON where
 
-import Data.Aeson (FromJSON(..), ToJSON, Value)
+import Data.Aeson (FromJSON(..), Value)
 import Data.Aeson.QQ (aesonQQ)
 import Data.Aeson.Types (parseEither)
+import Data.Proxy (Proxy)
+import Data.String (fromString)
 import Test.Tasty
-import Test.Tasty.HUnit
+import Test.Tasty.Golden
 import Test.Tasty.QuickCheck
 
-import Data.Aeson.Schema (Object, schema)
-
-newtype Coordinate = Coordinate (Int, Int)
-  deriving (Show,Eq,ToJSON,FromJSON,Arbitrary)
+import Data.Aeson.Schema (Object)
+import Tests.Object.FromJSON.TH
+import TestUtils (parseProxy)
+import TestUtils.Arbitrary (ArbitraryObject(..), forAllArbitraryObjects)
 
 test :: TestTree
-test = testGroup "FromJSON instance"
-  [ testProperty "Bool valid" $ \(b :: Bool) ->
-      let o :: ParseResult [schema| { foo: Bool } |]
-          o = parse [aesonQQ| { "foo": #{b} } |]
-      in ioProperty $ assertSuccess o
-  , testCase "Bool invalid" $
-      let o :: ParseResult [schema| { foo: Bool } |]
-          o = parse [aesonQQ| { "foo": 1 } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaBool`: Number 1.0"
+test = testGroup "FromJSON instance" $
+  map runTestCase testCases ++
+  [ testProperty "QuickCheck arbitrary Schema" $
+      $(forAllArbitraryObjects) $ \(ArbitraryObject proxy v _) ->
+        case parseProxy proxy v of
+          Right _ -> property ()
+          Left e -> error $ "Could not parse: " ++ e
+  ]
 
-  , testProperty "Int valid" $ \(x :: Int) ->
-      let o :: ParseResult [schema| { foo: Int } |]
-          o = parse [aesonQQ| { "foo": #{x} } |]
-      in ioProperty $ assertSuccess o
-  , testCase "Int invalid" $
-      let o :: ParseResult [schema| { foo: Int } |]
-          o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaInt`: Bool True"
+testCases :: [FromJSONTestCase]
+testCases =
+ [ CheckValid "Scalar valid"
+      [schemaProxy| { foo: Text } |]
+      $ \(s :: String) -> [aesonQQ| { "foo": #{s} } |]
+  , CheckError "Scalar invalid" "fromjson_scalar_invalid.golden"
+      [schemaProxy| { foo: Text } |]
+      [aesonQQ| { "foo": 1 } |]
 
-  , testProperty "Double valid" $ \(x :: Double) ->
-      let o :: ParseResult [schema| { foo: Double } |]
-          o = parse [aesonQQ| { "foo": #{x} } |]
-      in ioProperty $ assertSuccess o
-  , testCase "Double invalid" $
-      let o :: ParseResult [schema| { foo: Double } |]
-          o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaDouble`: Bool True"
+  , CheckValid "Maybe valid"
+      [schemaProxy| { foo: Maybe Int } |]
+      $ \(x :: Maybe Int) -> [aesonQQ| { "foo": #{x} } |]
+  , CheckError "Maybe invalid" "fromjson_maybe_invalid.golden"
+      [schemaProxy| { foo: Maybe Int } |]
+      [aesonQQ| { "foo": true } |]
 
-  , testProperty "Text valid" $ \(x :: String) ->
-      let o :: ParseResult [schema| { foo: Text } |]
-          o = parse [aesonQQ| { "foo": #{x} } |]
-      in ioProperty $ assertSuccess o
-  , testCase "Text invalid" $
-      let o :: ParseResult [schema| { foo: Text } |]
-          o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaText`: Bool True"
+  , CheckValid "Try valid with valid parse"
+      [schemaProxy| { foo: Try Bool } |]
+      $ \(x :: Bool) -> [aesonQQ| { "foo": #{x} } |]
+  , CheckValid "Try valid with invalid parse"
+      [schemaProxy| { foo: Try Bool } |]
+      $ \(s :: String) -> [aesonQQ| { "foo": #{s} } |]
 
-  , testProperty "Custom valid" $ \(x :: Coordinate) ->
-      let o :: ParseResult [schema| { foo: Coordinate } |]
-          o = parse [aesonQQ| { "foo": #{x} } |]
-      in ioProperty $ assertSuccess o
-  , testCase "Custom invalid" $
-      let o :: ParseResult [schema| { foo: Coordinate } |]
-          o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaCustom Coordinate`: Bool True"
+  , CheckValid "List valid"
+      [schemaProxy| { foo: List Double } |]
+      $ \(xs :: [Double]) -> [aesonQQ| { "foo": #{xs} } |]
+  , CheckError "List invalid" "fromjson_list_invalid.golden"
+      [schemaProxy| { foo: List Double } |]
+      [aesonQQ| { "foo": true } |]
+  , CheckError "List invalid inner" "fromjson_list_inner_invalid.golden"
+      [schemaProxy| { foo: List Double } |]
+      [aesonQQ| { "foo": [true] } |]
 
-  , testProperty "Maybe valid" $ \(x :: Maybe Int) ->
-      let o :: ParseResult [schema| { foo: Maybe Int } |]
-          o = parse [aesonQQ| { "foo": #{x} } |]
-      in ioProperty $ assertSuccess o
-  , testCase "Maybe invalid" $
-      let o :: ParseResult [schema| { foo: Maybe Int } |]
-          o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaInt`: Bool True"
+  , CheckError "Object invalid" "fromjson_object_invalid.golden"
+      [schemaProxy| { foo: Int } |]
+      [aesonQQ| 1 |]
+  , CheckError "Object invalid in later keys" "fromjson_object_later_keys_invalid.golden"
+      [schemaProxy| { foo: Int, bar: Int } |]
+      [aesonQQ| { "foo": 1, "bar": true } |]
 
-  , testProperty "Try valid with valid parse" $ \(x :: Int) ->
-      let o :: ParseResult [schema| { foo: Try Int } |]
-          o = parse [aesonQQ| { "foo": #{x} } |]
-      in ioProperty $ assertSuccess o
-  , testProperty "Try valid with invalid parse" $ \(s :: String) ->
-      let o :: ParseResult [schema| { foo: Try Int } |]
-          o = parse [aesonQQ| { "foo": #{s} } |]
-      in ioProperty $ assertSuccess o
+  , CheckValid "Nested object valid"
+      [schemaProxy| { foo: { bar: Int } } |]
+      $ \(x :: Int) -> [aesonQQ| { "foo": { "bar": #{x} } } |]
+  , CheckError "Nested object invalid" "fromjson_nested_invalid.golden"
+      [schemaProxy| { foo: { bar: Int } } |]
+      [aesonQQ| { "foo": true } |]
+  , CheckError "Nested object invalid inner" "fromjson_nested_inner_invalid.golden"
+      [schemaProxy| { foo: { bar: Int } } |]
+      [aesonQQ| { "foo": { "bar": true } } |]
 
-  , testProperty "List valid" $ \(xs :: [Int]) ->
-      let o :: ParseResult [schema| { foo: List Int } |]
-          o = parse [aesonQQ| { "foo": #{xs} } |]
-      in ioProperty $ assertSuccess o
-  , testCase "List invalid" $
-      let o :: ParseResult [schema| { foo: List Int } |]
-          o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaList Int`: Bool True"
-  , testCase "List invalid inner" $
-      let o :: ParseResult [schema| { foo: List Int } |]
-          o = parse [aesonQQ| { "foo": [true] } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaInt`: Bool True"
+  , CheckValid "Union object valid"
+      [schemaProxy| { foo: Int | Text } |]
+      $ \(x :: Int) -> [aesonQQ| { "foo": #{x} } |]
+  , CheckError "Union object invalid" "fromjson_union_invalid.golden"
+      [schemaProxy| { foo: Int | Text } |]
+      [aesonQQ| { "foo": true } |]
 
-  , testCase "Object invalid" $
-      let o :: ParseResult [schema| { foo: Int } |]
-          o = parse [aesonQQ| 1 |]
-      in assertError o "Error in $: Could not parse schema `SchemaObject {\"foo\": Int}`: Number 1.0"
-  , testCase "Object invalid in later keys" $
-      let o :: ParseResult [schema| { foo: Int, bar: Int } |]
-          o = parse [aesonQQ| { foo: 1, bar: true } |]
-      in assertError o "Error in $: Could not parse path 'bar' with schema `SchemaInt`: Bool True"
+  , CheckValid "Phantom key valid object"
+      [schemaProxy| { [foo]: { bar: Int } } |]
+      $ \(x :: Int) -> [aesonQQ| { "bar": #{x} } |]
+  , CheckValid "Phantom key valid non-object try"
+      [schemaProxy| { [foo]: Try Bool } |]
+      $ \(b :: Bool) -> [aesonQQ| { "bar": #{b} } |]
+  , CheckError "Phantom key invalid" "fromjson_phantom_invalid.golden"
+      [schemaProxy| { [foo]: { bar: Int } } |]
+      [aesonQQ| 1 |]
+  , CheckError "Phantom key missing inner" "fromjson_phantom_inner_missing.golden"
+      [schemaProxy| { [foo]: { bar: Int } } |]
+      [aesonQQ| { "foo": true } |]
+  , CheckError "Phantom key invalid inner" "fromjson_phantom_inner_invalid.golden"
+      [schemaProxy| { [foo]: { bar: Int } } |]
+      [aesonQQ| { "bar": true } |]
 
-  , testProperty "Nested object valid" $ \(x :: Int) ->
-      let o :: ParseResult [schema| { foo: { bar: Int } } |]
-          o = parse [aesonQQ| { "foo": { "bar": #{x} } } |]
-      in ioProperty $ assertSuccess o
-  , testCase "Nested object invalid" $
-      let o :: ParseResult [schema| { foo: { bar: Int } } |]
-          o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaObject {\"bar\": Int}`: Bool True"
-  , testCase "Nested object invalid inner" $
-      let o :: ParseResult [schema| { foo: { bar: Int } } |]
-          o = parse [aesonQQ| { "foo": { "bar": true } } |]
-      in assertError o "Error in $: Could not parse path 'foo.bar' with schema `SchemaInt`: Bool True"
-
-  , testProperty "Union object valid" $ \(x :: Int) ->
-      let o :: ParseResult [schema| { foo: Int | Text } |]
-          o = parse [aesonQQ| { "foo": #{x} } |]
-      in ioProperty $ assertSuccess o
-  , testCase "Union object invalid" $
-      let o :: ParseResult [schema| { foo: Int | Text } |]
-          o = parse [aesonQQ| { "foo": true } |]
-      in assertError o "Error in $: Could not parse path 'foo' with schema `SchemaUnion ( Int | Text )`: Bool True"
-
-  , testProperty "Phantom key valid" $ \(x :: Int) ->
-      let o :: ParseResult [schema| { [foo]: { bar: Int } } |]
-          o = parse [aesonQQ| { "bar": #{x} } |]
-      in ioProperty $ assertSuccess o
-
-  , testCase "Decode failure messages are truncated" $
-      let o :: ParseResult [schema| { foo: Int } |]
-          o = parse [aesonQQ|
-            {
-              "foo": [
-                { "bar": 1, "baz": "a" },
-                { "bar": 2, "baz": "b" },
-                { "bar": 3, "baz": "c" },
-                { "bar": 4, "baz": "d" }
-              ]
-            }
-          |]
-      in assertError o $ concat
-        [ "Error in $: Could not parse path 'foo' with schema `SchemaInt`: Array ["
-        , "Object (fromList [(\"baz\",String \"a\"),(\"bar\",Number 1.0)]),"
-        , "Object (fromList [(\"baz\",String \"b\"),(\"bar\",Number 2.0)]),"
-        , "Object (fromList [(\"baz\",String \"c\"),(\"bar\",Number 3.0)]),"
-        , "Object (fromList [(..."
-        ]
+  , CheckError "Decode failure messages are truncated" "fromjson_error_messages_truncate.golden"
+      [schemaProxy| { foo: Int } |]
+      [aesonQQ|
+        {
+          "foo": [
+            { "bar": 1, "baz": "a" },
+            { "bar": 2, "baz": "b" },
+            { "bar": 3, "baz": "c" },
+            { "bar": 4, "baz": "d" }
+          ]
+        }
+      |]
   ]
 
 {- Helpers -}
 
-type ParseResult schema = Either String (Object schema)
+data FromJSONTestCase where
+  CheckValid
+    :: (Arbitrary a, Show a, FromJSON (Object schema))
+    => TestName              -- ^ Name of test case
+    -> Proxy (Object schema) -- ^ The schema to parse with
+    -> (a -> Value)          -- ^ A function that builds a Value that should satisfy the schema
+    -> FromJSONTestCase
 
-parse :: FromJSON a => Value -> Either String a
-parse = parseEither parseJSON
+  CheckError
+    :: (FromJSON (Object schema), Show (Object schema))
+    => TestName              -- ^ Name of test case
+    -> String                -- ^ Name of golden file
+    -> Proxy (Object schema) -- ^ The schema to parse with
+    -> Value                 -- ^ The value that should fail parsing the given schema
+    -> FromJSONTestCase
 
-assertSuccess :: ParseResult schema -> Assertion
-assertSuccess = \case
-  Right _ -> return ()
-  Left e -> fail $ "Unexpected failure: " ++ e
+runTestCase :: FromJSONTestCase -> TestTree
+runTestCase = \case
+  CheckValid name schema valueGen ->
+    testProperty name $ \a ->
+      case parse schema (valueGen a) of
+        Right _ -> ()
+        Left e -> error $ "Unexpected failure: " ++ e
 
-assertError :: Show (Object schema) => ParseResult schema -> String -> Assertion
-assertError result msg =
-  case result of
-    Right o -> assertFailure $ "Unexpectedly parsed: " ++ show o
-    Left e -> e @?= msg
+  CheckError name golden schema value ->
+    goldenVsString name ("test/goldens/" ++ golden) $
+      case parse schema value of
+        Right o -> error $ "Unexpectedly parsed: " ++ show o
+        Left e -> return $ fromString e
+
+parse :: FromJSON a => Proxy a -> Value -> Either String a
+parse _ = parseEither parseJSON

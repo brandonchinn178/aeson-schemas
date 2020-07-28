@@ -5,12 +5,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module TestUtils
   ( ShowSchemaResult(..)
   , json
   , parseValue
   , parseObject
+  , parseProxy
   , mkExpQQ
   ) where
 
@@ -22,7 +24,7 @@ import Data.Typeable (Typeable, typeRep)
 import Language.Haskell.TH (ExpQ)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema (Object, schema)
+import Data.Aeson.Schema (IsSchema, Object, schema)
 import qualified Data.Aeson.Schema.Internal as Internal
 
 {- ShowSchemaResult -}
@@ -30,8 +32,8 @@ import qualified Data.Aeson.Schema.Internal as Internal
 class ShowSchemaResult a where
   showSchemaResult :: String
 
-instance Typeable (Internal.ToSchemaObject schema) => ShowSchemaResult (Object schema) where
-  showSchemaResult = "Object (" ++ Internal.showSchemaType @(Internal.ToSchemaObject schema) ++ ")"
+instance IsSchema schema => ShowSchemaResult (Object schema) where
+  showSchemaResult = "Object (" ++ Internal.showSchema @schema ++ ")"
 
 instance ShowSchemaResult a => ShowSchemaResult [a] where
   showSchemaResult = "[" ++ showSchemaResult @a ++ "]"
@@ -46,6 +48,9 @@ json = mkExpQQ $ \s -> [| (either error id . eitherDecode . fromString) s |]
 
 parseValue :: FromJSON a => Value -> a
 parseValue = either error id . parseEither parseJSON
+
+parseProxy :: FromJSON a => Proxy a -> Value -> Either String a
+parseProxy _ = parseEither parseJSON
 
 parseObject :: String -> ExpQ
 parseObject schemaString = [| parseValue :: Value -> Object $schemaType |]

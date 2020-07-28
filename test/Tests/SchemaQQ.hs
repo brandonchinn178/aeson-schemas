@@ -22,107 +22,117 @@ testValidSchemas = testGroup "Valid schemas"
   [ testCase "Object with Bool field" $
       assertMatches
         [schemaRep| { a: Bool } |]
-        [r| SchemaObject {"a": Bool} |]
+        [r| SchemaObject { "a": Bool } |]
 
   , testCase "Object with Int field" $
       assertMatches
         [schemaRep| { a: Int } |]
-        [r| SchemaObject {"a": Int} |]
+        [r| SchemaObject { "a": Int } |]
 
   , testCase "Object with Double field" $
       assertMatches
         [schemaRep| { foo123: Double } |]
-        [r| SchemaObject {"foo123": Double} |]
+        [r| SchemaObject { "foo123": Double } |]
 
   , testCase "Object with Text field" $
       assertMatches
         [schemaRep| { some_text: Text } |]
-        [r| SchemaObject {"some_text": Text} |]
+        [r| SchemaObject { "some_text": Text } |]
 
   , testCase "Object with a field with a custom type" $
       assertMatches
         [schemaRep| { status: Status } |]
-        [r| SchemaObject {"status": Status} |]
+        [r| SchemaObject { "status": Status } |]
 
   , testCase "Object with a field with a Maybe type" $
       assertMatches
         [schemaRep| { a: Maybe Bool } |]
-        [r| SchemaObject {"a": Maybe Bool} |]
+        [r| SchemaObject { "a": Maybe Bool } |]
 
   , testCase "Object with a field with a Try type" $
       assertMatches
         [schemaRep| { a: Try Bool } |]
-        [r| SchemaObject {"a": Try Bool} |]
+        [r| SchemaObject { "a": Try Bool } |]
 
   , testCase "Object with a nested object" $
       assertMatches
         [schemaRep| { a: { b: Int } } |]
-        [r| SchemaObject {"a": {"b": Int}} |]
+        [r| SchemaObject { "a": { "b": Int } } |]
 
   , testCase "Object with a nullable nested object" $
       assertMatches
         [schemaRep| { a: Maybe { b: Int } } |]
-        [r| SchemaObject {"a": Maybe {"b": Int}} |]
+        [r| SchemaObject { "a": Maybe { "b": Int } } |]
 
   , testCase "Object with a list of nested objects" $
       assertMatches
         [schemaRep| { a: List { b: Int } } |]
-        [r| SchemaObject {"a": List {"b": Int}} |]
+        [r| SchemaObject { "a": List { "b": Int } } |]
 
   , testCase "Object with an imported schema" $
       assertMatches
         [schemaRep| { user: #UserSchema } |]
-        [r| SchemaObject {"user": {"name": Text}} |]
+        [r| SchemaObject { "user": { "name": Text } } |]
 
   , testCase "Object with a qualified imported schema" $
       assertMatches
         [schemaRep| { user: #(Tests.SchemaQQ.TH.UserSchema) } |]
-        [r| SchemaObject {"user": {"name": Text}} |]
+        [r| SchemaObject { "user": { "name": Text } } |]
 
   , testCase "Object with an extended schema" $
       assertMatches
         [schemaRep| { a: Int, #ExtraSchema } |]
-        [r| SchemaObject {"a": Int, "extra": Text} |]
+        [r| SchemaObject { "a": Int, "extra": Text } |]
 
   , testCase "Object with a qualified extended schema" $
       assertMatches
         [schemaRep| { a: Int, #(Tests.SchemaQQ.TH.ExtraSchema) } |]
-        [r| SchemaObject {"a": Int, "extra": Text} |]
+        [r| SchemaObject { "a": Int, "extra": Text } |]
 
   , testCase "Object with an extended schema with a shadowed key" $
       assertMatches
         [schemaRep| { extra: Bool, #ExtraSchema } |]
-        [r| SchemaObject {"extra": Bool} |]
+        [r| SchemaObject { "extra": Bool } |]
 
   , testCase "Object with a qualified extended schema with a shadowed key" $
       assertMatches
         [schemaRep| { extra: Bool, #(Tests.SchemaQQ.TH.ExtraSchema) } |]
-        [r| SchemaObject {"extra": Bool} |]
+        [r| SchemaObject { "extra": Bool } |]
 
   , testCase "Object with a union field" $
       assertMatches
         [schemaRep| { a: List Int | Text } |]
-        [r| SchemaObject {"a": ( List Int | Text )} |]
+        [r| SchemaObject { "a": ( List Int | Text ) } |]
 
   , testCase "Object with a union field with a group" $
       assertMatches
         [schemaRep| { a: List (Int | Text) } |]
-        [r| SchemaObject {"a": List ( Int | Text )} |]
+        [r| SchemaObject { "a": List ( Int | Text ) } |]
 
   , testCase "Object with a phantom key for an object" $
       assertMatches
         [schemaRep| { [a]: { b: Int } } |]
-        [r| SchemaObject {"a": {"b": Int}} |]
+        [r| SchemaObject { [a]: { "b": Int } } |]
+
+  , testCase "Object with a phantom key for a Maybe" $
+      assertMatches
+        [schemaRep| { [a]: Maybe { b: Int } } |]
+        [r| SchemaObject { [a]: Maybe { "b": Int } } |]
 
   , testCase "Object with a phantom key for a Try" $
       assertMatches
         [schemaRep| { [a]: Try { b: Int } } |]
-        [r| SchemaObject {"a": Try {"b": Int}} |]
+        [r| SchemaObject { [a]: Try { "b": Int } } |]
+
+  , testCase "Object with a phantom key for a non-object Try" $
+      assertMatches
+        [schemaRep| { [a]: Try Bool } |]
+        [r| SchemaObject { [a]: Try Bool } |]
 
   , testCase "Object with a phantom key for a union of valid schemas" $
       assertMatches
-        [schemaRep| { [a]: { b: Int } | Try { c: Int } } |]
-        [r| SchemaObject {"a": ( {"b": Int} | Try {"c": Int} )} |]
+        [schemaRep| { [a]: { b: Int } | Int } |]
+        [r| SchemaObject { [a]: ( { "b": Int } | Int ) } |]
   ]
 
 testInvalidSchemas :: TestTree
@@ -151,11 +161,17 @@ testInvalidSchemas = testGroup "Invalid schemas"
   , testCase "Object extending an unknown schema" $
       [schemaErr| { #FooSchema } |] @?= "Unknown type: FooSchema"
 
-  , testCase "Object with a phantom key for a non-object" $
-      [schemaErr| { [a]: Int } |] @?= "Invalid schema for 'a': SchemaInt"
+  , testCase "Object with a phantom key for a scalar" $
+      [schemaErr| { [a]: Int } |] @?= "Invalid schema for 'a': SchemaScalar Int"
+
+  , testCase "Object with a phantom key for a list" $
+      [schemaErr| { [a]: List Int } |] @?= "Invalid schema for 'a': SchemaList Int"
+
+  , testCase "Object with a phantom key for a non-object Maybe" $
+      [schemaErr| { [a]: Maybe Int } |] @?= "Invalid schema for 'a': SchemaMaybe Int"
 
   , testCase "Object with a phantom key for an invalid union" $
-      [schemaErr| { [a]: { b: Int } | Int } |] @?= "Invalid schema for 'a': SchemaUnion ( {\"b\": Int} | Int )"
+      [schemaErr| { [a]: Bool | Int } |] @?= "Invalid schema for 'a': SchemaUnion ( Bool | Int )"
   ]
 
 {- Helpers -}

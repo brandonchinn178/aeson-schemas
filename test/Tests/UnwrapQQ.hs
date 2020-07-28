@@ -88,10 +88,10 @@ testInvalidUnwrapDefs = testGroup "Invalid unwrap definitions"
       [unwrapErr| MaybeSchema.class[] |] @?= "Cannot use `[]` operator on schema: SchemaMaybe Text"
 
   , testCase "Unwrap nonexistent key" $
-      [unwrapErr| ListSchema.foo |] @?= [r|Key 'foo' does not exist in schema: SchemaObject {"ids": List Int}|]
+      [unwrapErr| ListSchema.foo |] @?= [r|Key 'foo' does not exist in schema: SchemaObject { "ids": List Int }|]
 
   , testCase "Unwrap list of keys with different types" $
-      [unwrapErr| ABCSchema.[a,b,c] |] @?= [r|List contains different types with schema: SchemaObject {"a": Bool, "b": Bool, "c": Double}|]
+      [unwrapErr| ABCSchema.[a,b,c] |] @?= [r|List contains different types with schema: SchemaObject { "a": Bool, "b": Bool, "c": Double }|]
 
   , testCase "Unwrap list of keys on non-object schema" $
       [unwrapErr| ListSchema.ids.[a,b] |] @?= "Cannot get keys in schema: SchemaList Int"

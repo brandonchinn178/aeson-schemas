@@ -1,0 +1,1 @@
+Error in $: Could not parse path 'foo.bar' with schema `SchemaScalar Int`: Null

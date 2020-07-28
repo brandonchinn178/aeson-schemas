@@ -10,9 +10,13 @@ valid at compile-time.
 -}
 
 module Data.Aeson.Schema
-  ( -- * Types
+  ( -- * Object
     Object
+  , toMap
+    -- * Schemas
   , Schema
+  , IsSchema
+  , showSchema
   , SchemaResult
     -- * Quasiquoters for extracting or manipulating JSON data or schemas
   , schema
