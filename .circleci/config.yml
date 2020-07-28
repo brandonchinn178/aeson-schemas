@@ -94,7 +94,8 @@ jobs:
                 --no-run-tests
                 --bench
                 --no-run-benchmarks
-                --ghc-options -Werror
+                --ghc-options '-Werror -ddump-splices -ddump-to-file'
+                --ddump-dir .ci/
             )
             if [[ -n "${CI_LATEST}" ]]; then
                 STACK_ARGS+=(--coverage)
@@ -161,8 +162,9 @@ jobs:
             - run:
                 name: Bundle haddock docs
                 command: tar czf .ci/haddock-docs.tar.gz -C "$(find .stack-work/dist -regex '.*/doc/html/[^/]*')" .
-            - store_artifacts:
-                path: .ci/
+
+      - store_artifacts:
+          path: .ci/
 
 workflows:
   version: 2
