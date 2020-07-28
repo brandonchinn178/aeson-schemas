@@ -75,7 +75,7 @@ instance Show ArbitraryObject where
 -- JSON values generated randomly. You need to recompile in order to generate different schemas.
 arbitraryObject :: ExpQ
 arbitraryObject = do
-  arbitrarySchemas <- runIO $ genSchemaTypes 5
+  arbitrarySchemas <- runIO $ genSchemaTypes 20
 
   [| oneof $(listE $ map mkSchemaGen arbitrarySchemas) |]
   where
@@ -241,11 +241,18 @@ genSchemaTypes numSchemasToGenerate =
     [ resize n arbitrary | n <- [0,2..] ]
 
 instance Arbitrary SchemaShow.SchemaType where
-  arbitrary = genSchemaObject 5
+  arbitrary = sized genSchemaObject
 
+-- | Generate an arbitrary schema.
+--
+-- SchemaType is a recursive definition, so we want to make sure that generating a schema will
+-- terminate, and also not take too long. The ways we account for that are:
+--  * Providing an upper bound on the depth of any object schemas in the current object (n / 2)
+--  * Providing an upper bound on the number of keys in the current object (n / 3)
+--  * Providing an upper bound on the number of schemas in a union (n / 5)
 genSchemaObject :: Int -> Gen SchemaShow.SchemaType
-genSchemaObject maxDepth = do
-  keys <- genUniqList1 genKey
+genSchemaObject n = do
+  keys <- genUniqList1 (n `div` 3) genKey
   pairs <- forM keys $ \key -> frequency
     [ (10, genSchemaObjectPairNormal key)
     , (1, genSchemaObjectPairPhantom key)
@@ -253,10 +260,12 @@ genSchemaObject maxDepth = do
 
   return $ SchemaShow.SchemaObject pairs
   where
-    genSchemaObject' = genSchemaObject $ maxDepth - 1
+    genSchemaObject' = do
+      n' <- choose (0, n `div` 2)
+      genSchemaObject n'
 
     genSchemaObjectPairNormal key = do
-      schemaType <- frequency $ if maxDepth == 0
+      schemaType <- frequency $ if n == 0
         then scalarSchemaTypes
         else allSchemaTypes
       return (SchemaShow.NormalKey key, schemaType)
@@ -266,7 +275,7 @@ genSchemaObject maxDepth = do
         [ (2, SchemaShow.SchemaMaybe <$> genSchemaObject')
         , (2, SchemaShow.SchemaTry <$> frequency nonNullableSchemaTypes)
         , (4, genSchemaObject')
-        , (1, SchemaShow.SchemaUnion <$> scaleHalf (genUniqList1 genSchemaObject'))
+        , (1, genSchemaUnion genSchemaObject')
         ]
       return (SchemaShow.PhantomKey key, schemaType)
 
@@ -280,7 +289,7 @@ genSchemaObject maxDepth = do
     nonNullableSchemaTypes =
       scalarSchemaTypes ++
       [ (2, SchemaShow.SchemaList <$> frequency allSchemaTypes)
-      , (1, SchemaShow.SchemaUnion <$> scaleHalf (genUniqList1 $ frequency allSchemaTypes))
+      , (1, genSchemaUnion $ frequency allSchemaTypes)
       , (2, genSchemaObject')
       ]
 
@@ -290,20 +299,22 @@ genSchemaObject maxDepth = do
       , (2, SchemaShow.SchemaTry <$> frequency nonNullableSchemaTypes)
       ]
 
+    -- avoid generating big unions by scaling list length
+    genSchemaUnion gen = SchemaShow.SchemaUnion <$> genUniqList1 (n `div` 5) gen
+
+
 -- | Generate a valid JSON key
 -- See Data.Aeson.Schema.TH.Parse.jsonKey
 genKey :: Gen String
 genKey = listOf1 $ arbitrary `suchThat` (`notElem` " !?[](),.@:{}#")
 
 -- | Generate a non-empty and unique list of the given generator.
-genUniqList1 :: Eq a => Gen a -> Gen [a]
-genUniqList1 gen = sized $ \n -> do
+--
+-- Takes in the max size of the list.
+genUniqList1 :: Eq a => Int -> Gen a -> Gen [a]
+genUniqList1 n gen = do
   k <- choose (1, max 1 n)
   take k . nub <$> infiniteListOf gen
-
--- | Scale the generator size by half
-scaleHalf :: Gen a -> Gen a
-scaleHalf = scale (`div` 2)
 
 -- | Show the given SchemaType as appropriate for the schema quasiquoter.
 showSchemaType :: SchemaShow.SchemaType -> String
