@@ -264,7 +264,7 @@ genSchemaObject maxDepth = do
     genSchemaObjectPairPhantom key = do
       schemaType <- frequency
         [ (2, SchemaShow.SchemaMaybe <$> genSchemaObject')
-        , (2, SchemaShow.SchemaTry <$> frequency allSchemaTypes)
+        , (2, SchemaShow.SchemaTry <$> frequency nonNullableSchemaTypes)
         , (4, genSchemaObject')
         , (1, SchemaShow.SchemaUnion <$> scaleHalf (genUniqList1 genSchemaObject'))
         ]
