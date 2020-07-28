@@ -4,7 +4,7 @@ cabal-version: >= 1.10
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3473b69871dddcb6f8094b8da09a4d822043ca5e18719647383c6dfbe80d8f97
+-- hash: 097a0295624e418ef294551472062f9fe0ddb0df05e30ca9578f721abbc8059e
 
 name:           aeson-schemas
 version:        1.2.0
@@ -51,6 +51,7 @@ library
       Data.Aeson.Schema.Show
       Data.Aeson.Schema.TH
       Data.Aeson.Schema.Utils.All
+      Data.Aeson.Schema.Utils.Invariant
       Data.Aeson.Schema.Utils.Sum
   other-modules:
       Data.Aeson.Schema.TH.Enum

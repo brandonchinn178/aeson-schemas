@@ -51,6 +51,7 @@ import GHC.TypeLits
 
 import qualified Data.Aeson.Schema.Show as SchemaShow
 import Data.Aeson.Schema.Utils.All (All(..))
+import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.Sum (SumType(..))
 
 {- Schema-validated JSON object -}
@@ -356,13 +357,3 @@ unsafeGetKey keyProxy (UnsafeObject object) =
     fromDynamic (object ! Text.pack key)
   where
     key = symbolVal keyProxy
-
-{- Helpers -}
-
--- | An error function to indicate that a branch is unreachable. Provides a useful error message
--- if it ends up happening, pointing users to write a bug report.
-unreachable :: String -> a
-unreachable msg = error $ unlines
-  [ "`aeson-schemas` internal error: " ++ msg
-  , "Please file a bug report at https://github.com/LeapYear/aeson-schemas/issues/"
-  ]
