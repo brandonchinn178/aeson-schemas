@@ -11,6 +11,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import Data.Aeson.Schema (Object, schema, toMap)
+import qualified Tests.Object.Eq
 import qualified Tests.Object.FromJSON
 import qualified Tests.Object.Show
 import qualified Tests.Object.ToJSON
@@ -19,6 +20,7 @@ import TestUtils (parseValue)
 test :: TestTree
 test = testGroup "Object"
   [ Tests.Object.Show.test
+  , Tests.Object.Eq.test
   , Tests.Object.FromJSON.test
   , Tests.Object.ToJSON.test
 
