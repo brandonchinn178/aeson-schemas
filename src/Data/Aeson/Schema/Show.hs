@@ -45,7 +45,7 @@ showSchemaType schema = case schema of
       SchemaTry inner -> "Try " ++ showSchemaType' inner
       SchemaList inner -> "List " ++ showSchemaType' inner
       SchemaUnion schemas -> "( " ++ mapJoin showSchemaType' " | " schemas ++ " )"
-      SchemaObject pairs -> "{" ++ mapJoin showPair ", " pairs ++ "}"
+      SchemaObject pairs -> "{ " ++ mapJoin showPair ", " pairs ++ " }"
     showPair (key, inner) = showSchemaKey key ++ ": " ++ showSchemaType' inner
 
     mapJoin f delim = intercalate delim . map f

@@ -210,7 +210,7 @@ instance All IsSchemaObjectPair pairs => IsSchemaType ('SchemaObject pairs) wher
 
   toValue = Aeson.Object . toValueMap
 
-  showValue o = "{" ++ intercalate ", " (map fromPair pairs) ++ "}"
+  showValue o = "{ " ++ intercalate ", " (map fromPair pairs) ++ " }"
     where
       fromPair (k, v) = k ++ ": " ++ v
       pairs = mapAll @IsSchemaObjectPair @pairs $ \proxy -> showValuePair proxy o
