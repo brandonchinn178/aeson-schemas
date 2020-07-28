@@ -2,7 +2,7 @@
 Details for user #1:
 * Name: Alice
 * Age: 30
-* Groups: [{"id": 1, "name": "admin"}]
+* Groups: [{ "id": 1, "name": "admin" }]
 Details for user #2:
 * Name: Bob
 * Age: N/A
@@ -14,4 +14,4 @@ Details for user #3:
 Details for user #4:
 * Name: Darlene
 * Age: 40
-* Groups: [{"id": 2, "name": "groupA"},{"id": 3, "name": "groupB"}]
+* Groups: [{ "id": 2, "name": "groupA" },{ "id": 3, "name": "groupB" }]
