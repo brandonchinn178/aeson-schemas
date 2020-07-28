@@ -49,6 +49,16 @@ import GHC.Exts (toList)
 import GHC.TypeLits
     (ErrorMessage(..), KnownSymbol, Symbol, TypeError, symbolVal)
 
+import Data.Aeson.Schema.Key
+    ( IsSchemaKey(..)
+    , SchemaKey
+    , SchemaKey'(..)
+    , SchemaKeyV
+    , fromSchemaKeyV
+    , getContext
+    , showSchemaKey
+    , toContext
+    )
 import qualified Data.Aeson.Schema.Show as SchemaShow
 import Data.Aeson.Schema.Utils.All (All(..))
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
@@ -113,14 +123,6 @@ data SchemaType
 -- | Pretty show the given SchemaType.
 showSchemaType :: forall (schema :: SchemaType). IsSchemaType schema => String
 showSchemaType = SchemaShow.showSchemaType $ toSchemaTypeShow $ Proxy @schema
-
--- | The type-level analogue of 'Data.Aeson.Schema.Key.SchemaKey'.
-data SchemaKey
-  = NormalKey Symbol
-  | PhantomKey Symbol
-
-keyName :: forall key. KnownSymbol key => Text
-keyName = Text.pack $ symbolVal $ Proxy @key
 
 {- Conversions from schema types into Haskell types -}
 
@@ -221,68 +223,35 @@ toValueMap :: forall pairs. All IsSchemaObjectPair pairs => Object ('Schema pair
 toValueMap o = HashMap.unions $ mapAll @IsSchemaObjectPair @pairs (\proxy -> toValuePair proxy o)
 
 class IsSchemaObjectPair (a :: (SchemaKey, SchemaType)) where
-  toSchemaTypeShowPair :: Proxy a -> (SchemaShow.SchemaKey, SchemaShow.SchemaType)
+  toSchemaTypeShowPair :: Proxy a -> (SchemaKeyV, SchemaShow.SchemaType)
   parseValuePair :: Proxy a -> [Text] -> Aeson.Object -> Parser (Text, Dynamic)
   toValuePair :: Proxy a -> Object schema -> Aeson.Object
   showValuePair :: Proxy a -> Object schema -> (String, String)
 
 instance
-  ( KnownSymbol (FromSchemaKey key)
-  , IsSchemaKey key
+  ( IsSchemaKey key
   , IsSchemaType inner
   , Typeable (SchemaResult inner)
   ) => IsSchemaObjectPair '(key, inner) where
-  toSchemaTypeShowPair _ = (toSchemaKey @key, toSchemaTypeShow $ Proxy @inner)
+  toSchemaTypeShowPair _ = (schemaKey, toSchemaTypeShow $ Proxy @inner)
+    where
+      schemaKey = toSchemaKeyV $ Proxy @key
 
   parseValuePair _ path o = do
-    let key = fromSchemaKey @key
-    inner <- parseValue @inner (key:path) $ getContext @key o
+    inner <- parseValue @inner (key:path) $ getContext schemaKey o
     return (key, toDyn inner)
-
-  toValuePair _ o = toContext @key (toValue @inner val)
     where
+      schemaKey = toSchemaKeyV $ Proxy @key
+      key = Text.pack $ fromSchemaKeyV schemaKey
+
+  toValuePair _ o = toContext schemaKey (toValue @inner val)
+    where
+      schemaKey = toSchemaKeyV $ Proxy @key
       val = unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
 
   showValuePair _ o = (showSchemaKey @key, showValue @inner val)
     where
       val = unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
-
-class IsSchemaKey (key :: SchemaKey) where
-  type FromSchemaKey key :: Symbol
-  toSchemaKey :: SchemaShow.SchemaKey
-  fromSchemaKey :: Text
-  -- | Given schema `{ key: innerSchema }` for JSON data `{ key: val1 }`, get the JSON
-  -- Value that `innerSchema` should parse.
-  getContext :: Aeson.Object -> Value
-  -- | Given JSON data `val` adhering to `innerSchema`, get the JSON object that should be
-  -- merged with the outer JSON object.
-  toContext :: Value -> Aeson.Object
-  showSchemaKey :: String
-
-instance KnownSymbol key => IsSchemaKey ('NormalKey key) where
-  type FromSchemaKey ('NormalKey key) = key
-  toSchemaKey = SchemaShow.NormalKey (Text.unpack $ keyName @key)
-  fromSchemaKey = keyName @key
-  -- | `innerSchema` should parse `val1`
-  getContext = HashMap.lookupDefault Null (keyName @key)
-  -- | `val` should be inserted with key `key`
-  toContext val = HashMap.singleton (keyName @key) val
-  showSchemaKey = show (keyName @key)
-
-instance KnownSymbol key => IsSchemaKey ('PhantomKey key) where
-  type FromSchemaKey ('PhantomKey key) = key
-  toSchemaKey = SchemaShow.PhantomKey (Text.unpack $ keyName @key)
-  fromSchemaKey = keyName @key
-  -- | `innerSchema` should parse the same object that `key` is in
-  getContext = Aeson.Object
-  -- | If `val` is an object, it should be merged with the JSON object.
-  toContext = \case
-    Aeson.Object o -> o
-    -- `Try` schema could store `Nothing`, which would return `Null`. In this case, there is no
-    -- context to merge
-    Null -> mempty
-    v -> unreachable $ "Invalid value for phantom key: " ++ show v
-  showSchemaKey = Text.unpack $ Text.concat ["[", keyName @key, "]"]
 
 -- | A helper for creating fail messages when parsing a schema.
 parseFail :: forall (schema :: SchemaType) m a. (MonadFail m, IsSchemaType schema) => [Text] -> Value -> m a

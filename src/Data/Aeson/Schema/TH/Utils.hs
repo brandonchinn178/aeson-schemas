@@ -22,8 +22,7 @@ import Language.Haskell.TH.Syntax (Lift)
 
 import Data.Aeson.Schema.Internal
     (Object, Schema(..), SchemaResult, SchemaType(..))
-import qualified Data.Aeson.Schema.Internal as Internal
-import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
+import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV, fromSchemaKeyV)
 import qualified Data.Aeson.Schema.Show as SchemaShow
 
 -- | Show the given schema as a type.
@@ -57,7 +56,7 @@ typeToPair = \case
   SigT ty _ -> typeToPair ty
   ty -> error $ "Not a type-level pair: " ++ show ty
 
-typeToSchemaPairs :: HasCallStack => Type -> [(SchemaKey, Type)]
+typeToSchemaPairs :: HasCallStack => Type -> [(SchemaKeyV, Type)]
 typeToSchemaPairs = map (bimap parseSchemaKey stripSigs . typeToPair) . typeToList
 
 typeQListToTypeQ :: [TypeQ] -> TypeQ
@@ -66,20 +65,20 @@ typeQListToTypeQ = foldr consT promotedNilT
     -- nb. https://stackoverflow.com/a/34457936
     consT x xs = appT (appT promotedConsT x) xs
 
-schemaPairsToTypeQ :: [(SchemaKey, TypeQ)] -> TypeQ
+schemaPairsToTypeQ :: [(SchemaKeyV, TypeQ)] -> TypeQ
 schemaPairsToTypeQ = typeQListToTypeQ . map pairT
   where
     pairT (k, v) =
       let schemaKey = case k of
-            NormalKey key -> [t| 'Internal.NormalKey $(litT $ strTyLit key) |]
-            PhantomKey key -> [t| 'Internal.PhantomKey $(litT $ strTyLit key) |]
+            NormalKey key -> [t| 'NormalKey $(litT $ strTyLit key) |]
+            PhantomKey key -> [t| 'PhantomKey $(litT $ strTyLit key) |]
       in [t| '($schemaKey, $v) |]
 
-parseSchemaKey :: HasCallStack => Type -> SchemaKey
+parseSchemaKey :: HasCallStack => Type -> SchemaKeyV
 parseSchemaKey = \case
   AppT (PromotedT ty) (LitT (StrTyLit key))
-    | ty == 'Internal.NormalKey -> NormalKey key
-    | ty == 'Internal.PhantomKey -> PhantomKey key
+    | ty == 'NormalKey -> NormalKey key
+    | ty == 'PhantomKey -> PhantomKey key
   SigT ty _ -> parseSchemaKey ty
   ty -> error $ "Could not parse a schema key: " ++ show ty
 
@@ -128,7 +127,7 @@ unwrapType keepFunctor getterOps schemaType =
         case op of
           GetterKey key | ty == 'SchemaObject ->
             let getObjectSchema = map (first getSchemaKey . typeToPair) . typeToList
-                getSchemaKey = fromSchemaKey . parseSchemaKey
+                getSchemaKey = fromSchemaKeyV . parseSchemaKey
             in case lookup key (getObjectSchema inner) of
               Just nextSchema -> go nextSchema ops
               Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ showSchemaType schema

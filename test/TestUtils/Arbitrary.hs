@@ -39,13 +39,14 @@ import Language.Haskell.TH.Syntax (Lift)
 import Test.QuickCheck
 
 import Data.Aeson.Schema (Object, schema)
-import Data.Aeson.Schema.Internal (SchemaKey(..), SchemaType(..))
+import Data.Aeson.Schema.Internal (SchemaType(..))
 import qualified Data.Aeson.Schema.Internal as Internal
+import Data.Aeson.Schema.Key
+    (IsSchemaKey(..), SchemaKey, SchemaKey'(..), SchemaKeyV, toContext)
 import qualified Data.Aeson.Schema.Show as SchemaShow
 import Data.Aeson.Schema.Utils.All (All(..))
 
 -- Orphan instances
-deriving instance Lift SchemaShow.SchemaKey
 deriving instance Lift SchemaShow.SchemaType
 
 data ArbitraryObject where
@@ -108,12 +109,12 @@ genSchema' proxy schemaType = do
   v <- genSchema @('SchemaObject schema)
   return $ ArbitraryObject proxy v schemaType
 
-getKeyType :: SchemaShow.SchemaKey -> String
+getKeyType :: SchemaKeyV -> String
 getKeyType = \case
-  SchemaShow.NormalKey _ -> "Normal"
-  SchemaShow.PhantomKey _ -> "Phantom"
+  NormalKey _ -> "Normal"
+  PhantomKey _ -> "Phantom"
 
-getKeys :: SchemaShow.SchemaType -> [SchemaShow.SchemaKey]
+getKeys :: SchemaShow.SchemaType -> [SchemaKeyV]
 getKeys = \case
   SchemaShow.SchemaMaybe inner -> getKeys inner
   SchemaShow.SchemaTry inner -> getKeys inner
@@ -201,13 +202,15 @@ instance All ArbitraryObjectPair pairs => ArbitrarySchema ('SchemaObject (pairs 
       genSchemaPairs :: Gen [Aeson.Object]
       genSchemaPairs = sequence $ mapAll @ArbitraryObjectPair @pairs genSchemaPair
 
-class Internal.IsSchemaKey (Fst pair) => ArbitraryObjectPair (pair :: (SchemaKey, SchemaType)) where
+class IsSchemaKey (Fst pair) => ArbitraryObjectPair (pair :: (SchemaKey, SchemaType)) where
   genSchemaPair :: Proxy pair -> Gen Aeson.Object
-  genSchemaPair _ = Internal.toContext @(Fst pair) <$> genInnerSchema @pair
+  genSchemaPair _ = toContext schemaKey <$> genInnerSchema @pair
+    where
+      schemaKey = toSchemaKeyV $ Proxy @(Fst pair)
 
   genInnerSchema :: Gen Value
 
-instance (Internal.IsSchemaKey key, ArbitrarySchema schema) => ArbitraryObjectPair '(key, schema) where
+instance (IsSchemaKey key, ArbitrarySchema schema) => ArbitraryObjectPair '(key, schema) where
   genInnerSchema = genSchema @schema
 
 -- For phantom keys, Maybe is only valid for Objects. Since phantom keys parse the schema with
@@ -268,7 +271,7 @@ genSchemaObject n = do
       schemaType <- frequency $ if n == 0
         then scalarSchemaTypes
         else allSchemaTypes
-      return (SchemaShow.NormalKey key, schemaType)
+      return (NormalKey key, schemaType)
 
     genSchemaObjectPairPhantom key = do
       schemaType <- frequency
@@ -277,7 +280,7 @@ genSchemaObject n = do
         , (4, genSchemaObject')
         , (1, genSchemaUnion genSchemaObject')
         ]
-      return (SchemaShow.PhantomKey key, schemaType)
+      return (PhantomKey key, schemaType)
 
     scalarSchemaTypes =
       [ (4, pure $ SchemaShow.SchemaScalar "Bool")

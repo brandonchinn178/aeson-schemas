@@ -24,7 +24,7 @@ import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.Internal (Schema(..), SchemaType(..), ToSchemaObject)
-import Data.Aeson.Schema.Key (SchemaKey(..), fromSchemaKey)
+import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV, fromSchemaKeyV)
 import qualified Data.Aeson.Schema.Show as SchemaShow
 import Data.Aeson.Schema.TH.Parse
 import Data.Aeson.Schema.TH.Utils
@@ -129,7 +129,7 @@ data KeySource = Provided | Imported
 
 -- | Parse SchemaDefObjItem into a list of tuples, each containing a key to add to the schema,
 -- the value for the key, and the source of the key.
-toParts :: SchemaDefObjItem -> Q [(SchemaKey, TypeQ, KeySource)]
+toParts :: SchemaDefObjItem -> Q [(SchemaKeyV, TypeQ, KeySource)]
 toParts = \case
   SchemaDefObjPair (schemaDefKey, schemaDefType) -> do
     let schemaKey = schemaDefToSchemaKey schemaDefKey
@@ -139,7 +139,7 @@ toParts = \case
       PhantomKey _ -> do
         let schemaTypeShow = parseSchemaType schemaType
         unless (isValidPhantomSchema schemaTypeShow) $
-          fail $ "Invalid schema for '" ++ fromSchemaKey schemaKey ++ "': " ++ SchemaShow.showSchemaType schemaTypeShow
+          fail $ "Invalid schema for '" ++ fromSchemaKeyV schemaKey ++ "': " ++ SchemaShow.showSchemaType schemaTypeShow
       _ -> return ()
 
     pure . tagAs Provided $ [(schemaKey, pure schemaType)]
@@ -167,12 +167,12 @@ toParts = \case
 -- 1. Any explicitly provided keys shadow/overwrite imported keys
 -- 2. Fail if duplicate keys are both explicitly provided
 -- 3. Fail if duplicate keys are both imported
-resolveParts :: [(SchemaKey, TypeQ, KeySource)] -> Q [(SchemaKey, TypeQ)]
+resolveParts :: [(SchemaKeyV, TypeQ, KeySource)] -> Q [(SchemaKeyV, TypeQ)]
 resolveParts parts = do
   resolved <- resolveParts' $ HashMap.fromListWith (++) $ map nameAndSource parts
   return $ mapMaybe (alignWithResolved resolved) parts
   where
-    nameAndSource (name, _, source) = (fromSchemaKey name, [source])
+    nameAndSource (name, _, source) = (fromSchemaKeyV name, [source])
     resolveParts' = HashMap.traverseWithKey $ \name sources -> do
       -- invariant: length sources > 0
       let numOf source = length $ filter (== source) sources
@@ -183,7 +183,7 @@ resolveParts parts = do
         (_, x) | x > 1 -> fail $ "Key '" ++ name ++ "' declared in multiple imported schemas"
         _ -> fail "Broken invariant in resolveParts"
     alignWithResolved resolved (key, ty, source) =
-      let resolvedSource = resolved HashMap.! fromSchemaKey key
+      let resolvedSource = resolved HashMap.! fromSchemaKeyV key
       in if resolvedSource == source
         then Just (key, ty)
         else Nothing
