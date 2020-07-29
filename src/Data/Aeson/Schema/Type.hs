@@ -20,6 +20,10 @@ module Data.Aeson.Schema.Type
   , SchemaType'(..)
   , SchemaV
   , SchemaTypeV
+  , SchemaObjectMapV
+  , toSchemaObjectV
+  , fromSchemaV
+  , showSchemaV
   , showSchemaTypeV
   , Schema
   , SchemaType
@@ -42,6 +46,7 @@ import Data.Aeson.Schema.Utils.All (All(..))
 
 -- | The schema definition for a JSON object.
 data Schema' s ty = Schema (SchemaObjectMap' s ty)
+  deriving (Show, Eq, Lift)
 
 -- | The AST defining a JSON schema.
 data SchemaType' s ty
@@ -58,6 +63,17 @@ type SchemaObjectMap' s ty = [(SchemaKey' s, SchemaType' s ty)]
 -- | Value-level schema types.
 type SchemaV = Schema' String String
 type SchemaTypeV = SchemaType' String String
+type SchemaObjectMapV = SchemaObjectMap' String String
+
+toSchemaObjectV :: SchemaV -> SchemaTypeV
+toSchemaObjectV (Schema schema) = SchemaObject schema
+
+fromSchemaV :: SchemaV -> SchemaObjectMapV
+fromSchemaV (Schema schema) = schema
+
+-- | Show the given schema, as "{ key: Schema, ... }"
+showSchemaV :: SchemaV -> String
+showSchemaV = showSchemaTypeV' . toSchemaObjectV
 
 -- | Pretty show the given SchemaType.
 showSchemaTypeV :: SchemaTypeV -> String
@@ -68,14 +84,16 @@ showSchemaTypeV schema = case schema of
   SchemaList inner -> "SchemaList " ++ showSchemaTypeV' inner
   SchemaUnion _ -> "SchemaUnion " ++ showSchemaTypeV' schema
   SchemaObject _ -> "SchemaObject " ++ showSchemaTypeV' schema
+
+showSchemaTypeV' :: SchemaTypeV -> String
+showSchemaTypeV' = \case
+  SchemaScalar s -> s
+  SchemaMaybe inner -> "Maybe " ++ showSchemaTypeV' inner
+  SchemaTry inner -> "Try " ++ showSchemaTypeV' inner
+  SchemaList inner -> "List " ++ showSchemaTypeV' inner
+  SchemaUnion schemas -> "( " ++ mapJoin showSchemaTypeV' " | " schemas ++ " )"
+  SchemaObject pairs -> "{ " ++ mapJoin showPair ", " pairs ++ " }"
   where
-    showSchemaTypeV' = \case
-      SchemaScalar s -> s
-      SchemaMaybe inner -> "Maybe " ++ showSchemaTypeV' inner
-      SchemaTry inner -> "Try " ++ showSchemaTypeV' inner
-      SchemaList inner -> "List " ++ showSchemaTypeV' inner
-      SchemaUnion schemas -> "( " ++ mapJoin showSchemaTypeV' " | " schemas ++ " )"
-      SchemaObject pairs -> "{ " ++ mapJoin showPair ", " pairs ++ " }"
     showPair (key, inner) = showSchemaKeyV key ++ ": " ++ showSchemaTypeV' inner
 
     mapJoin f delim = intercalate delim . map f

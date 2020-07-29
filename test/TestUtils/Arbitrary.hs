@@ -26,7 +26,7 @@ import Control.Monad (forM)
 import Data.Aeson (FromJSON, ToJSON(..), Value(..), encode)
 import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HashMap
-import Data.List (nub, stripPrefix)
+import Data.List (nub)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -42,7 +42,14 @@ import Data.Aeson.Schema.Internal (HasSchemaResult)
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey'(..), SchemaKeyV, toContext)
 import Data.Aeson.Schema.Type
-    (Schema'(..), SchemaType, SchemaType'(..), SchemaTypeV, showSchemaTypeV)
+    ( Schema'(..)
+    , SchemaObjectMapV
+    , SchemaType
+    , SchemaType'(..)
+    , SchemaV
+    , showSchemaV
+    , toSchemaObjectV
+    )
 import Data.Aeson.Schema.Utils.All (All(..))
 
 data ArbitraryObject where
@@ -54,15 +61,15 @@ data ArbitraryObject where
        )
     => Proxy (Object schema)
     -> Value
-    -> SchemaTypeV
+    -> SchemaV
     -> ArbitraryObject
 
 -- Show the value and schema as something that could be copied/pasted into GHCi.
 instance Show ArbitraryObject where
-  show (ArbitraryObject _ v schemaType) = unlines
+  show (ArbitraryObject _ v schemaV) = unlines
     [ "ArbitraryObject:"
     , "  " ++ show (encode v)
-    , "  [schema| " ++ showSchemaType schemaType ++ " |]"
+    , "  [schema| " ++ showSchemaV schemaV ++ " |]"
     ]
 
 -- | A Template Haskell function to generate a splice for QuickCheck tests to generate arbitrary
@@ -76,9 +83,9 @@ arbitraryObject = do
 
   [| oneof $(listE $ map mkSchemaGen arbitrarySchemas) |]
   where
-    mkSchemaGen schemaShow =
-      let schemaType = quoteType schema $ showSchemaType schemaShow
-      in [| genSchema' (Proxy :: Proxy (Object $schemaType)) schemaShow |]
+    mkSchemaGen schemaV =
+      let schemaType = quoteType schema $ showSchemaV schemaV
+      in [| genSchema' (Proxy :: Proxy (Object $schemaType)) schemaV |]
 
 -- | Splices to a 'forAll' with 'arbitraryObject', outputting information about the object
 -- generated, to ensure we get good generation.
@@ -100,51 +107,59 @@ genSchema' :: forall schema.
   ( ArbitrarySchema ('SchemaObject schema)
   , HasSchemaResult ('SchemaObject schema)
   )
-  => Proxy (Object ('Schema schema)) -> SchemaTypeV -> Gen ArbitraryObject
-genSchema' proxy schemaType = do
+  => Proxy (Object ('Schema schema)) -> SchemaV -> Gen ArbitraryObject
+genSchema' proxy schemaV = do
   v <- genSchema @('SchemaObject schema)
-  return $ ArbitraryObject proxy v schemaType
+  return $ ArbitraryObject proxy v schemaV
 
 getKeyType :: SchemaKeyV -> String
 getKeyType = \case
   NormalKey _ -> "Normal"
   PhantomKey _ -> "Phantom"
 
-getKeys :: SchemaTypeV -> [SchemaKeyV]
-getKeys = \case
-  SchemaMaybe inner -> getKeys inner
-  SchemaTry inner -> getKeys inner
-  SchemaList inner -> getKeys inner
-  SchemaUnion schemas -> concatMap getKeys schemas
-  SchemaObject pairs -> concatMap (\(key, inner) -> key : getKeys inner) pairs
-  _ -> []
+getKeys :: SchemaV -> [SchemaKeyV]
+getKeys = getKeys' . toSchemaObjectV
+  where
+    getKeys' = \case
+      SchemaMaybe inner -> getKeys' inner
+      SchemaTry inner -> getKeys' inner
+      SchemaList inner -> getKeys' inner
+      SchemaUnion schemas -> concatMap getKeys' schemas
+      SchemaObject pairs -> concatMap (\(key, inner) -> key : getKeys' inner) pairs
+      _ -> []
 
-getSchemaTypes :: SchemaTypeV -> [String]
-getSchemaTypes = \case
-  SchemaScalar s -> [s]
-  SchemaMaybe inner -> "SchemaMaybe" : getSchemaTypes inner
-  SchemaTry inner -> "SchemaTry" : getSchemaTypes inner
-  SchemaList inner -> "SchemaList" : getSchemaTypes inner
-  SchemaUnion schemas -> "SchemaUnion" : concatMap getSchemaTypes schemas
-  SchemaObject pairs -> "SchemaObject" : concatMap (getSchemaTypes . snd) pairs
+getSchemaTypes :: SchemaV -> [String]
+getSchemaTypes = getSchemaTypes' . toSchemaObjectV
+  where
+    getSchemaTypes' = \case
+      SchemaScalar s -> [s]
+      SchemaMaybe inner -> "SchemaMaybe" : getSchemaTypes' inner
+      SchemaTry inner -> "SchemaTry" : getSchemaTypes' inner
+      SchemaList inner -> "SchemaList" : getSchemaTypes' inner
+      SchemaUnion schemas -> "SchemaUnion" : concatMap getSchemaTypes' schemas
+      SchemaObject pairs -> "SchemaObject" : concatMap (getSchemaTypes' . snd) pairs
 
-getObjectSizes :: SchemaTypeV -> [Int]
-getObjectSizes = \case
-  SchemaScalar _ -> []
-  SchemaMaybe inner -> getObjectSizes inner
-  SchemaTry inner -> getObjectSizes inner
-  SchemaList inner -> getObjectSizes inner
-  SchemaUnion schemas -> concatMap getObjectSizes schemas
-  SchemaObject pairs -> length pairs : concatMap (getObjectSizes . snd) pairs
+getObjectSizes :: SchemaV -> [Int]
+getObjectSizes = getObjectSizes' . toSchemaObjectV
+  where
+    getObjectSizes' = \case
+      SchemaScalar _ -> []
+      SchemaMaybe inner -> getObjectSizes' inner
+      SchemaTry inner -> getObjectSizes' inner
+      SchemaList inner -> getObjectSizes' inner
+      SchemaUnion schemas -> concatMap getObjectSizes' schemas
+      SchemaObject pairs -> length pairs : concatMap (getObjectSizes' . snd) pairs
 
-getObjectDepth :: SchemaTypeV -> Int
-getObjectDepth = \case
-  SchemaScalar _ -> 0
-  SchemaMaybe inner -> getObjectDepth inner
-  SchemaTry inner -> getObjectDepth inner
-  SchemaList inner -> getObjectDepth inner
-  SchemaUnion schemas -> maximum $ map getObjectDepth schemas
-  SchemaObject pairs -> 1 + maximum (map (getObjectDepth . snd) pairs)
+getObjectDepth :: SchemaV -> Int
+getObjectDepth = getObjectDepth' . toSchemaObjectV
+  where
+    getObjectDepth' = \case
+      SchemaScalar _ -> 0
+      SchemaMaybe inner -> getObjectDepth' inner
+      SchemaTry inner -> getObjectDepth' inner
+      SchemaList inner -> getObjectDepth' inner
+      SchemaUnion schemas -> maximum $ map getObjectDepth' schemas
+      SchemaObject pairs -> 1 + maximum (map (getObjectDepth' . snd) pairs)
 
 tabulate' :: String -> [String] -> Property -> Property
 #if MIN_VERSION_QuickCheck(2,12,0)
@@ -234,13 +249,13 @@ instance {-# OVERLAPS #-} (KnownSymbol key, FilterObjectSchemas schemas ~ object
 
 {- Generating schema definitions -}
 
-genSchemaTypes :: Int -> IO [SchemaTypeV]
+genSchemaTypes :: Int -> IO [SchemaV]
 genSchemaTypes numSchemasToGenerate =
   generate $ sequence $ take numSchemasToGenerate
     [ resize n arbitrary | n <- [0,2..] ]
 
-instance Arbitrary SchemaTypeV where
-  arbitrary = sized genSchemaObject
+instance Arbitrary SchemaV where
+  arbitrary = Schema <$> sized genSchemaObject
 
 -- | Generate an arbitrary schema.
 --
@@ -249,19 +264,17 @@ instance Arbitrary SchemaTypeV where
 --  * Providing an upper bound on the depth of any object schemas in the current object (n / 2)
 --  * Providing an upper bound on the number of keys in the current object (n / 3)
 --  * Providing an upper bound on the number of schemas in a union (n / 5)
-genSchemaObject :: Int -> Gen SchemaTypeV
+genSchemaObject :: Int -> Gen SchemaObjectMapV
 genSchemaObject n = do
   keys <- genUniqList1 (n `div` 3) genKey
-  pairs <- forM keys $ \key -> frequency
+  forM keys $ \key -> frequency
     [ (10, genSchemaObjectPairNormal key)
     , (1, genSchemaObjectPairPhantom key)
     ]
-
-  return $ SchemaObject pairs
   where
     genSchemaObject' = do
       n' <- choose (0, n `div` 2)
-      genSchemaObject n'
+      SchemaObject <$> genSchemaObject n'
 
     genSchemaObjectPairNormal key = do
       schemaType <- frequency $ if n == 0
@@ -314,15 +327,6 @@ genUniqList1 :: Eq a => Int -> Gen a -> Gen [a]
 genUniqList1 n gen = do
   k <- choose (1, max 1 n)
   take k . nub <$> infiniteListOf gen
-
--- | Show the given SchemaType as appropriate for the schema quasiquoter.
-showSchemaType :: SchemaTypeV -> String
-showSchemaType schemaType =
-  case "SchemaObject " `stripPrefix` schemaType' of
-    Just s -> s
-    Nothing -> error $ "Invalid schema: " ++ schemaType'
-  where
-    schemaType' = showSchemaTypeV schemaType
 
 {- Helper type families -}
 
