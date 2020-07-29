@@ -12,6 +12,7 @@ The 'schema' quasiquoter.
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Data.Aeson.Schema.TH.Schema (schema) where
 
@@ -26,7 +27,12 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV, fromSchemaKeyV)
 import Data.Aeson.Schema.TH.Parse
 import Data.Aeson.Schema.TH.Utils
-    (parseSchemaType, schemaPairsToTypeQ, typeQListToTypeQ, typeToSchemaPairs)
+    ( parseSchemaType
+    , schemaPairsToTypeQ
+    , stripSigs
+    , typeQListToTypeQ
+    , typeToSchemaPairs
+    )
 import Data.Aeson.Schema.Type
     (Schema'(..), SchemaType'(..), ToSchemaObject, showSchemaTypeV)
 
@@ -146,7 +152,7 @@ toParts = \case
   SchemaDefObjExtend other -> do
     name <- getName other
     reify name >>= \case
-      TyConI (TySynD _ _ (AppT (PromotedT ty) inner)) | ty == 'Schema ->
+      TyConI (TySynD _ _ (stripSigs -> AppT (PromotedT ty) inner)) | ty == 'Schema ->
         pure . tagAs Imported . map (second pure) $ typeToSchemaPairs inner
       _ -> fail $ "'" ++ show name ++ "' is not a Schema"
   where
