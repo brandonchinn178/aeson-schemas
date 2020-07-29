@@ -36,32 +36,35 @@ errorBundlePretty = parseErrorPretty
 parse :: MonadFail m => Parser a -> String -> m a
 parse parser s = either (fail . errorBundlePretty) return $ runParser parser s s
 
-{- Parser primitives -}
+{- SchemaDef -}
 
-type GetterOps = [GetterOperation]
-
-data GetterOperation
-  = GetterKey String
-  | GetterList [GetterOps] -- ^ Invariant: needs to be non-empty
-  | GetterTuple [GetterOps] -- ^ Invariant: needs to be non-empty
-  | GetterBang
-  | GetterMapList
-  | GetterMapMaybe
-  | GetterBranch Int
+data SchemaDef
+  = SchemaDefType String
+  | SchemaDefMaybe SchemaDef
+  | SchemaDefTry SchemaDef
+  | SchemaDefList SchemaDef
+  | SchemaDefInclude String
+  | SchemaDefObj [SchemaDefObjItem]
+  | SchemaDefUnion [SchemaDef]
   deriving (Show)
 
-parseGetterOp :: Parser GetterOperation
-parseGetterOp = choice
-  [ lexeme "!" $> GetterBang
-  , lexeme "[]" $> GetterMapList
-  , lexeme "?" $> GetterMapMaybe
-  , lexeme "@" *> (GetterBranch . read <$> some digitChar)
-  , optional (lexeme ".") *> choice
-      [ GetterKey <$> jsonKey
-      , fmap GetterList $ between (lexeme "[") (lexeme "]") $ some parseGetterOp `sepBy1` lexeme ","
-      , fmap GetterTuple $ between (lexeme "(") (lexeme ")") $ some parseGetterOp `sepBy1` lexeme ","
-      ]
-  ]
+data SchemaDefObjItem
+  = SchemaDefObjPair (SchemaDefObjKey, SchemaDef)
+  | SchemaDefObjExtend String
+  deriving (Show)
+
+data SchemaDefObjKey
+  = SchemaDefObjKeyNormal String
+  | SchemaDefObjKeyPhantom String
+  deriving (Show)
+
+schemaDef :: Parser SchemaDef
+schemaDef = do
+  space
+  def <- parseSchemaDef
+  space
+  void eof
+  return def
 
 parseSchemaDef :: Parser SchemaDef
 parseSchemaDef = parseSchemaDefWithUnions
@@ -96,6 +99,67 @@ parseSchemaDef = parseSchemaDefWithUnions
       value <- parseSchemaDefWithUnions
       return (key, value)
     parseSchemaReference = char '#' *> namespacedIdentifier upperChar
+
+{- GetterExp -}
+
+data GetterExp = GetterExp
+  { start     :: Maybe String
+  , getterOps :: GetterOps
+  } deriving (Show)
+
+getterExp :: Parser GetterExp
+getterExp = do
+  space
+  start <- optional $ namespacedIdentifier lowerChar
+  getterOps <- some parseGetterOp
+  space
+  void eof
+  return GetterExp{..}
+
+{- UnwrapSchema -}
+
+data UnwrapSchema = UnwrapSchema
+  { startSchema :: String
+  , getterOps   :: GetterOps
+  } deriving (Show)
+
+unwrapSchema :: Parser UnwrapSchema
+unwrapSchema = do
+  space
+  startSchema <- namespacedIdentifier upperChar
+  getterOps <- some parseGetterOp
+  space
+  void eof
+  return UnwrapSchema{..}
+
+{- GetterOps -}
+
+type GetterOps = [GetterOperation]
+
+data GetterOperation
+  = GetterKey String
+  | GetterList [GetterOps] -- ^ Invariant: needs to be non-empty
+  | GetterTuple [GetterOps] -- ^ Invariant: needs to be non-empty
+  | GetterBang
+  | GetterMapList
+  | GetterMapMaybe
+  | GetterBranch Int
+  deriving (Show)
+
+parseGetterOp :: Parser GetterOperation
+parseGetterOp = choice
+  [ lexeme "!" $> GetterBang
+  , lexeme "[]" $> GetterMapList
+  , lexeme "?" $> GetterMapMaybe
+  , lexeme "@" *> (GetterBranch . read <$> some digitChar)
+  , optional (lexeme ".") *> choice
+      [ GetterKey <$> jsonKey
+      , fmap GetterList $ between (lexeme "[") (lexeme "]") $ some parseGetterOp `sepBy1` lexeme ","
+      , fmap GetterTuple $ between (lexeme "(") (lexeme ")") $ some parseGetterOp `sepBy1` lexeme ","
+      ]
+  ]
+
+{- Parser primitives -}
 
 -- | A Haskell identifier, with the given first character.
 identifier :: Parser Char -> Parser String
@@ -143,65 +207,3 @@ jsonKey' = some $ choice
     getChars = "!?[](),.@"
     -- characters that should not indicate the start of a key when parsing 'schema' definitions
     schemaChars = ":{}#"
-
-{- SchemaDef -}
-
-data SchemaDef
-  = SchemaDefType String
-  | SchemaDefMaybe SchemaDef
-  | SchemaDefTry SchemaDef
-  | SchemaDefList SchemaDef
-  | SchemaDefInclude String
-  | SchemaDefObj [SchemaDefObjItem]
-  | SchemaDefUnion [SchemaDef]
-  deriving (Show)
-
-data SchemaDefObjItem
-  = SchemaDefObjPair (SchemaDefObjKey, SchemaDef)
-  | SchemaDefObjExtend String
-  deriving (Show)
-
-data SchemaDefObjKey
-  = SchemaDefObjKeyNormal String
-  | SchemaDefObjKeyPhantom String
-  deriving (Show)
-
-schemaDef :: Parser SchemaDef
-schemaDef = do
-  space
-  def <- parseSchemaDef
-  space
-  void eof
-  return def
-
-{- GetterExp -}
-
-data GetterExp = GetterExp
-  { start     :: Maybe String
-  , getterOps :: GetterOps
-  } deriving (Show)
-
-getterExp :: Parser GetterExp
-getterExp = do
-  space
-  start <- optional $ namespacedIdentifier lowerChar
-  getterOps <- some parseGetterOp
-  space
-  void eof
-  return GetterExp{..}
-
-{- UnwrapSchema -}
-
-data UnwrapSchema = UnwrapSchema
-  { startSchema :: String
-  , getterOps   :: GetterOps
-  } deriving (Show)
-
-unwrapSchema :: Parser UnwrapSchema
-unwrapSchema = do
-  space
-  startSchema <- namespacedIdentifier upperChar
-  getterOps <- some parseGetterOp
-  space
-  void eof
-  return UnwrapSchema{..}
