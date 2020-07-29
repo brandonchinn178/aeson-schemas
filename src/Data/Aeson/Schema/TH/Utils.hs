@@ -5,7 +5,6 @@ Stability   :  experimental
 Portability :  portable
 -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -15,13 +14,12 @@ module Data.Aeson.Schema.TH.Utils where
 
 import Control.Monad ((>=>))
 import Data.Bifunctor (bimap, first, second)
-import Data.List (intercalate)
 import GHC.Stack (HasCallStack)
 import Language.Haskell.TH
-import Language.Haskell.TH.Syntax (Lift)
 
 import Data.Aeson.Schema.Internal (Object, SchemaResult)
 import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV, fromSchemaKeyV)
+import Data.Aeson.Schema.TH.Parse (GetterOperation(..), GetterOps)
 import Data.Aeson.Schema.Type
     (Schema'(..), SchemaType'(..), SchemaTypeV, showSchemaTypeV)
 
@@ -157,29 +155,3 @@ unwrapType keepFunctor getterOps schemaType =
     withFunctor f = if keepFunctor then appT f else id
 
     showSchemaType = showSchemaTypeV . parseSchemaType
-
-{- GetterOps -}
-
-type GetterOps = [GetterOperation]
-
-data GetterOperation
-  = GetterKey String
-  | GetterList [GetterOps] -- ^ Invariant: needs to be non-empty
-  | GetterTuple [GetterOps] -- ^ Invariant: needs to be non-empty
-  | GetterBang
-  | GetterMapList
-  | GetterMapMaybe
-  | GetterBranch Int
-  deriving (Show,Lift)
-
-showGetterOps :: GetterOps -> String
-showGetterOps = concatMap showGetterOp
-  where
-    showGetterOp = \case
-      GetterKey key -> '.':key
-      GetterList elems -> ".[" ++ intercalate "," (map showGetterOps elems) ++ "]"
-      GetterTuple elems -> ".(" ++ intercalate "," (map showGetterOps elems) ++ ")"
-      GetterBang -> "!"
-      GetterMapList -> "[]"
-      GetterMapMaybe -> "?"
-      GetterBranch x -> '@' : show x

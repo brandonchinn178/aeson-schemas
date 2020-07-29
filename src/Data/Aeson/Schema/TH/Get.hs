@@ -14,6 +14,7 @@ The 'get' quasiquoter.
 module Data.Aeson.Schema.TH.Get where
 
 import Control.Monad (unless, (>=>))
+import Data.List (intercalate)
 import qualified Data.Maybe as Maybe
 import Data.Proxy (Proxy(..))
 import GHC.Stack (HasCallStack)
@@ -22,8 +23,8 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.Syntax (lift)
 
 import Data.Aeson.Schema.Internal (getKey)
-import Data.Aeson.Schema.TH.Parse (GetterExp(..), getterExp, parse)
-import Data.Aeson.Schema.TH.Utils (GetterOperation(..), showGetterOps)
+import Data.Aeson.Schema.TH.Parse
+    (GetterExp(..), GetterOperation(..), GetterOps, getterExp, parse)
 import Data.Aeson.Schema.Utils.Sum (fromSumType)
 
 -- | Defines a QuasiQuoter for extracting JSON data.
@@ -137,3 +138,15 @@ fromJust msg = Maybe.fromMaybe (error errMsg)
 -- | fmap specialized to [a]
 (<$:>) :: (a -> b) -> [a] -> [b]
 (<$:>) = (<$>)
+
+showGetterOps :: GetterOps -> String
+showGetterOps = concatMap showGetterOp
+  where
+    showGetterOp = \case
+      GetterKey key -> '.':key
+      GetterList elems -> ".[" ++ intercalate "," (map showGetterOps elems) ++ "]"
+      GetterTuple elems -> ".(" ++ intercalate "," (map showGetterOps elems) ++ ")"
+      GetterBang -> "!"
+      GetterMapList -> "[]"
+      GetterMapMaybe -> "?"
+      GetterBranch x -> '@' : show x

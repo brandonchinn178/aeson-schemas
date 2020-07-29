@@ -26,8 +26,6 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
-import Data.Aeson.Schema.TH.Utils (GetterOperation(..), GetterOps)
-
 type Parser = Parsec Void String
 
 #if !MIN_VERSION_megaparsec(7,0,0)
@@ -39,6 +37,18 @@ parse :: MonadFail m => Parser a -> String -> m a
 parse parser s = either (fail . errorBundlePretty) return $ runParser parser s s
 
 {- Parser primitives -}
+
+type GetterOps = [GetterOperation]
+
+data GetterOperation
+  = GetterKey String
+  | GetterList [GetterOps] -- ^ Invariant: needs to be non-empty
+  | GetterTuple [GetterOps] -- ^ Invariant: needs to be non-empty
+  | GetterBang
+  | GetterMapList
+  | GetterMapMaybe
+  | GetterBranch Int
+  deriving (Show)
 
 parseGetterOp :: Parser GetterOperation
 parseGetterOp = choice
