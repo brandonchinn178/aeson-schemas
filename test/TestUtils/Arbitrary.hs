@@ -38,7 +38,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
 import Test.QuickCheck
 
 import Data.Aeson.Schema (Object, schema)
-import Data.Aeson.Schema.Internal (IsSchemaType)
+import Data.Aeson.Schema.Internal (HasSchemaResult)
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey'(..), SchemaKeyV, toContext)
 import Data.Aeson.Schema.Type
@@ -98,7 +98,7 @@ forAllArbitraryObjects = [| \runTest ->
 
 genSchema' :: forall schema.
   ( ArbitrarySchema ('SchemaObject schema)
-  , IsSchemaType ('SchemaObject schema)
+  , HasSchemaResult ('SchemaObject schema)
   )
   => Proxy (Object ('Schema schema)) -> SchemaTypeV -> Gen ArbitraryObject
 genSchema' proxy schemaType = do

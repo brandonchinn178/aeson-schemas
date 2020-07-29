@@ -6,8 +6,12 @@ Portability :  portable
 
 Defines SchemaType, the AST that defines a JSON schema.
 -}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 
@@ -21,14 +25,20 @@ module Data.Aeson.Schema.Type
   , SchemaType
   , ToSchemaObject
   , FromSchema
+  , IsSchemaType(..)
+  , IsSchemaObjectMap
   ) where
 
 import Data.Kind (Type)
 import Data.List (intercalate)
+import Data.Proxy (Proxy(..))
+import Data.Typeable (Typeable, tyConName, typeRep, typeRepTyCon)
 import GHC.TypeLits (Symbol)
 import Language.Haskell.TH.Syntax (Lift)
 
-import Data.Aeson.Schema.Key (SchemaKey', showSchemaKeyV)
+import Data.Aeson.Schema.Key
+    (IsSchemaKey(..), SchemaKey, SchemaKey', SchemaKeyV, showSchemaKeyV)
+import Data.Aeson.Schema.Utils.All (All(..))
 
 -- | The schema definition for a JSON object.
 data Schema' s ty = Schema (SchemaObjectMap' s ty)
@@ -80,3 +90,32 @@ type family ToSchemaObject (schema :: Schema) :: SchemaType where
 
 type family FromSchema (schema :: Schema) :: SchemaObjectMap where
   FromSchema ('Schema schema) = schema
+
+class IsSchemaType (schemaType :: SchemaType) where
+  toSchemaTypeV :: Proxy schemaType -> SchemaTypeV
+
+instance Typeable inner => IsSchemaType ('SchemaScalar inner) where
+  toSchemaTypeV _ = SchemaScalar (tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)
+
+instance IsSchemaType inner => IsSchemaType ('SchemaMaybe inner) where
+  toSchemaTypeV _ = SchemaMaybe (toSchemaTypeV $ Proxy @inner)
+
+instance IsSchemaType inner => IsSchemaType ('SchemaTry inner) where
+  toSchemaTypeV _ = SchemaTry (toSchemaTypeV $ Proxy @inner)
+
+instance IsSchemaType inner => IsSchemaType ('SchemaList inner) where
+  toSchemaTypeV _ = SchemaList (toSchemaTypeV $ Proxy @inner)
+
+instance All IsSchemaType schemas => IsSchemaType ('SchemaUnion schemas) where
+  toSchemaTypeV _ = SchemaUnion (mapAll @IsSchemaType @schemas toSchemaTypeV)
+
+instance IsSchemaObjectMap pairs => IsSchemaType ('SchemaObject pairs) where
+  toSchemaTypeV _ = SchemaObject (mapAll @IsSchemaObjectPair @pairs toSchemaTypePairV)
+
+type IsSchemaObjectMap (pairs :: SchemaObjectMap) = All IsSchemaObjectPair pairs
+
+class IsSchemaObjectPair (a :: (SchemaKey, SchemaType)) where
+  toSchemaTypePairV :: Proxy a -> (SchemaKeyV, SchemaTypeV)
+
+instance (IsSchemaKey key, IsSchemaType inner) => IsSchemaObjectPair '(key, inner) where
+  toSchemaTypePairV _ = (toSchemaKeyV $ Proxy @key, toSchemaTypeV $ Proxy @inner)
