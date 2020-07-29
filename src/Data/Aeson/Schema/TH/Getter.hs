@@ -17,7 +17,7 @@ import Data.Maybe (isNothing)
 import Language.Haskell.TH
 
 import Data.Aeson.Schema.TH.Get (generateGetterExp)
-import Data.Aeson.Schema.TH.Parse (GetterExp(..), getterExp, parse)
+import Data.Aeson.Schema.TH.Parse (GetterExp(..), parseGetterExp)
 import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 
 -- | A helper that generates a 'Data.Aeson.Schema.TH.get' expression and a type alias for the result
@@ -67,7 +67,7 @@ mkGetter :: String -> String -> Name -> String -> DecsQ
 mkGetter unwrapName funcName startSchemaName ops = do
   startSchemaType <- reifySchema startSchemaName
 
-  getterExp'@GetterExp{..} <- parse getterExp ops
+  getterExp'@GetterExp{..} <- parseGetterExp ops
   unless (isNothing start) $
     fail $ "Getter expression should start with '.': " ++ ops
 

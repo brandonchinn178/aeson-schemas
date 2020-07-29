@@ -24,7 +24,7 @@ import Language.Haskell.TH.Syntax (lift)
 
 import Data.Aeson.Schema.Internal (getKey)
 import Data.Aeson.Schema.TH.Parse
-    (GetterExp(..), GetterOperation(..), GetterOps, getterExp, parse)
+    (GetterExp(..), GetterOperation(..), GetterOps, parseGetterExp)
 import Data.Aeson.Schema.Utils.Sum (fromSumType)
 
 -- | Defines a QuasiQuoter for extracting JSON data.
@@ -81,7 +81,7 @@ import Data.Aeson.Schema.Utils.Sum (fromSumType)
 --   the sum type contains an 'Int'.
 get :: QuasiQuoter
 get = QuasiQuoter
-  { quoteExp = parse getterExp >=> generateGetterExp
+  { quoteExp = parseGetterExp >=> generateGetterExp
   , quoteDec = error "Cannot use `get` for Dec"
   , quoteType = error "Cannot use `get` for Type"
   , quotePat = error "Cannot use `get` for Pat"

@@ -14,7 +14,7 @@ import Control.Monad ((>=>))
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema.TH.Parse (UnwrapSchema(..), parse, unwrapSchema)
+import Data.Aeson.Schema.TH.Parse (UnwrapSchema(..), parseUnwrapSchema)
 import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 
 -- | Defines a QuasiQuoter to extract a schema within the given schema.
@@ -52,7 +52,7 @@ unwrap :: QuasiQuoter
 unwrap = QuasiQuoter
   { quoteExp = error "Cannot use `unwrap` for Exp"
   , quoteDec = error "Cannot use `unwrap` for Dec"
-  , quoteType = parse unwrapSchema >=> generateUnwrapSchema
+  , quoteType = parseUnwrapSchema >=> generateUnwrapSchema
   , quotePat = error "Cannot use `unwrap` for Pat"
   }
 

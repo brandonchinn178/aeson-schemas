@@ -26,6 +26,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
 import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV, fromSchemaKeyV)
 import Data.Aeson.Schema.TH.Parse
+    (SchemaDef(..), SchemaDefObjItem(..), SchemaDefObjKey(..), parseSchemaDef)
 import Data.Aeson.Schema.TH.Utils
     ( parseSchemaType
     , schemaPairsToTypeQ
@@ -96,7 +97,7 @@ schema :: QuasiQuoter
 schema = QuasiQuoter
   { quoteExp = error "Cannot use `schema` for Exp"
   , quoteDec = error "Cannot use `schema` for Dec"
-  , quoteType = parse schemaDef >=> \case
+  , quoteType = parseSchemaDef >=> \case
       SchemaDefObj items -> [t| 'Schema $(generateSchemaObject items) |]
       _ -> fail "`schema` definition must be an object"
   , quotePat = error "Cannot use `schema` for Pat"

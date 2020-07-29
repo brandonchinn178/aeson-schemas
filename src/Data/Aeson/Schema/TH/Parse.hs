@@ -33,8 +33,8 @@ errorBundlePretty :: (Ord t, ShowToken t, ShowErrorComponent e) => ParseError t 
 errorBundlePretty = parseErrorPretty
 #endif
 
-parse :: MonadFail m => Parser a -> String -> m a
-parse parser s = either (fail . errorBundlePretty) return $ runParser parser s s
+runParserFail :: MonadFail m => Parser a -> String -> m a
+runParserFail parser s = either (fail . errorBundlePretty) return $ runParser parser s s
 
 {- SchemaDef -}
 
@@ -44,8 +44,8 @@ data SchemaDef
   | SchemaDefTry SchemaDef
   | SchemaDefList SchemaDef
   | SchemaDefInclude String
-  | SchemaDefObj [SchemaDefObjItem]
-  | SchemaDefUnion [SchemaDef]
+  | SchemaDefObj [SchemaDefObjItem] -- ^ Invariant: non-empty
+  | SchemaDefUnion [SchemaDef] -- ^ Invariant: non-empty
   deriving (Show)
 
 data SchemaDefObjItem
@@ -58,20 +58,16 @@ data SchemaDefObjKey
   | SchemaDefObjKeyPhantom String
   deriving (Show)
 
-schemaDef :: Parser SchemaDef
-schemaDef = do
+parseSchemaDef :: MonadFail m => String -> m SchemaDef
+parseSchemaDef = runParserFail $ do
   space
-  def <- parseSchemaDef
+  def <- parseSchemaDefWithUnions
   space
   void eof
   return def
-
-parseSchemaDef :: Parser SchemaDef
-parseSchemaDef = parseSchemaDefWithUnions
   where
     parseSchemaDefWithUnions =
-      let parseSchemaUnion [] = error "Parsed no schema definitions" -- should not happen; sepBy1 returns one or more
-          parseSchemaUnion [schemaDef'] = schemaDef'
+      let parseSchemaUnion [schemaDef'] = schemaDef'
           parseSchemaUnion schemaDefs = SchemaDefUnion schemaDefs
       in fmap parseSchemaUnion $ parseSchemaDefWithoutUnions `sepBy1` lexeme "|"
 
@@ -104,11 +100,11 @@ parseSchemaDef = parseSchemaDefWithUnions
 
 data GetterExp = GetterExp
   { start     :: Maybe String
-  , getterOps :: GetterOps
+  , getterOps :: GetterOps -- ^ Invariant: non-empty
   } deriving (Show)
 
-getterExp :: Parser GetterExp
-getterExp = do
+parseGetterExp :: MonadFail m => String -> m GetterExp
+parseGetterExp = runParserFail $ do
   space
   start <- optional $ namespacedIdentifier lowerChar
   getterOps <- some parseGetterOp
@@ -120,11 +116,11 @@ getterExp = do
 
 data UnwrapSchema = UnwrapSchema
   { startSchema :: String
-  , getterOps   :: GetterOps
+  , getterOps   :: GetterOps -- ^ Invariant: non-empty
   } deriving (Show)
 
-unwrapSchema :: Parser UnwrapSchema
-unwrapSchema = do
+parseUnwrapSchema :: MonadFail m => String -> m UnwrapSchema
+parseUnwrapSchema = runParserFail $ do
   space
   startSchema <- namespacedIdentifier upperChar
   getterOps <- some parseGetterOp
@@ -138,8 +134,8 @@ type GetterOps = [GetterOperation]
 
 data GetterOperation
   = GetterKey String
-  | GetterList [GetterOps] -- ^ Invariant: needs to be non-empty
-  | GetterTuple [GetterOps] -- ^ Invariant: needs to be non-empty
+  | GetterList [GetterOps] -- ^ Invariant: non-empty
+  | GetterTuple [GetterOps] -- ^ Invariant: non-empty
   | GetterBang
   | GetterMapList
   | GetterMapMaybe
