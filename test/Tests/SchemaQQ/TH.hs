@@ -13,7 +13,8 @@ import Language.Haskell.TH.TestUtils
     (MockedMode(..), QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
 import Data.Aeson.Schema (schema)
-import Data.Aeson.Schema.Internal (ToSchemaObject, showSchemaType)
+import Data.Aeson.Schema.Internal (showSchemaType)
+import Data.Aeson.Schema.Type (ToSchemaObject)
 import TestUtils (mkExpQQ)
 import TestUtils.DeepSeq ()
 

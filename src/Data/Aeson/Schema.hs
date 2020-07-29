@@ -27,3 +27,4 @@ module Data.Aeson.Schema
 
 import Data.Aeson.Schema.Internal
 import Data.Aeson.Schema.TH
+import Data.Aeson.Schema.Type

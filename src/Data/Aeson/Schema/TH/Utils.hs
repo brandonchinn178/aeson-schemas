@@ -20,25 +20,21 @@ import GHC.Stack (HasCallStack)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (Lift)
 
-import Data.Aeson.Schema.Internal
-    (Object, Schema(..), SchemaResult, SchemaType(..))
+import Data.Aeson.Schema.Internal (Object, SchemaResult)
 import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV, fromSchemaKeyV)
-import qualified Data.Aeson.Schema.Show as SchemaShow
+import Data.Aeson.Schema.Type
+    (Schema'(..), SchemaType'(..), SchemaTypeV, showSchemaTypeV)
 
--- | Show the given schema as a type.
-showSchemaType :: HasCallStack => Type -> String
-showSchemaType = SchemaShow.showSchemaType . parseSchemaType
-
-parseSchemaType :: HasCallStack => Type -> SchemaShow.SchemaType
+parseSchemaType :: HasCallStack => Type -> SchemaTypeV
 parseSchemaType = \case
   AppT (PromotedT name) (ConT inner)
-    | name == 'SchemaScalar -> SchemaShow.SchemaScalar $ nameBase inner
+    | name == 'SchemaScalar -> SchemaScalar $ nameBase inner
   AppT (PromotedT name) inner
-    | name == 'SchemaMaybe -> SchemaShow.SchemaMaybe $ parseSchemaType inner
-    | name == 'SchemaTry -> SchemaShow.SchemaTry $ parseSchemaType inner
-    | name == 'SchemaList -> SchemaShow.SchemaList $ parseSchemaType inner
-    | name == 'SchemaUnion -> SchemaShow.SchemaUnion $ map parseSchemaType $ typeToList inner
-    | name == 'SchemaObject -> SchemaShow.SchemaObject $ fromPairs inner
+    | name == 'SchemaMaybe -> SchemaMaybe $ parseSchemaType inner
+    | name == 'SchemaTry -> SchemaTry $ parseSchemaType inner
+    | name == 'SchemaList -> SchemaList $ parseSchemaType inner
+    | name == 'SchemaUnion -> SchemaUnion $ map parseSchemaType $ typeToList inner
+    | name == 'SchemaObject -> SchemaObject $ fromPairs inner
   ty -> error $ "Unknown type: " ++ show ty
   where
     fromPairs pairs = map (second parseSchemaType) $ typeToSchemaPairs pairs
@@ -159,6 +155,8 @@ unwrapType keepFunctor getterOps schemaType =
       _ -> fail $ unlines ["Cannot get type:", show schema, show op]
 
     withFunctor f = if keepFunctor then appT f else id
+
+    showSchemaType = showSchemaTypeV . parseSchemaType
 
 {- GetterOps -}
 

@@ -36,7 +36,6 @@ import Data.Aeson.Types (Parser)
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
-import Data.Kind (Type)
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy(..))
@@ -59,7 +58,16 @@ import Data.Aeson.Schema.Key
     , showSchemaKey
     , toContext
     )
-import qualified Data.Aeson.Schema.Show as SchemaShow
+import Data.Aeson.Schema.Type
+    ( FromSchema
+    , Schema
+    , Schema'(..)
+    , SchemaType
+    , SchemaType'(..)
+    , SchemaTypeV
+    , ToSchemaObject
+    , showSchemaTypeV
+    )
 import Data.Aeson.Schema.Utils.All (All(..))
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.Sum (SumType(..))
@@ -90,39 +98,26 @@ toMap = toValueMap
 
 {- Type-level schema definitions -}
 
-type SchemaObjectMap = [(SchemaKey, SchemaType)]
-
--- | The type-level schema definition for JSON data.
---
--- To view a schema for debugging, use 'showSchema'.
-data Schema = Schema SchemaObjectMap
-
-type family ToSchemaObject (schema :: Schema) where
-  ToSchemaObject ('Schema schema) = 'SchemaObject schema
-
-type family FromSchema (schema :: Schema) where
-  FromSchema ('Schema schema) = schema
-
 type IsSchema (schema :: Schema) =
   ( IsSchemaType (ToSchemaObject schema)
   , All IsSchemaObjectPair (FromSchema schema)
   , FromJSON (Object schema)
   )
 
+-- | Show the given schema.
+--
+-- Usage:
+-- @
+-- >>> type MySchema = [schema| { a: Int } |]
+-- >>> showSchema @MySchema
+-- @
 showSchema :: forall (schema :: Schema). IsSchema schema => String
 showSchema = showSchemaType @(ToSchemaObject schema)
 
-data SchemaType
-  = SchemaScalar Type
-  | SchemaMaybe SchemaType
-  | SchemaTry SchemaType -- ^ @since v1.2.0
-  | SchemaList SchemaType
-  | SchemaUnion [SchemaType] -- ^ @since v1.1.0
-  | SchemaObject SchemaObjectMap
-
--- | Pretty show the given SchemaType.
-showSchemaType :: forall (schema :: SchemaType). IsSchemaType schema => String
-showSchemaType = SchemaShow.showSchemaType $ toSchemaTypeShow $ Proxy @schema
+showSchemaType :: forall (schemaType :: SchemaType). IsSchemaType schemaType => String
+showSchemaType = showSchemaTypeV schemaType
+  where
+    schemaType = toSchemaTypeV $ Proxy @schemaType
 
 {- Conversions from schema types into Haskell types -}
 
@@ -141,7 +136,7 @@ type family SchemaResultList (xs :: [SchemaType]) where
 
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
 class IsSchemaType (schema :: SchemaType) where
-  toSchemaTypeShow :: Proxy schema -> SchemaShow.SchemaType
+  toSchemaTypeV :: Proxy schema -> SchemaTypeV
 
   parseValue :: [Text] -> Value -> Parser (SchemaResult schema)
   default parseValue :: FromJSON (SchemaResult schema) => [Text] -> Value -> Parser (SchemaResult schema)
@@ -156,24 +151,24 @@ class IsSchemaType (schema :: SchemaType) where
   showValue = show
 
 instance (Show inner, Typeable inner, FromJSON inner, ToJSON inner) => IsSchemaType ('SchemaScalar inner) where
-  toSchemaTypeShow _ = SchemaShow.SchemaScalar (tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)
+  toSchemaTypeV _ = SchemaScalar (tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)
 
 instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => IsSchemaType ('SchemaMaybe inner) where
-  toSchemaTypeShow _ = SchemaShow.SchemaMaybe (toSchemaTypeShow $ Proxy @inner)
+  toSchemaTypeV _ = SchemaMaybe (toSchemaTypeV $ Proxy @inner)
 
   parseValue path = \case
     Null -> return Nothing
     value -> (Just <$> parseValue @inner path value)
 
 instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => IsSchemaType ('SchemaTry inner) where
-  toSchemaTypeShow _ = SchemaShow.SchemaTry (toSchemaTypeShow $ Proxy @inner)
+  toSchemaTypeV _ = SchemaTry (toSchemaTypeV $ Proxy @inner)
 
   parseValue path = wrapTry . parseValue @inner path
     where
       wrapTry parser = (Just <$> parser) <|> pure Nothing
 
 instance (IsSchemaType inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => IsSchemaType ('SchemaList inner) where
-  toSchemaTypeShow _ = SchemaShow.SchemaList (toSchemaTypeShow $ Proxy @inner)
+  toSchemaTypeV _ = SchemaList (toSchemaTypeV $ Proxy @inner)
 
   parseValue path = \case
     Array a -> traverse (parseValue @inner path) (toList a)
@@ -186,7 +181,7 @@ instance
   , ToJSON (SchemaResult ('SchemaUnion schemas))
   , ParseSumType schemas
   ) => IsSchemaType ('SchemaUnion (schemas :: [SchemaType])) where
-  toSchemaTypeShow _ = SchemaShow.SchemaUnion (mapAll @IsSchemaType @schemas toSchemaTypeShow)
+  toSchemaTypeV _ = SchemaUnion (mapAll @IsSchemaType @schemas toSchemaTypeV)
 
   parseValue path value = parseSumType @schemas path value <|> parseFail @('SchemaUnion schemas) path value
 
@@ -203,7 +198,7 @@ instance (IsSchemaType schema, ParseSumType schemas) => ParseSumType (schema ': 
       parseThere = There <$> parseSumType @schemas path value
 
 instance All IsSchemaObjectPair pairs => IsSchemaType ('SchemaObject pairs) where
-  toSchemaTypeShow _ = SchemaShow.SchemaObject (mapAll @IsSchemaObjectPair @pairs toSchemaTypeShowPair)
+  toSchemaTypeV _ = SchemaObject (mapAll @IsSchemaObjectPair @pairs toSchemaTypeVPair)
 
   parseValue path = \case
     Aeson.Object o -> UnsafeObject . HashMap.fromList <$> parseValueMap o
@@ -223,7 +218,7 @@ toValueMap :: forall pairs. All IsSchemaObjectPair pairs => Object ('Schema pair
 toValueMap o = HashMap.unions $ mapAll @IsSchemaObjectPair @pairs (\proxy -> toValuePair proxy o)
 
 class IsSchemaObjectPair (a :: (SchemaKey, SchemaType)) where
-  toSchemaTypeShowPair :: Proxy a -> (SchemaKeyV, SchemaShow.SchemaType)
+  toSchemaTypeVPair :: Proxy a -> (SchemaKeyV, SchemaTypeV)
   parseValuePair :: Proxy a -> [Text] -> Aeson.Object -> Parser (Text, Dynamic)
   toValuePair :: Proxy a -> Object schema -> Aeson.Object
   showValuePair :: Proxy a -> Object schema -> (String, String)
@@ -233,7 +228,7 @@ instance
   , IsSchemaType inner
   , Typeable (SchemaResult inner)
   ) => IsSchemaObjectPair '(key, inner) where
-  toSchemaTypeShowPair _ = (schemaKey, toSchemaTypeShow $ Proxy @inner)
+  toSchemaTypeVPair _ = (schemaKey, toSchemaTypeV $ Proxy @inner)
     where
       schemaKey = toSchemaKeyV $ Proxy @key
 

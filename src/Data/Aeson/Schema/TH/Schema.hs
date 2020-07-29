@@ -23,12 +23,12 @@ import Data.Text (Text)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema.Internal (Schema(..), SchemaType(..), ToSchemaObject)
 import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV, fromSchemaKeyV)
-import qualified Data.Aeson.Schema.Show as SchemaShow
 import Data.Aeson.Schema.TH.Parse
 import Data.Aeson.Schema.TH.Utils
     (parseSchemaType, schemaPairsToTypeQ, typeQListToTypeQ, typeToSchemaPairs)
+import Data.Aeson.Schema.Type
+    (Schema'(..), SchemaType'(..), ToSchemaObject, showSchemaTypeV)
 
 -- | Defines a QuasiQuoter for writing schemas.
 --
@@ -139,7 +139,7 @@ toParts = \case
       PhantomKey _ -> do
         let schemaTypeShow = parseSchemaType schemaType
         unless (isValidPhantomSchema schemaTypeShow) $
-          fail $ "Invalid schema for '" ++ fromSchemaKeyV schemaKey ++ "': " ++ SchemaShow.showSchemaType schemaTypeShow
+          fail $ "Invalid schema for '" ++ fromSchemaKeyV schemaKey ++ "': " ++ showSchemaTypeV schemaTypeShow
       _ -> return ()
 
     pure . tagAs Provided $ [(schemaKey, pure schemaType)]
@@ -156,10 +156,10 @@ toParts = \case
       SchemaDefObjKeyPhantom key -> PhantomKey key
     -- should return true if it's at all possible to get a valid parse
     isValidPhantomSchema = \case
-      SchemaShow.SchemaMaybe inner -> isValidPhantomSchema inner
-      SchemaShow.SchemaTry _ -> True -- even if inner is a non-object schema, it'll still parse to be Nothing
-      SchemaShow.SchemaUnion schemas -> any isValidPhantomSchema schemas
-      SchemaShow.SchemaObject _ -> True
+      SchemaMaybe inner -> isValidPhantomSchema inner
+      SchemaTry _ -> True -- even if inner is a non-object schema, it'll still parse to be Nothing
+      SchemaUnion schemas -> any isValidPhantomSchema schemas
+      SchemaObject _ -> True
       _ -> False
 
 -- | Resolve the parts returned by 'toParts' as such:
