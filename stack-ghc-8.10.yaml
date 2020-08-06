@@ -1,0 +1,8 @@
+resolver: nightly-2020-08-03
+
+packages:
+  - .
+
+extra-deps:
+  - github: LeapYear/th-test-utils
+    commit: 02b59f9b139f19acd354edd67f9e6cca20d65fa9
