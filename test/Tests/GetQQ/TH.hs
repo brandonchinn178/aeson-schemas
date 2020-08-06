@@ -7,12 +7,12 @@ module Tests.GetQQ.TH where
 import Control.DeepSeq (deepseq)
 import Data.Aeson.QQ (aesonQQ)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
+import Language.Haskell.TH.TestUtils
+    (MockedMode(..), QMode(..), QState(..), runTestQ, runTestQErr)
 
 import Data.Aeson.Schema (Object, get, schema)
 import TestUtils (mkExpQQ, parseValue)
 import TestUtils.DeepSeq ()
-import TestUtils.TestQ
-    (MockedMode(..), QMode(..), QState(..), runTestQ, runTestQErr)
 
 -- For testing namespaced object
 testData :: Object [schema| { foo: Maybe Int } |]

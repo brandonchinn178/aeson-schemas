@@ -68,6 +68,4 @@ tests:
       - tasty-hunit
       - tasty-golden
       - tasty-quickcheck
-      - th-orphans
-      - time
-      - transformers
+      - th-test-utils

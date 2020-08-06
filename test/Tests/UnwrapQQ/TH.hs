@@ -7,12 +7,12 @@ module Tests.UnwrapQQ.TH where
 import Control.DeepSeq (deepseq)
 import Language.Haskell.TH (appTypeE)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
+import Language.Haskell.TH.TestUtils
+    (MockedMode(..), QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
 import Data.Aeson.Schema (Object, schema, unwrap)
 import TestUtils (ShowSchemaResult(..), mkExpQQ)
 import TestUtils.DeepSeq ()
-import TestUtils.TestQ
-    (MockedMode(..), QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
 type ListSchema = [schema| { ids: List Int } |]
 type MaybeSchema = [schema| { class: Maybe Text } |]

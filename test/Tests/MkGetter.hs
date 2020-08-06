@@ -10,6 +10,8 @@ module Tests.MkGetter where
 
 import Control.DeepSeq (deepseq)
 import Data.Text (Text)
+import Language.Haskell.TH.TestUtils
+    (QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Text.RawString.QQ (r)
@@ -17,7 +19,6 @@ import Text.RawString.QQ (r)
 import Data.Aeson.Schema (Object, get, mkGetter, schema)
 import TestUtils (json, showSchemaResult)
 import TestUtils.DeepSeq ()
-import TestUtils.TestQ (QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
 type MySchema = [schema| { users: List { name: Text } } |]
 
