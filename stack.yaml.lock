@@ -3,7 +3,18 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    size: 14911
+    url: https://github.com/LeapYear/th-test-utils/archive/02b59f9b139f19acd354edd67f9e6cca20d65fa9.tar.gz
+    name: th-test-utils
+    version: 1.0.2
+    sha256: 3bb14deec55fbbc7c9847640738046a98da1ea10518cd929d8a92283b92ee979
+    pantry-tree:
+      size: 3142
+      sha256: 1151579aa4aa2887b12e63e012cadb4916242e30cbdc1500897b34f37fd6ec1a
+  original:
+    url: https://github.com/LeapYear/th-test-utils/archive/02b59f9b139f19acd354edd67f9e6cca20d65fa9.tar.gz
 snapshots:
 - completed:
     size: 524996
