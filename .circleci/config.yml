@@ -97,6 +97,9 @@ jobs:
             fi
 
             stack build "${STACK_ARGS[@]}"
+      - run:
+          name: Check Cabal file up to date
+          command: git diff --exit-code *.cabal
 
       # lint
       - when:
