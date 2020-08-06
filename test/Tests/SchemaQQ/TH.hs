@@ -9,13 +9,13 @@ module Tests.SchemaQQ.TH where
 import Control.DeepSeq (deepseq)
 import Data.Aeson (FromJSON, ToJSON)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
+import Language.Haskell.TH.TestUtils
+    (MockedMode(..), QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
 import Data.Aeson.Schema (schema)
 import Data.Aeson.Schema.Internal (ToSchemaObject, showSchemaType)
 import TestUtils (mkExpQQ)
 import TestUtils.DeepSeq ()
-import TestUtils.TestQ
-    (MockedMode(..), QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
 type UserSchema = [schema| { name: Text } |]
 type ExtraSchema = [schema| { extra: Text } |]

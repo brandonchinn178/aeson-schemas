@@ -97,6 +97,9 @@ jobs:
             fi
 
             stack build "${STACK_ARGS[@]}"
+      - run:
+          name: Check Cabal file up to date
+          command: git diff --exit-code *.cabal
 
       # lint
       - when:
@@ -162,6 +165,9 @@ workflows:
       - run_build_and_test:
           name: test_latest
           latest: true
+      - run_build_and_test:
+          name: test_ghc_8.10
+          stack_yaml: stack-ghc-8.10.yaml
       - run_build_and_test:
           name: test_ghc_8.8
           stack_yaml: stack-ghc-8.8.yaml

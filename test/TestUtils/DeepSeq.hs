@@ -1,8 +1,13 @@
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module TestUtils.DeepSeq () where
 
-import Control.DeepSeq (NFData)
+import Control.DeepSeq (NFData(..))
+#if MIN_VERSION_template_haskell(2,16,0)
+import Control.DeepSeq (rwhnf)
+import GHC.ForeignPtr (ForeignPtr)
+#endif
 import Language.Haskell.TH.Syntax
 
 instance NFData AnnTarget
@@ -50,3 +55,10 @@ instance NFData TypeFamilyHead
 instance NFData TyLit
 instance NFData TySynEqn
 instance NFData TyVarBndr
+
+#if MIN_VERSION_template_haskell(2,16,0)
+instance NFData Bytes
+
+instance NFData (ForeignPtr a) where
+  rnf = rwhnf
+#endif
