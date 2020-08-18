@@ -10,7 +10,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.TestUtils
     (MockedMode(..), QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
-import Data.Aeson.Schema (Object, schema, unwrap)
+import Data.Aeson.Schema (schema, unwrap)
 import TestUtils (ShowSchemaResult(..), mkExpQQ)
 import TestUtils.DeepSeq ()
 
@@ -25,6 +25,16 @@ type ABCSchema = [schema|
   }
 |]
 
+type NestedSchema = [schema|
+  {
+    a: {
+      b: {
+        c: Bool,
+      },
+    },
+  }
+|]
+
 type MySchema = [schema|
   {
     users: List {
@@ -33,7 +43,11 @@ type MySchema = [schema|
   }
 |]
 
-type MySchemaResult = Object MySchema
+-- Compile above schemas before unwrapping
+$(return [])
+
+type User = [unwrap| MySchema.users[] |]
+type UnwrappedNestedSchema = [unwrap| NestedSchema.a |]
 
 type NotASchema = Int
 
@@ -49,7 +63,7 @@ qState = QState
       , ("SumSchema", ''SumSchema)
       , ("ABCSchema", ''ABCSchema)
       , ("NotASchema", ''NotASchema)
-      , ("MySchemaResult", ''MySchemaResult)
+      , ("UnwrappedNestedSchema", ''UnwrappedNestedSchema)
       ]
   , reifyInfo = $(
       loadNames
@@ -59,7 +73,7 @@ qState = QState
         , ''ABCSchema
         , ''NotASchema
         , ''MySchema
-        , ''MySchemaResult
+        , ''UnwrappedNestedSchema
         ]
     )
   }
