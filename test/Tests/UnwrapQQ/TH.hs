@@ -43,9 +43,10 @@ type MySchema = [schema|
   }
 |]
 
--- Compile above schemas before unwrapping
+-- Compile above schemas before these schemas
 $(return [])
 
+type ListSchema2 = [schema| { list: #ListSchema } |]
 type User = [unwrap| MySchema.users[] |]
 type UnwrappedNestedSchema = [unwrap| NestedSchema.a |]
 
@@ -59,6 +60,7 @@ qState = QState
   { mode = MockQ
   , knownNames =
       [ ("ListSchema", ''ListSchema)
+      , ("ListSchema2", ''ListSchema2)
       , ("MaybeSchema", ''MaybeSchema)
       , ("SumSchema", ''SumSchema)
       , ("ABCSchema", ''ABCSchema)
@@ -68,6 +70,7 @@ qState = QState
   , reifyInfo = $(
       loadNames
         [ ''ListSchema
+        , ''ListSchema2
         , ''MaybeSchema
         , ''SumSchema
         , ''ABCSchema

@@ -40,6 +40,9 @@ testValidUnwrapDefs = testGroup "Valid unwrap definitions"
       [unwrapRep| SumSchema.verbosity@0 |] @?= "Int"
       [unwrapRep| SumSchema.verbosity@1 |] @?= "Bool"
 
+  , testCase "Can unwrap an included schema" $
+      [unwrapRep| ListSchema2.list.ids |] @?= "[Int]"
+
   , testCase "Can unwrap an Object twice" $
       [unwrapRep| UnwrappedNestedSchema.b |] @?= "Object (SchemaObject { \"c\": Bool })"
 
