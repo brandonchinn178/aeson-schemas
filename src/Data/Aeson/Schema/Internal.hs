@@ -95,6 +95,7 @@ type family FromSchema (schema :: Schema) where
 type IsSchema (schema :: Schema) =
   ( IsSchemaType (ToSchemaObject schema)
   , All IsSchemaObjectPair (FromSchema schema)
+  , FromJSON (Object schema)
   )
 
 showSchema :: forall (schema :: Schema). IsSchema schema => String
