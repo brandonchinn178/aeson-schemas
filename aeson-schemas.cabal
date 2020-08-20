@@ -4,7 +4,7 @@ cabal-version: >= 1.10
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f9febf39d00706748ba713633080e65154f1168519a9838bd57b72be783e6612
+-- hash: e0ae280eb35b45031f72c79e322774fb4c44c7af5f862f46dbcf3967998894af
 
 name:           aeson-schemas
 version:        1.2.0
@@ -119,6 +119,34 @@ test-suite aeson-schemas-test
     , tasty-golden
     , tasty-hunit
     , tasty-quickcheck
+    , template-haskell >=2.12.0.0 && <2.17
+    , text >=1.2.2.2 && <1.3
+    , th-test-utils
+    , unordered-containers >=0.2.8.0 && <0.3
+  if impl(ghc >= 8.0)
+    ghc-options: -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
+  if impl(ghc < 8.8)
+    ghc-options: -Wnoncanonical-monadfail-instances
+  default-language: Haskell2010
+
+benchmark aeson-schemas-bench
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      DeepSeq
+      Schemas
+      Paths_aeson_schemas
+  hs-source-dirs:
+      bench
+  ghc-options: -Wall
+  build-depends:
+      aeson >=1.1.2.0 && <1.6
+    , aeson-schemas
+    , base >=4.9 && <5
+    , criterion
+    , deepseq
+    , first-class-families >=0.3.0.0 && <0.9
+    , megaparsec >=6.0.0 && <9
     , template-haskell >=2.12.0.0 && <2.17
     , text >=1.2.2.2 && <1.3
     , th-test-utils

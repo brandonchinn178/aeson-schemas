@@ -69,3 +69,13 @@ tests:
       - tasty-golden
       - tasty-quickcheck
       - th-test-utils
+
+benchmarks:
+  aeson-schemas-bench:
+    source-dirs: bench
+    main:        Main.hs
+    dependencies:
+      - aeson-schemas
+      - criterion
+      - deepseq
+      - th-test-utils

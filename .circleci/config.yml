@@ -25,6 +25,7 @@ executors:
     environment:
       STACK_YAML: << parameters.stack_yaml >>
       CI_LATEST: <<# parameters.latest >>1<</ parameters.latest >>
+      LANG: en_US.UTF-8
 
 orbs:
   codecov: codecov/codecov@1.0.2
@@ -47,6 +48,7 @@ jobs:
           command: |
             curl -sSL https://get.haskellstack.org/ | sh
             stack --version
+      - run: mkdir -p .ci
 
       # install stack dependencies
       - run:
@@ -90,6 +92,8 @@ jobs:
             STACK_ARGS=(
                 --test
                 --no-run-tests
+                --bench
+                --no-run-benchmarks
                 --ghc-options -Werror
             )
             if [[ -n "${CI_LATEST}" ]]; then
@@ -142,6 +146,11 @@ jobs:
                   stack runghc "${TESTDIR}/README_Quickstart.hs" | tee "${TESTDIR}/README_Quickstart.out"
                   diff -u  "${TESTDIR}/README_Quickstart.out" test/goldens/README_Quickstart.golden
 
+      # benchmarks
+      - run:
+          name: Run benchmarks
+          command: stack bench --ba '--output=.ci/benchmark-results.html'
+
       # build haddock
       - when:
           condition: << parameters.latest >>
@@ -151,9 +160,7 @@ jobs:
                 command: stack build --haddock
             - run:
                 name: Bundle haddock docs
-                command: |
-                  mkdir -p .ci/
-                  tar czf .ci/haddock-docs.tar.gz -C "$(find .stack-work/dist -regex '.*/doc/html/[^/]*')" .
+                command: tar czf .ci/haddock-docs.tar.gz -C "$(find .stack-work/dist -regex '.*/doc/html/[^/]*')" .
             - store_artifacts:
                 path: .ci/
 
