@@ -67,7 +67,7 @@ jobs:
       - run:
           name: Build external dependencies
           command: |
-            STACK_ARGS=(--test --only-dependencies)
+            STACK_ARGS=(--test --bench --only-dependencies)
             if [[ -n "${CI_LATEST}" ]]; then
                 STACK_ARGS+=(--haddock)
             fi
