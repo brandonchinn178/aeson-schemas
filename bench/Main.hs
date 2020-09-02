@@ -7,16 +7,9 @@ import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
 import Language.Haskell.TH.TestUtils
     (QMode(..), QState(..), loadNames, runTestQ)
 
-import Data.Aeson.Schema (schema)
+import qualified Data.Aeson.Schema
 import DeepSeq ()
 import Schemas
-
-type Schema1 = $(genSchema 1)
-type Schema5 = $(genSchema 5)
-type Schema10 = $(genSchema 10)
-type Schema100 = $(genSchema 100)
-
-$(return [])
 
 main :: IO ()
 main = defaultMain
@@ -25,33 +18,57 @@ main = defaultMain
 
 schemaQQBenchmarks :: Benchmark
 schemaQQBenchmarks = bgroup "schema quasiquoter"
-  [ schemaKeysBenchmarks
-  , extendSchemaBenchmarks
+  [ byKeys
+  , byNestedKeys
+  , byNumOfIncluded
+  , byKeysInIncluded
+  , byNumOfExtended
+  , byKeysInExtended
   ]
   where
-    schemaKeysBenchmarks = bgroup "# of keys" $
-      map
-      (\n -> bench (show n) $ nf runSchema $ genSchemaDef n)
-      [1, 5, 10, 100]
+    byKeys = bgroup "# of keys" $
+      flip map [1, 5, 10, 100] $ \n ->
+        let schemaDef = genSchemaDef $ keysTo n
+        in bench (show n) $ nf runSchema schemaDef
 
-    extendSchemaBenchmarks = bgroup "Extend schema with given # of keys"
-      [ bench "0" $ nf runSchema "{ a: Int }"
-      , bench "1" $ nf runSchema "{ a: Int, #Schema1 }"
-      , bench "5" $ nf runSchema "{ a: Int, #Schema5 }"
-      , bench "10" $ nf runSchema "{ a: Int, #Schema10 }"
-      , bench "100" $ nf runSchema "{ a: Int, #Schema100 }"
-      ]
+    byNestedKeys = bgroup "# of nested keys" $
+      flip map [1, 5, 10, 100] $ \n ->
+        let schemaDef = iterateN n (\prev -> genSchemaDef [Field "a" prev]) "Int"
+        in bench (show n) $ nf runSchema schemaDef
+
+    byNumOfIncluded = bgroup "Include given # of schemas" $
+      flip map [1, 5, 10, 100] $ \n ->
+        let schemaDef = genSchemaDef $ map (\name -> Include name name) $ take n singleSchemas
+        in bench (show n) $ nf runSchema schemaDef
+
+    byKeysInIncluded = bgroup "Include schema with given # of keys" $
+      flip map sizedSchemas $ \(n, schema) ->
+        let schemaDef = genSchemaDef [Include "a" schema]
+        in bench (show n) $ nf runSchema schemaDef
+
+    byNumOfExtended = bgroup "Extend given # of schemas" $
+      flip map [1, 5, 10, 100] $ \n ->
+        let schemaDef = genSchemaDef $ map Ref $ take n singleSchemas
+        in bench (show n) $ nf runSchema schemaDef
+
+    byKeysInExtended = bgroup "Extend schema with given # of keys" $
+      flip map sizedSchemas $ \(n, schema) ->
+        let schemaDef = genSchemaDef [Field "a" "Int", Ref schema]
+        in bench (show n) $ nf runSchema schemaDef
 
 runSchema :: String -> Type
-runSchema = runTestQ qstate . quoteType schema
+runSchema = runTestQ qstate . quoteType Data.Aeson.Schema.schema
   where
     qstate = QState
       { mode = MockQ
-      , knownNames =
-          [ ("Schema1", ''Schema1)
-          , ("Schema5", ''Schema5)
-          , ("Schema10", ''Schema10)
-          , ("Schema100", ''Schema100)
-          ]
-      , reifyInfo = $(loadNames [''Schema1, ''Schema5, ''Schema10, ''Schema100])
+      , knownNames = sizedSchemasNames ++ singleSchemasNames
+      , reifyInfo = $(loadNames $ map snd $ sizedSchemasNames ++ singleSchemasNames)
       }
+
+{- Utilities -}
+
+-- | Apply the given functions the given number of times.
+--
+-- The first parameter must be >= 0.
+iterateN :: Int -> (a -> a) -> a -> a
+iterateN n f x = iterate f x !! n
