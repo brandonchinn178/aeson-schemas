@@ -4,7 +4,7 @@ cabal-version: >= 1.10
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e0ae280eb35b45031f72c79e322774fb4c44c7af5f862f46dbcf3967998894af
+-- hash: 3473b69871dddcb6f8094b8da09a4d822043ca5e18719647383c6dfbe80d8f97
 
 name:           aeson-schemas
 version:        1.2.0
@@ -135,6 +135,7 @@ benchmark aeson-schemas-bench
   other-modules:
       DeepSeq
       Schemas
+      Schemas.TH
       Paths_aeson_schemas
   hs-source-dirs:
       bench
