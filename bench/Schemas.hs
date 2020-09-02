@@ -38,3 +38,33 @@ $(do
       |]
     ]
   )
+
+-- Generates:
+--
+--   type SchemaA1 = { a1: Int }
+--   type SchemaB1 = { b1: Int }
+--   ...
+--   type SchemaZ1 = { z1: Int }
+--   type SchemaA2 = { a2: Int }
+--   type SchemaB2 = { a2: Int }
+--   ...
+$(do
+  let numSchemas = 100
+      allSchemas = flip map [1..numSchemas] $ \n ->
+        let (q, r) = n `divMod` 26
+            c = chr $ 97 + r -- a .. z
+            field = c : show q
+            name = "Schema" ++ map toUpper field
+        in (field, name, mkName name)
+
+  concat <$> sequence
+    [ forM allSchemas $ \(field, _, name) -> genSchema name [Field field "Int"]
+    , [d|
+        singleSchemas :: [String]
+        singleSchemas = $(lift $ flip map allSchemas $ \(_, name, _) -> name)
+
+        singleSchemasNames :: [(String, Name)]
+        singleSchemasNames = $(lift $ flip map allSchemas $ \(_, name, thName) -> (name, thName))
+      |]
+    ]
+  )
