@@ -4,6 +4,7 @@ Maintainer  :  Brandon Chinn <brandon@leapyear.io>
 Stability   :  experimental
 Portability :  portable
 -}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
@@ -51,22 +52,7 @@ typeToPair = \case
   ty -> error $ "Not a type-level pair: " ++ show ty
 
 typeToSchemaPairs :: HasCallStack => Type -> [(SchemaKeyV, Type)]
-typeToSchemaPairs = map (bimap parseSchemaKey stripSigs . typeToPair) . typeToList
-
-typeQListToTypeQ :: [TypeQ] -> TypeQ
-typeQListToTypeQ = foldr consT promotedNilT
-  where
-    -- nb. https://stackoverflow.com/a/34457936
-    consT x xs = appT (appT promotedConsT x) xs
-
-schemaPairsToTypeQ :: [(SchemaKeyV, TypeQ)] -> TypeQ
-schemaPairsToTypeQ = typeQListToTypeQ . map pairT
-  where
-    pairT (k, v) =
-      let schemaKey = case k of
-            NormalKey key -> [t| 'NormalKey $(litT $ strTyLit key) |]
-            PhantomKey key -> [t| 'PhantomKey $(litT $ strTyLit key) |]
-      in [t| '($schemaKey, $v) |]
+typeToSchemaPairs = map (bimap parseSchemaKey stripKinds . typeToPair) . typeToList
 
 parseSchemaKey :: HasCallStack => Type -> SchemaKeyV
 parseSchemaKey = \case
@@ -76,29 +62,65 @@ parseSchemaKey = \case
   SigT ty _ -> parseSchemaKey ty
   ty -> error $ "Could not parse a schema key: " ++ show ty
 
--- | Strip all kind signatures from the given type.
-stripSigs :: Type -> Type
-stripSigs = \case
-  ForallT tyVars ctx ty -> ForallT tyVars ctx (stripSigs ty)
-  AppT ty1 ty2 -> AppT (stripSigs ty1) (stripSigs ty2)
-  SigT ty _ -> stripSigs ty
-  InfixT ty1 name ty2 -> InfixT (stripSigs ty1) name (stripSigs ty2)
-  UInfixT ty1 name ty2 -> UInfixT (stripSigs ty1) name (stripSigs ty2)
-  ParensT ty -> ParensT (stripSigs ty)
-  ty -> ty
+-- | Same as 'Type' except without any kind signatures or applications at any depth.
+--
+-- Provides no actual guarantees. The caller is responsible for making sure the value
+-- has been run through 'stripKinds' at one point.
+type TypeWithoutKinds = Type
+
+-- | Recursively strip all kind signatures and applications.
+stripKinds :: Type -> TypeWithoutKinds
+stripKinds ty =
+  case ty of
+    -- cases that strip + recurse
+    SigT ty1 _ -> stripKinds ty1
+#if MIN_VERSION_template_haskell(2,15,0)
+    AppKindT ty1 _ -> stripKinds ty1
+#endif
+
+    -- cases that recurse
+    ForallT tyVars ctx ty1 -> ForallT tyVars ctx (stripKinds ty1)
+#if MIN_VERSION_template_haskell(2,16,0)
+    ForallVisT tyVars ty1 -> ForallVisT tyVars (stripKinds ty1)
+#endif
+    AppT ty1 ty2 -> AppT (stripKinds ty1) (stripKinds ty2)
+    InfixT ty1 name ty2 -> InfixT (stripKinds ty1) name (stripKinds ty2)
+    UInfixT ty1 name ty2 -> UInfixT (stripKinds ty1) name (stripKinds ty2)
+    ParensT ty1 -> ParensT (stripKinds ty1)
+#if MIN_VERSION_template_haskell(2,15,0)
+    ImplicitParamT str ty1 -> ImplicitParamT str (stripKinds ty1)
+#endif
+
+    -- base cases
+    VarT _           -> ty
+    ConT _           -> ty
+    PromotedT _      -> ty
+    TupleT _         -> ty
+    UnboxedTupleT _  -> ty
+    UnboxedSumT _    -> ty
+    ArrowT           -> ty
+    EqualityT        -> ty
+    ListT            -> ty
+    PromotedTupleT _ -> ty
+    PromotedNilT     -> ty
+    PromotedConsT    -> ty
+    StarT            -> ty
+    ConstraintT      -> ty
+    LitT _           -> ty
+    WildCardT        -> ty
 
 -- | Reify the given name and return the result if it reifies to a Schema.
 reifySchema :: Name -> TypeQ
 reifySchema = reify >=> \case
   TyConI (TySynD _ _ tyWithSigs)
-    | ty <- stripSigs tyWithSigs
+    | ty <- stripKinds tyWithSigs
     , AppT (PromotedT name) _ <- ty
     , name == 'Schema
-    -> pure $ stripSigs ty
+    -> pure ty
 
   -- also reify (Object schema)
   TyConI (TySynD _ _ tyWithSigs)
-    | ty <- stripSigs tyWithSigs
+    | ty <- stripKinds tyWithSigs
     , AppT (ConT name) (ConT schema) <- ty
     , name == ''Object
     -> reifySchema schema

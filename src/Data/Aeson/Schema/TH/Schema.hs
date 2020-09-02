@@ -8,34 +8,42 @@ The 'schema' quasiquoter.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module Data.Aeson.Schema.TH.Schema (schema) where
 
-import Control.Monad (unless, (>=>))
-import Data.Bifunctor (second)
+import Control.Monad (forM, unless, (<=<), (>=>))
+import Data.Bifunctor (bimap)
+import Data.Function (on)
+import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HashMap
-import Data.Maybe (mapMaybe)
+import Data.List (nubBy)
 import Data.Text (Text)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
+import Data.Aeson.Schema.Internal (Object)
 import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV, fromSchemaKeyV)
 import Data.Aeson.Schema.TH.Parse
     (SchemaDef(..), SchemaDefObjItem(..), SchemaDefObjKey(..), parseSchemaDef)
-import Data.Aeson.Schema.TH.Utils
-    ( parseSchemaType
-    , schemaPairsToTypeQ
-    , stripSigs
-    , typeQListToTypeQ
-    , typeToSchemaPairs
-    )
+import Data.Aeson.Schema.TH.Utils (TypeWithoutKinds, stripKinds)
 import Data.Aeson.Schema.Type
-    (Schema'(..), SchemaType'(..), ToSchemaObject, showSchemaTypeV)
+    ( Schema'(..)
+    , SchemaObjectMapV
+    , SchemaType'(..)
+    , SchemaTypeV
+    , SchemaV
+    , fromSchemaV
+    , showSchemaTypeV
+    , toSchemaObjectV
+    )
+import Data.Aeson.Schema.Utils.Invariant (unreachable)
 
 -- | Defines a QuasiQuoter for writing schemas.
 --
@@ -98,69 +106,85 @@ schema = QuasiQuoter
   { quoteExp = error "Cannot use `schema` for Exp"
   , quoteDec = error "Cannot use `schema` for Dec"
   , quoteType = parseSchemaDef >=> \case
-      SchemaDefObj items -> [t| 'Schema $(generateSchemaObject items) |]
+      SchemaDefObj items -> generateSchemaObject items
       _ -> fail "`schema` definition must be an object"
   , quotePat = error "Cannot use `schema` for Pat"
   }
-
-generateSchemaObject :: [SchemaDefObjItem] -> TypeQ
-generateSchemaObject = concatMapM toParts >=> resolveParts >=> schemaPairsToTypeQ
   where
-    concatMapM f = fmap concat . mapM f
+    generateSchemaObject items = schemaVToTypeQ . Schema =<< generateSchemaObjectV items
 
-generateSchema :: SchemaDef -> TypeQ
-generateSchema = \case
+schemaVToTypeQ :: SchemaV -> TypeQ
+schemaVToTypeQ = appT [t| 'Schema |] . schemaObjectMapVToTypeQ . fromSchemaV
+
+schemaObjectMapVToTypeQ :: SchemaObjectMapV -> TypeQ
+schemaObjectMapVToTypeQ = promotedListT . map schemaObjectPairVToTypeQ
+  where
+    schemaObjectPairVToTypeQ :: (SchemaKeyV, SchemaTypeV) -> TypeQ
+    schemaObjectPairVToTypeQ = promotedPairT . bimap schemaKeyVToTypeQ schemaTypeVToTypeQ
+
+    schemaKeyVToTypeQ :: SchemaKeyV -> TypeQ
+    schemaKeyVToTypeQ = \case
+      NormalKey key  -> [t| 'NormalKey $(litT $ strTyLit key) |]
+      PhantomKey key -> [t| 'PhantomKey $(litT $ strTyLit key) |]
+
+schemaTypeVToTypeQ :: SchemaTypeV -> TypeQ
+schemaTypeVToTypeQ = \case
   -- some hardcoded cases
-  SchemaDefType "Bool"   -> [t| 'SchemaScalar Bool |]
-  SchemaDefType "Int"    -> [t| 'SchemaScalar Int |]
-  SchemaDefType "Double" -> [t| 'SchemaScalar Double |]
-  SchemaDefType "Text"   -> [t| 'SchemaScalar Text |]
-  SchemaDefType other    -> [t| 'SchemaScalar $(getType other) |]
-  SchemaDefMaybe inner   -> [t| 'SchemaMaybe $(generateSchema inner) |]
-  SchemaDefTry inner     -> [t| 'SchemaTry $(generateSchema inner) |]
-  SchemaDefList inner    -> [t| 'SchemaList $(generateSchema inner) |]
-  SchemaDefInclude other -> [t| ToSchemaObject $(getType other) |]
-  SchemaDefUnion schemas -> [t| 'SchemaUnion $(typeQListToTypeQ $ map generateSchema schemas) |]
-  SchemaDefObj items     -> [t| 'SchemaObject $(generateSchemaObject items) |]
+  SchemaScalar "Bool"   -> [t| 'SchemaScalar Bool |]
+  SchemaScalar "Int"    -> [t| 'SchemaScalar Int |]
+  SchemaScalar "Double" -> [t| 'SchemaScalar Double |]
+  SchemaScalar "Text"   -> [t| 'SchemaScalar Text |]
+  SchemaScalar other    -> [t| 'SchemaScalar $(getType other) |]
+  SchemaMaybe inner     -> [t| 'SchemaMaybe $(schemaTypeVToTypeQ inner) |]
+  SchemaTry inner       -> [t| 'SchemaTry $(schemaTypeVToTypeQ inner) |]
+  SchemaList inner      -> [t| 'SchemaList $(schemaTypeVToTypeQ inner) |]
+  SchemaUnion schemas   -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas) |]
+  SchemaObject pairs    -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs) |]
+  where
+    getType :: String -> TypeQ
+    getType ty = maybe (fail $ "Unknown type: " ++ ty) conT =<< lookupTypeName ty
 
-{- Helpers -}
+promotedListT :: [TypeQ] -> TypeQ
+promotedListT = foldr consT promotedNilT
+  where
+    -- nb. https://stackoverflow.com/a/34457936
+    consT x xs = appT (appT promotedConsT x) xs
 
-getName :: String -> Q Name
-getName ty = maybe (fail $ "Unknown type: " ++ ty) return =<< lookupTypeName ty
-
-getType :: String -> TypeQ
-getType = getName >=> conT
+promotedPairT :: (TypeQ, TypeQ) -> TypeQ
+promotedPairT (a, b) = [t| '( $a, $b ) |]
 
 data KeySource = Provided | Imported
-  deriving (Show,Eq)
+  deriving (Show, Eq)
 
--- | Parse SchemaDefObjItem into a list of tuples, each containing a key to add to the schema,
--- the value for the key, and the source of the key.
-toParts :: SchemaDefObjItem -> Q [(SchemaKeyV, TypeQ, KeySource)]
-toParts = \case
+generateSchemaObjectV :: [SchemaDefObjItem] -> Q SchemaObjectMapV
+generateSchemaObjectV schemaDefObjItems = do
+  schemaObjectMapsWithSource <- mapM getSchemaObjectMap schemaDefObjItems
+
+  let schemaObjectMaps :: LookupMap SchemaKeyV (KeySource, SchemaTypeV)
+      schemaObjectMaps = concatMap (uncurry distribute) schemaObjectMapsWithSource
+
+  either fail return $ resolveKeys schemaObjectMaps
+
+-- | Get the SchemaObjectMapV for the given SchemaDefObjItem, along with where the SchemaObjectMapV
+-- came from.
+getSchemaObjectMap :: SchemaDefObjItem -> Q (SchemaObjectMapV, KeySource)
+getSchemaObjectMap = \case
   SchemaDefObjPair (schemaDefKey, schemaDefType) -> do
-    let schemaKey = schemaDefToSchemaKey schemaDefKey
-    schemaType <- generateSchema schemaDefType
+    let schemaKey = fromSchemaDefKey schemaDefKey
+    schemaType <- fromSchemaDefType schemaDefType
 
     case schemaKey of
-      PhantomKey _ -> do
-        let schemaTypeShow = parseSchemaType schemaType
-        unless (isValidPhantomSchema schemaTypeShow) $
-          fail $ "Invalid schema for '" ++ fromSchemaKeyV schemaKey ++ "': " ++ showSchemaTypeV schemaTypeShow
+      PhantomKey _ ->
+        unless (isValidPhantomSchema schemaType) $
+          fail $ "Invalid schema for '" ++ fromSchemaKeyV schemaKey ++ "': " ++ showSchemaTypeV schemaType
       _ -> return ()
 
-    pure . tagAs Provided $ [(schemaKey, pure schemaType)]
+    return ([(schemaKey, schemaType)], Provided)
+
   SchemaDefObjExtend other -> do
-    name <- getName other
-    reify name >>= \case
-      TyConI (TySynD _ _ (stripSigs -> AppT (PromotedT ty) inner)) | ty == 'Schema ->
-        pure . tagAs Imported . map (second pure) $ typeToSchemaPairs inner
-      _ -> fail $ "'" ++ show name ++ "' is not a Schema"
+    schemaV <- reifySchema other
+    return (fromSchemaV schemaV, Imported)
   where
-    tagAs source = map $ \(k,v) -> (k,v,source)
-    schemaDefToSchemaKey = \case
-      SchemaDefObjKeyNormal key -> NormalKey key
-      SchemaDefObjKeyPhantom key -> PhantomKey key
     -- should return true if it's at all possible to get a valid parse
     isValidPhantomSchema = \case
       SchemaMaybe inner -> isValidPhantomSchema inner
@@ -169,28 +193,138 @@ toParts = \case
       SchemaObject _ -> True
       _ -> False
 
--- | Resolve the parts returned by 'toParts' as such:
+-- | Resolve the given keys with the following rules:
 --
 -- 1. Any explicitly provided keys shadow/overwrite imported keys
 -- 2. Fail if duplicate keys are both explicitly provided
 -- 3. Fail if duplicate keys are both imported
-resolveParts :: [(SchemaKeyV, TypeQ, KeySource)] -> Q [(SchemaKeyV, TypeQ)]
-resolveParts parts = do
-  resolved <- resolveParts' $ HashMap.fromListWith (++) $ map nameAndSource parts
-  return $ mapMaybe (alignWithResolved resolved) parts
+resolveKeys :: Show a => LookupMap SchemaKeyV (KeySource, a) -> Either String (LookupMap SchemaKeyV a)
+resolveKeys = mapM (uncurry resolveKey) . groupByKeyWith fromSchemaKeyV
   where
-    nameAndSource (name, _, source) = (fromSchemaKeyV name, [source])
-    resolveParts' = HashMap.traverseWithKey $ \name sources -> do
-      -- invariant: length sources > 0
-      let numOf source = length $ filter (== source) sources
-      case (numOf Provided, numOf Imported) of
-        (1, _) -> return Provided
-        (0, 1) -> return Imported
-        (x, _) | x > 1 -> fail $ "Key '" ++ name ++ "' specified multiple times"
-        (_, x) | x > 1 -> fail $ "Key '" ++ name ++ "' declared in multiple imported schemas"
-        _ -> fail "Broken invariant in resolveParts"
-    alignWithResolved resolved (key, ty, source) =
-      let resolvedSource = resolved HashMap.! fromSchemaKeyV key
-      in if resolvedSource == source
-        then Just (key, ty)
-        else Nothing
+    resolveKey key sourcesAndVals =
+      let filterSource source = map snd $ filter ((== source) . fst) sourcesAndVals
+          numProvided = length $ filterSource Provided
+          numImported = length $ filterSource Imported
+      in if
+        | numProvided > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' specified multiple times"
+        | [val] <- filterSource Provided -> Right (key, val)
+        | numImported > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' declared in multiple imported schemas"
+        | [val] <- filterSource Imported -> Right (key, val)
+        | otherwise -> unreachable $ "resolveKey received: " ++ show (key, sourcesAndVals)
+
+{- SchemaDef conversions -}
+
+fromSchemaDefKey :: SchemaDefObjKey -> SchemaKeyV
+fromSchemaDefKey = \case
+  SchemaDefObjKeyNormal key -> NormalKey key
+  SchemaDefObjKeyPhantom key -> PhantomKey key
+
+fromSchemaDefType :: SchemaDef -> Q SchemaTypeV
+fromSchemaDefType = \case
+  SchemaDefType other    -> return $ SchemaScalar other
+  SchemaDefMaybe inner   -> SchemaMaybe <$> fromSchemaDefType inner
+  SchemaDefTry inner     -> SchemaTry <$> fromSchemaDefType inner
+  SchemaDefList inner    -> SchemaList <$> fromSchemaDefType inner
+  SchemaDefInclude other -> toSchemaObjectV <$> reifySchema other
+  SchemaDefUnion schemas -> SchemaUnion <$> mapM fromSchemaDefType schemas
+  SchemaDefObj items     -> SchemaObject <$> generateSchemaObjectV items
+
+{- Template Haskell parsing -}
+
+reifySchema :: String -> Q SchemaV
+reifySchema = parseSchema <=< reifySchemaName <=< lookupSchemaName
+  where
+    lookupSchemaName :: String -> Q Name
+    lookupSchemaName name = maybe (fail $ "Unknown schema: " ++ name) return =<< lookupTypeName name
+
+    reifySchemaName :: Name -> Q TypeWithoutKinds
+    reifySchemaName schemaName = reify schemaName >>= \case
+      -- reify `type MySchema = 'Schema '[ ... ]`
+      TyConI (TySynD _ _ (stripKinds -> ty))
+        | AppT (PromotedT name) _ <- ty
+        , name == 'Schema
+        -> return ty
+
+      -- reify `type MySchema = Object OtherSchema`
+      TyConI (TySynD _ _ (stripKinds -> ty))
+        | AppT (ConT name) (ConT schemaName') <- ty
+        , name == ''Object
+        -> reifySchemaName schemaName'
+
+      _ -> fail $ "'" ++ show schemaName ++ "' is not a Schema"
+
+    parseSchema :: TypeWithoutKinds -> Q SchemaV
+    parseSchema ty = maybe (fail $ "Could not parse schema: " ++ show ty) return $ do
+      schemaObjectType <- case ty of
+        AppT (PromotedT name) schemaType | name == 'Schema -> Just schemaType
+        _ -> Nothing
+
+      Schema <$> parseSchemaObjectType schemaObjectType
+
+    parseSchemaObjectType :: TypeWithoutKinds -> Maybe SchemaObjectMapV
+    parseSchemaObjectType schemaObjectType = do
+      schemaObjectListOfPairs <- mapM typeToPair =<< typeToList schemaObjectType
+      forM schemaObjectListOfPairs $ \(schemaKeyType, schemaTypeType) -> do
+        schemaKey <- parseSchemaKey schemaKeyType
+        schemaType <- parseSchemaType schemaTypeType
+        Just (schemaKey, schemaType)
+
+    parseSchemaKey :: TypeWithoutKinds -> Maybe SchemaKeyV
+    parseSchemaKey = \case
+      AppT (PromotedT ty) (LitT (StrTyLit key))
+        | ty == 'NormalKey -> Just $ NormalKey key
+        | ty == 'PhantomKey -> Just $ PhantomKey key
+      _ -> Nothing
+
+    parseSchemaType :: TypeWithoutKinds -> Maybe SchemaTypeV
+    parseSchemaType = \case
+      AppT (PromotedT name) (ConT inner)
+        | name == 'SchemaScalar -> Just $ SchemaScalar $ nameBase inner
+
+      AppT (PromotedT name) inner
+        | name == 'SchemaMaybe  -> SchemaMaybe <$> parseSchemaType inner
+
+        | name == 'SchemaTry    -> SchemaTry <$> parseSchemaType inner
+
+        | name == 'SchemaList   -> SchemaList <$> parseSchemaType inner
+
+        | name == 'SchemaUnion  -> do
+            schemas <- typeToList inner
+            SchemaUnion <$> mapM parseSchemaType schemas
+
+        | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectType inner
+
+      _ -> Nothing
+
+typeToList :: TypeWithoutKinds -> Maybe [TypeWithoutKinds]
+typeToList = \case
+  PromotedNilT -> Just []
+  AppT (AppT PromotedConsT x) xs -> (x:) <$> typeToList xs
+  _ -> Nothing
+
+typeToPair :: TypeWithoutKinds -> Maybe (TypeWithoutKinds, TypeWithoutKinds)
+typeToPair = \case
+  AppT (AppT (PromotedTupleT 2) a) b -> Just (a, b)
+  _ -> Nothing
+
+{- LookupMap utilities -}
+
+type LookupMap k v = [(k, v)]
+
+-- | Distribute the given element across the values in the map.
+distribute :: LookupMap k v -> a -> LookupMap k (a, v)
+distribute lookupMap a = map (fmap (a,)) lookupMap
+
+-- | Find all values with the same key (according to the given function) and group them.
+--
+-- Invariants:
+-- * [v] has length > 0
+-- * If the first occurence of k1 is before the first occurence of k2, k1 is before k2
+--   in the result
+groupByKeyWith :: (Eq a, Hashable a) => (k -> a) -> LookupMap k v -> LookupMap k [v]
+groupByKeyWith f pairs = map (\key -> (key, groups HashMap.! f key)) distinctKeys
+  where
+    -- don't use sort; keys should stay in the same order
+    distinctKeys = nubBy ((==) `on` f) $ map fst pairs
+
+    groups = HashMap.fromListWith (flip (++)) $ map (\(k, v) -> (f k, [v])) pairs

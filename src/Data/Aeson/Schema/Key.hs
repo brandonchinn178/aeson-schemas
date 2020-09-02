@@ -7,6 +7,8 @@ Portability :  portable
 Defines a SchemaKey.
 -}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
@@ -28,9 +30,11 @@ module Data.Aeson.Schema.Key
   ) where
 
 import qualified Data.Aeson as Aeson
+import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HashMap
 import Data.Proxy (Proxy(..))
 import qualified Data.Text as Text
+import GHC.Generics (Generic)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Language.Haskell.TH.Syntax (Lift)
 
@@ -42,7 +46,7 @@ data SchemaKey' s
   | PhantomKey s
     -- ^ A key that doesn't actually exist in the object, but whose content should be parsed from
     -- the current object.
-  deriving (Show, Eq, Lift)
+  deriving (Show, Eq, Generic, Hashable, Lift)
 
 -- | A value-level SchemaKey
 type SchemaKeyV = SchemaKey' String

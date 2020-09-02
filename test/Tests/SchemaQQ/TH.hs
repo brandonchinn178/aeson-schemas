@@ -40,7 +40,7 @@ qState = QState
       , ("Tests.SchemaQQ.TH.ExtraSchema", ''ExtraSchema)
       , ("Int", ''Int)
       ]
-  , reifyInfo = $(loadNames [''ExtraSchema, ''ExtraSchema2, ''Int])
+  , reifyInfo = $(loadNames [''UserSchema, ''ExtraSchema, ''ExtraSchema2, ''Int])
   }
 
 -- | A quasiquoter for generating the string representation of a schema.
