@@ -72,6 +72,9 @@ jobs:
                 STACK_ARGS+=(--haddock)
             fi
 
+            # break up parallelism to avoid OOM
+            stack build haskell-src-exts
+
             stack build "${STACK_ARGS[@]}"
 
             # build hlint/stylish-haskell for cache
