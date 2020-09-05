@@ -18,7 +18,9 @@ import Language.Haskell.TH
 
 import Data.Aeson.Schema.TH.Get (generateGetterExp)
 import Data.Aeson.Schema.TH.Parse (GetterExp(..), parseGetterExp)
-import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
+import Data.Aeson.Schema.TH.Unwrap
+    (FunctorHandler(..), unwrapSchema, unwrapSchemaUsing)
+import Data.Aeson.Schema.TH.Utils (reifySchemaName, schemaVToTypeQ)
 
 -- | A helper that generates a 'Data.Aeson.Schema.TH.get' expression and a type alias for the result
 -- of the expression.
@@ -65,20 +67,20 @@ import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
 -- > getMyBool = [get| .f?[].name |]
 mkGetter :: String -> String -> Name -> String -> DecsQ
 mkGetter unwrapName funcName startSchemaName ops = do
-  startSchemaType <- reifySchema startSchemaName
-
-  getterExp'@GetterExp{..} <- parseGetterExp ops
+  getterExp@GetterExp{..} <- parseGetterExp ops
   unless (isNothing start) $
     fail $ "Getter expression should start with '.': " ++ ops
 
-  let unwrapResult = unwrapType False getterOps startSchemaType
-      funcResult = unwrapType True getterOps startSchemaType
-      getterFunc = generateGetterExp getterExp'
+  startSchema <- reifySchemaName startSchemaName
+
+  let unwrapResult = unwrapSchema getterOps startSchema
+      funcResult = unwrapSchemaUsing ApplyFunctors getterOps startSchema
+      getterFunc = generateGetterExp getterExp
       unwrapName' = mkName unwrapName
       funcName' = mkName funcName
 
   sequence
     [ tySynD unwrapName' [] unwrapResult
-    , sigD funcName' [t| Object $(pure startSchemaType) -> $funcResult |]
+    , sigD funcName' [t| Object $(schemaVToTypeQ startSchema) -> $funcResult |]
     , funD funcName' [clause [] (normalB getterFunc) []]
     ]

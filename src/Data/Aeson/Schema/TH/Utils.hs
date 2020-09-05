@@ -10,57 +10,130 @@ Portability :  portable
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 
-module Data.Aeson.Schema.TH.Utils where
+module Data.Aeson.Schema.TH.Utils
+  ( reifySchema
+  , reifySchemaName
+  , schemaVToTypeQ
+  , schemaTypeVToTypeQ
+  ) where
 
-import Control.Monad ((>=>))
-import Data.Bifunctor (bimap, first, second)
-import GHC.Stack (HasCallStack)
+import Control.Monad (forM, (>=>))
+import Data.Bifunctor (bimap)
+import Data.Text (Text)
 import Language.Haskell.TH
 
-import Data.Aeson.Schema.Internal (Object, SchemaResult)
-import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV, fromSchemaKeyV)
-import Data.Aeson.Schema.TH.Parse (GetterOperation(..), GetterOps)
+import Data.Aeson.Schema.Internal (Object)
+import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV)
 import Data.Aeson.Schema.Type
-    (Schema'(..), SchemaType'(..), SchemaTypeV, showSchemaTypeV)
+    ( Schema'(..)
+    , SchemaObjectMapV
+    , SchemaType'(..)
+    , SchemaTypeV
+    , SchemaV
+    , fromSchemaV
+    )
 
-parseSchemaType :: HasCallStack => Type -> SchemaTypeV
-parseSchemaType = \case
-  AppT (PromotedT name) (ConT inner)
-    | name == 'SchemaScalar -> SchemaScalar $ nameBase inner
-  AppT (PromotedT name) inner
-    | name == 'SchemaMaybe -> SchemaMaybe $ parseSchemaType inner
-    | name == 'SchemaTry -> SchemaTry $ parseSchemaType inner
-    | name == 'SchemaList -> SchemaList $ parseSchemaType inner
-    | name == 'SchemaUnion -> SchemaUnion $ map parseSchemaType $ typeToList inner
-    | name == 'SchemaObject -> SchemaObject $ fromPairs inner
-  ty -> error $ "Unknown type: " ++ show ty
+reifySchema :: String -> Q SchemaV
+reifySchema name = lookupTypeName name >>= maybe unknownSchemaErr reifySchemaName
   where
-    fromPairs pairs = map (second parseSchemaType) $ typeToSchemaPairs pairs
+    unknownSchemaErr = fail $ "Unknown schema: " ++ name
 
-typeToList :: HasCallStack => Type -> [Type]
-typeToList = \case
-  PromotedNilT -> []
-  AppT (AppT PromotedConsT x) xs -> x : typeToList xs
-  SigT ty _ -> typeToList ty
-  ty -> error $ "Not a type-level list: " ++ show ty
+reifySchemaName :: Name -> Q SchemaV
+reifySchemaName = reifySchemaType >=> parseSchema
+  where
+    reifySchemaType :: Name -> Q TypeWithoutKinds
+    reifySchemaType schemaName = reify schemaName >>= \case
+      -- reify `type MySchema = 'Schema '[ ... ]`
+      TyConI (TySynD _ _ (stripKinds -> ty))
+        | AppT (PromotedT name) _ <- ty
+        , name == 'Schema
+        -> return ty
 
-typeToPair :: HasCallStack => Type -> (Type, Type)
-typeToPair = \case
-  AppT (AppT (PromotedTupleT 2) a) b -> (a, b)
-  SigT ty _ -> typeToPair ty
-  ty -> error $ "Not a type-level pair: " ++ show ty
+      -- reify `type MySchema = Object OtherSchema`
+      TyConI (TySynD _ _ (stripKinds -> ty))
+        | AppT (ConT name) (ConT schemaName') <- ty
+        , name == ''Object
+        -> reifySchemaType schemaName'
 
-typeToSchemaPairs :: HasCallStack => Type -> [(SchemaKeyV, Type)]
-typeToSchemaPairs = map (bimap parseSchemaKey stripKinds . typeToPair) . typeToList
+      _ -> fail $ "'" ++ show schemaName ++ "' is not a Schema"
 
-parseSchemaKey :: HasCallStack => Type -> SchemaKeyV
-parseSchemaKey = \case
-  AppT (PromotedT ty) (LitT (StrTyLit key))
-    | ty == 'NormalKey -> NormalKey key
-    | ty == 'PhantomKey -> PhantomKey key
-  SigT ty _ -> parseSchemaKey ty
-  ty -> error $ "Could not parse a schema key: " ++ show ty
+    parseSchema :: TypeWithoutKinds -> Q SchemaV
+    parseSchema ty = maybe (fail $ "Could not parse schema: " ++ show ty) return $ do
+      schemaObjectType <- case ty of
+        AppT (PromotedT name) schemaType | name == 'Schema -> Just schemaType
+        _ -> Nothing
+
+      Schema <$> parseSchemaObjectType schemaObjectType
+
+    parseSchemaObjectType :: TypeWithoutKinds -> Maybe SchemaObjectMapV
+    parseSchemaObjectType schemaObjectType = do
+      schemaObjectListOfPairs <- mapM typeToPair =<< typeToList schemaObjectType
+      forM schemaObjectListOfPairs $ \(schemaKeyType, schemaTypeType) -> do
+        schemaKey <- parseSchemaKey schemaKeyType
+        schemaType <- parseSchemaType schemaTypeType
+        Just (schemaKey, schemaType)
+
+    parseSchemaKey :: TypeWithoutKinds -> Maybe SchemaKeyV
+    parseSchemaKey = \case
+      AppT (PromotedT ty) (LitT (StrTyLit key))
+        | ty == 'NormalKey -> Just $ NormalKey key
+        | ty == 'PhantomKey -> Just $ PhantomKey key
+      _ -> Nothing
+
+    parseSchemaType :: TypeWithoutKinds -> Maybe SchemaTypeV
+    parseSchemaType = \case
+      AppT (PromotedT name) (ConT inner)
+        | name == 'SchemaScalar -> Just $ SchemaScalar $ nameBase inner
+
+      AppT (PromotedT name) inner
+        | name == 'SchemaMaybe  -> SchemaMaybe <$> parseSchemaType inner
+
+        | name == 'SchemaTry    -> SchemaTry <$> parseSchemaType inner
+
+        | name == 'SchemaList   -> SchemaList <$> parseSchemaType inner
+
+        | name == 'SchemaUnion  -> do
+            schemas <- typeToList inner
+            SchemaUnion <$> mapM parseSchemaType schemas
+
+        | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectType inner
+
+      _ -> Nothing
+
+schemaVToTypeQ :: SchemaV -> TypeQ
+schemaVToTypeQ = appT [t| 'Schema |] . schemaObjectMapVToTypeQ . fromSchemaV
+
+schemaObjectMapVToTypeQ :: SchemaObjectMapV -> TypeQ
+schemaObjectMapVToTypeQ = promotedListT . map schemaObjectPairVToTypeQ
+  where
+    schemaObjectPairVToTypeQ :: (SchemaKeyV, SchemaTypeV) -> TypeQ
+    schemaObjectPairVToTypeQ = promotedPairT . bimap schemaKeyVToTypeQ schemaTypeVToTypeQ
+
+    schemaKeyVToTypeQ :: SchemaKeyV -> TypeQ
+    schemaKeyVToTypeQ = \case
+      NormalKey key  -> [t| 'NormalKey $(litT $ strTyLit key) |]
+      PhantomKey key -> [t| 'PhantomKey $(litT $ strTyLit key) |]
+
+schemaTypeVToTypeQ :: SchemaTypeV -> TypeQ
+schemaTypeVToTypeQ = \case
+  -- some hardcoded cases
+  SchemaScalar "Bool"   -> [t| 'SchemaScalar Bool |]
+  SchemaScalar "Int"    -> [t| 'SchemaScalar Int |]
+  SchemaScalar "Double" -> [t| 'SchemaScalar Double |]
+  SchemaScalar "Text"   -> [t| 'SchemaScalar Text |]
+  SchemaScalar other    -> [t| 'SchemaScalar $(getType other) |]
+  SchemaMaybe inner     -> [t| 'SchemaMaybe $(schemaTypeVToTypeQ inner) |]
+  SchemaTry inner       -> [t| 'SchemaTry $(schemaTypeVToTypeQ inner) |]
+  SchemaList inner      -> [t| 'SchemaList $(schemaTypeVToTypeQ inner) |]
+  SchemaUnion schemas   -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas) |]
+  SchemaObject pairs    -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs) |]
+  where
+    getType :: String -> TypeQ
+    getType ty = maybe (fail $ "Unknown type: " ++ ty) conT =<< lookupTypeName ty
+
+{- TH utilities -}
 
 -- | Same as 'Type' except without any kind signatures or applications at any depth.
 --
@@ -109,71 +182,22 @@ stripKinds ty =
     LitT _           -> ty
     WildCardT        -> ty
 
--- | Reify the given name and return the result if it reifies to a Schema.
-reifySchema :: Name -> TypeQ
-reifySchema = reify >=> \case
-  TyConI (TySynD _ _ tyWithSigs)
-    | ty <- stripKinds tyWithSigs
-    , AppT (PromotedT name) _ <- ty
-    , name == 'Schema
-    -> pure ty
+typeToList :: TypeWithoutKinds -> Maybe [TypeWithoutKinds]
+typeToList = \case
+  PromotedNilT -> Just []
+  AppT (AppT PromotedConsT x) xs -> (x:) <$> typeToList xs
+  _ -> Nothing
 
-  -- also reify (Object schema)
-  TyConI (TySynD _ _ tyWithSigs)
-    | ty <- stripKinds tyWithSigs
-    , AppT (ConT name) (ConT schema) <- ty
-    , name == ''Object
-    -> reifySchema schema
+typeToPair :: TypeWithoutKinds -> Maybe (TypeWithoutKinds, TypeWithoutKinds)
+typeToPair = \case
+  AppT (AppT (PromotedTupleT 2) a) b -> Just (a, b)
+  _ -> Nothing
 
-  info -> fail $ "Unknown reified schema: " ++ show info
-
--- | Unwrap the given type using the given getter operations.
---
--- Accepts Bool for whether to maintain functor structure (True) or strip away functor applications
--- (False).
-unwrapType :: Bool -> GetterOps -> Type -> TypeQ
-unwrapType keepFunctor getterOps schemaType =
-  case schemaType of
-    AppT (PromotedT ty) inner | ty == 'Schema -> go (AppT (PromotedT 'SchemaObject) inner) getterOps
-    ty -> fail $ "Tried to unwrap something that wasn't a Schema: " ++ show ty
+promotedListT :: [TypeQ] -> TypeQ
+promotedListT = foldr consT promotedNilT
   where
-    go schema [] = [t| SchemaResult $(pure schema) |]
-    go schema (op:ops) = case schema of
-      AppT (PromotedT ty) inner ->
-        case op of
-          GetterKey key | ty == 'SchemaObject ->
-            let getObjectSchema = map (first getSchemaKey . typeToPair) . typeToList
-                getSchemaKey = fromSchemaKeyV . parseSchemaKey
-            in case lookup key (getObjectSchema inner) of
-              Just nextSchema -> go nextSchema ops
-              Nothing -> fail $ "Key '" ++ key ++ "' does not exist in schema: " ++ showSchemaType schema
-          GetterKey key -> fail $ "Cannot get key '" ++ key ++ "' in schema: " ++ showSchemaType schema
-          GetterList elems | ty == 'SchemaObject -> do
-            elemSchemas <- mapM (go schema) elems
-            if all (== head elemSchemas) elemSchemas
-              then appT listT (pure $ head elemSchemas)
-              else fail $ "List contains different types with schema: " ++ showSchemaType schema
-          GetterList _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
-          GetterTuple elems | ty == 'SchemaObject ->
-            foldl appT (tupleT $ length elems) $ map (go schema) elems
-          GetterTuple _ -> fail $ "Cannot get keys in schema: " ++ showSchemaType schema
-          GetterBang | ty == 'SchemaMaybe -> go inner ops
-          GetterBang | ty == 'SchemaTry -> go inner ops
-          GetterBang -> fail $ "Cannot use `!` operator on schema: " ++ showSchemaType schema
-          GetterMapMaybe | ty == 'SchemaMaybe -> withFunctor [t| Maybe |] $ go inner ops
-          GetterMapMaybe | ty == 'SchemaTry -> withFunctor [t| Maybe |] $ go inner ops
-          GetterMapMaybe -> fail $ "Cannot use `?` operator on schema: " ++ showSchemaType schema
-          GetterMapList | ty == 'SchemaList -> withFunctor (pure ListT) $ go inner ops
-          GetterMapList -> fail $ "Cannot use `[]` operator on schema: " ++ showSchemaType schema
-          GetterBranch branch | ty == 'SchemaUnion ->
-            let subTypes = typeToList inner
-            in if branch >= length subTypes
-              then fail $ "Branch out of bounds for schema: " ++ showSchemaType schema
-              else go (subTypes !! branch) ops
-          GetterBranch _ -> fail $ "Cannot use `@` operator on schema: " ++ showSchemaType schema
+    -- nb. https://stackoverflow.com/a/34457936
+    consT x xs = appT (appT promotedConsT x) xs
 
-      _ -> fail $ unlines ["Cannot get type:", show schema, show op]
-
-    withFunctor f = if keepFunctor then appT f else id
-
-    showSchemaType = showSchemaTypeV . parseSchemaType
+promotedPairT :: (TypeQ, TypeQ) -> TypeQ
+promotedPairT (a, b) = [t| '( $a, $b ) |]

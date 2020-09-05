@@ -10,35 +10,28 @@ The 'schema' quasiquoter.
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ViewPatterns #-}
 
 module Data.Aeson.Schema.TH.Schema (schema) where
 
-import Control.Monad (forM, unless, (<=<), (>=>))
-import Data.Bifunctor (bimap)
+import Control.Monad (unless, (>=>))
 import Data.Function (on)
 import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (nubBy)
-import Data.Text (Text)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema.Internal (Object)
 import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV, fromSchemaKeyV)
 import Data.Aeson.Schema.TH.Parse
     (SchemaDef(..), SchemaDefObjItem(..), SchemaDefObjKey(..), parseSchemaDef)
-import Data.Aeson.Schema.TH.Utils (TypeWithoutKinds, stripKinds)
+import Data.Aeson.Schema.TH.Utils (reifySchema, schemaVToTypeQ)
 import Data.Aeson.Schema.Type
     ( Schema'(..)
     , SchemaObjectMapV
     , SchemaType'(..)
     , SchemaTypeV
-    , SchemaV
     , fromSchemaV
     , showSchemaTypeV
     , toSchemaObjectV
@@ -112,46 +105,6 @@ schema = QuasiQuoter
   }
   where
     generateSchemaObject items = schemaVToTypeQ . Schema =<< generateSchemaObjectV items
-
-schemaVToTypeQ :: SchemaV -> TypeQ
-schemaVToTypeQ = appT [t| 'Schema |] . schemaObjectMapVToTypeQ . fromSchemaV
-
-schemaObjectMapVToTypeQ :: SchemaObjectMapV -> TypeQ
-schemaObjectMapVToTypeQ = promotedListT . map schemaObjectPairVToTypeQ
-  where
-    schemaObjectPairVToTypeQ :: (SchemaKeyV, SchemaTypeV) -> TypeQ
-    schemaObjectPairVToTypeQ = promotedPairT . bimap schemaKeyVToTypeQ schemaTypeVToTypeQ
-
-    schemaKeyVToTypeQ :: SchemaKeyV -> TypeQ
-    schemaKeyVToTypeQ = \case
-      NormalKey key  -> [t| 'NormalKey $(litT $ strTyLit key) |]
-      PhantomKey key -> [t| 'PhantomKey $(litT $ strTyLit key) |]
-
-schemaTypeVToTypeQ :: SchemaTypeV -> TypeQ
-schemaTypeVToTypeQ = \case
-  -- some hardcoded cases
-  SchemaScalar "Bool"   -> [t| 'SchemaScalar Bool |]
-  SchemaScalar "Int"    -> [t| 'SchemaScalar Int |]
-  SchemaScalar "Double" -> [t| 'SchemaScalar Double |]
-  SchemaScalar "Text"   -> [t| 'SchemaScalar Text |]
-  SchemaScalar other    -> [t| 'SchemaScalar $(getType other) |]
-  SchemaMaybe inner     -> [t| 'SchemaMaybe $(schemaTypeVToTypeQ inner) |]
-  SchemaTry inner       -> [t| 'SchemaTry $(schemaTypeVToTypeQ inner) |]
-  SchemaList inner      -> [t| 'SchemaList $(schemaTypeVToTypeQ inner) |]
-  SchemaUnion schemas   -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas) |]
-  SchemaObject pairs    -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs) |]
-  where
-    getType :: String -> TypeQ
-    getType ty = maybe (fail $ "Unknown type: " ++ ty) conT =<< lookupTypeName ty
-
-promotedListT :: [TypeQ] -> TypeQ
-promotedListT = foldr consT promotedNilT
-  where
-    -- nb. https://stackoverflow.com/a/34457936
-    consT x xs = appT (appT promotedConsT x) xs
-
-promotedPairT :: (TypeQ, TypeQ) -> TypeQ
-promotedPairT (a, b) = [t| '( $a, $b ) |]
 
 data KeySource = Provided | Imported
   deriving (Show, Eq)
@@ -228,84 +181,6 @@ fromSchemaDefType = \case
   SchemaDefInclude other -> toSchemaObjectV <$> reifySchema other
   SchemaDefUnion schemas -> SchemaUnion <$> mapM fromSchemaDefType schemas
   SchemaDefObj items     -> SchemaObject <$> generateSchemaObjectV items
-
-{- Template Haskell parsing -}
-
-reifySchema :: String -> Q SchemaV
-reifySchema = parseSchema <=< reifySchemaName <=< lookupSchemaName
-  where
-    lookupSchemaName :: String -> Q Name
-    lookupSchemaName name = maybe (fail $ "Unknown schema: " ++ name) return =<< lookupTypeName name
-
-    reifySchemaName :: Name -> Q TypeWithoutKinds
-    reifySchemaName schemaName = reify schemaName >>= \case
-      -- reify `type MySchema = 'Schema '[ ... ]`
-      TyConI (TySynD _ _ (stripKinds -> ty))
-        | AppT (PromotedT name) _ <- ty
-        , name == 'Schema
-        -> return ty
-
-      -- reify `type MySchema = Object OtherSchema`
-      TyConI (TySynD _ _ (stripKinds -> ty))
-        | AppT (ConT name) (ConT schemaName') <- ty
-        , name == ''Object
-        -> reifySchemaName schemaName'
-
-      _ -> fail $ "'" ++ show schemaName ++ "' is not a Schema"
-
-    parseSchema :: TypeWithoutKinds -> Q SchemaV
-    parseSchema ty = maybe (fail $ "Could not parse schema: " ++ show ty) return $ do
-      schemaObjectType <- case ty of
-        AppT (PromotedT name) schemaType | name == 'Schema -> Just schemaType
-        _ -> Nothing
-
-      Schema <$> parseSchemaObjectType schemaObjectType
-
-    parseSchemaObjectType :: TypeWithoutKinds -> Maybe SchemaObjectMapV
-    parseSchemaObjectType schemaObjectType = do
-      schemaObjectListOfPairs <- mapM typeToPair =<< typeToList schemaObjectType
-      forM schemaObjectListOfPairs $ \(schemaKeyType, schemaTypeType) -> do
-        schemaKey <- parseSchemaKey schemaKeyType
-        schemaType <- parseSchemaType schemaTypeType
-        Just (schemaKey, schemaType)
-
-    parseSchemaKey :: TypeWithoutKinds -> Maybe SchemaKeyV
-    parseSchemaKey = \case
-      AppT (PromotedT ty) (LitT (StrTyLit key))
-        | ty == 'NormalKey -> Just $ NormalKey key
-        | ty == 'PhantomKey -> Just $ PhantomKey key
-      _ -> Nothing
-
-    parseSchemaType :: TypeWithoutKinds -> Maybe SchemaTypeV
-    parseSchemaType = \case
-      AppT (PromotedT name) (ConT inner)
-        | name == 'SchemaScalar -> Just $ SchemaScalar $ nameBase inner
-
-      AppT (PromotedT name) inner
-        | name == 'SchemaMaybe  -> SchemaMaybe <$> parseSchemaType inner
-
-        | name == 'SchemaTry    -> SchemaTry <$> parseSchemaType inner
-
-        | name == 'SchemaList   -> SchemaList <$> parseSchemaType inner
-
-        | name == 'SchemaUnion  -> do
-            schemas <- typeToList inner
-            SchemaUnion <$> mapM parseSchemaType schemas
-
-        | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectType inner
-
-      _ -> Nothing
-
-typeToList :: TypeWithoutKinds -> Maybe [TypeWithoutKinds]
-typeToList = \case
-  PromotedNilT -> Just []
-  AppT (AppT PromotedConsT x) xs -> (x:) <$> typeToList xs
-  _ -> Nothing
-
-typeToPair :: TypeWithoutKinds -> Maybe (TypeWithoutKinds, TypeWithoutKinds)
-typeToPair = \case
-  AppT (AppT (PromotedTupleT 2) a) b -> Just (a, b)
-  _ -> Nothing
 
 {- LookupMap utilities -}
 

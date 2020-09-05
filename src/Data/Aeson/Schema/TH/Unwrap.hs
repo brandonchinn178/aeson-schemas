@@ -6,16 +6,24 @@ Portability :  portable
 
 The 'unwrap' quasiquoter.
 -}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Data.Aeson.Schema.TH.Unwrap where
 
 import Control.Monad ((>=>))
+import Data.Bifunctor (first)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema.TH.Parse (UnwrapSchema(..), parseUnwrapSchema)
-import Data.Aeson.Schema.TH.Utils (reifySchema, unwrapType)
+import Data.Aeson.Schema.Internal (SchemaResult)
+import Data.Aeson.Schema.Key (fromSchemaKeyV)
+import Data.Aeson.Schema.TH.Parse
+    (GetterOperation(..), GetterOps, UnwrapSchema(..), parseUnwrapSchema)
+import Data.Aeson.Schema.TH.Utils (reifySchema, schemaTypeVToTypeQ)
+import Data.Aeson.Schema.Type
+    (SchemaType'(..), SchemaTypeV, SchemaV, showSchemaTypeV, toSchemaObjectV)
 
 -- | Defines a QuasiQuoter to extract a schema within the given schema.
 --
@@ -57,9 +65,91 @@ unwrap = QuasiQuoter
   }
 
 generateUnwrapSchema :: UnwrapSchema -> TypeQ
-generateUnwrapSchema UnwrapSchema{..} = do
-  startSchemaName <- maybe unknownSchema return =<< lookupTypeName startSchema
-  startSchemaType <- reifySchema startSchemaName
-  unwrapType False getterOps startSchemaType
+generateUnwrapSchema UnwrapSchema{..} = reifySchema startSchema >>= unwrapSchema getterOps
+
+-- | Unwrap the given schema by applying the given operations, stripping out functors.
+unwrapSchema :: GetterOps -> SchemaV -> TypeQ
+unwrapSchema = unwrapSchemaUsing StripFunctors
+
+-- | Unwrap the given schema by applying the given operations, using the given 'FunctorHandler'.
+unwrapSchemaUsing :: FunctorHandler -> GetterOps -> SchemaV -> TypeQ
+unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go getterOps . toSchemaObjectV
   where
-    unknownSchema = fail $ "Unknown schema: " ++ startSchema
+    toResultTypeQ :: UnwrapSchemaResult -> TypeQ
+    toResultTypeQ = \case
+      SchemaResult schemaType -> [t| SchemaResult $(schemaTypeVToTypeQ schemaType) |]
+      SchemaResultList schemaResult -> appT listT (toResultTypeQ schemaResult)
+      SchemaResultTuple schemaResults -> foldl appT (tupleT $ length schemaResults) $ map toResultTypeQ schemaResults
+      SchemaResultWrapped functorTy schemaResult ->
+        let handleFunctor ty =
+              case functorHandler of
+                ApplyFunctors -> AppT functorTy ty
+                StripFunctors -> ty
+        in handleFunctor <$> toResultTypeQ schemaResult
+
+    go :: SchemaTypeV -> GetterOps -> Either String UnwrapSchemaResult
+    go schemaType [] = pure $ SchemaResult schemaType
+    go schemaType (op:ops) =
+      let invalid message = Left $ message ++ ": " ++ showSchemaTypeV schemaType
+          wrapMaybe = SchemaResultWrapped (ConT ''Maybe)
+          wrapList = SchemaResultWrapped ListT
+      in case op of
+        GetterKey key ->
+          case schemaType of
+            SchemaObject pairs ->
+              case lookup key $ map (first fromSchemaKeyV) pairs of
+                Just inner -> go inner ops
+                Nothing -> invalid $ "Key '" ++ key ++ "' does not exist in schema"
+            _ -> invalid $ "Cannot get key '" ++ key ++ "' in schema"
+
+        GetterList ops' ->
+          case schemaType of
+            SchemaObject _ -> do
+              elemSchemas <- mapM (go schemaType) ops'
+              let elemSchema = head elemSchemas
+              if all (== elemSchema) elemSchemas
+                then pure $ SchemaResultList elemSchema
+                else invalid "List contains different types in schema"
+            _ -> invalid "Cannot get keys in schema"
+
+        GetterTuple ops' ->
+          case schemaType of
+            SchemaObject _ -> SchemaResultTuple <$> mapM (go schemaType) ops'
+            _ -> invalid "Cannot get keys in schema"
+
+        GetterBang ->
+          case schemaType of
+            SchemaMaybe inner -> go inner ops
+            SchemaTry inner -> go inner ops
+            _ -> invalid "Cannot use `!` operator on schema"
+
+        GetterMapMaybe ->
+          case schemaType of
+            SchemaMaybe inner -> wrapMaybe <$> go inner ops
+            SchemaTry inner -> wrapMaybe <$> go inner ops
+            _ -> invalid "Cannot use `?` operator on schema"
+
+        GetterMapList ->
+          case schemaType of
+            SchemaList inner -> wrapList <$> go inner ops
+            _ -> invalid "Cannot use `[]` operator on schema"
+
+        GetterBranch branch ->
+          case schemaType of
+            SchemaUnion schemas ->
+              if branch < length schemas
+                then go (schemas !! branch) ops
+                else invalid "Branch out of bounds for schema"
+            _ -> invalid "Cannot use `@` operator on schema"
+
+data UnwrapSchemaResult
+  = SchemaResult SchemaTypeV
+  | SchemaResultList UnwrapSchemaResult
+  | SchemaResultTuple [UnwrapSchemaResult]
+  | SchemaResultWrapped Type UnwrapSchemaResult -- ^ Type should be of kind `* -> *`
+  deriving (Eq)
+
+-- | A data type that indicates how to handle functors when unwrapping a schema.
+data FunctorHandler
+  = ApplyFunctors -- ^ handleFunctor Maybe Int ==> Maybe Int
+  | StripFunctors -- ^ handleFunctor Maybe Int ==> Int
