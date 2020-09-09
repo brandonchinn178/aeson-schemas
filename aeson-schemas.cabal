@@ -4,7 +4,7 @@ cabal-version: >= 1.10
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 152a8259a7c802ff65834af8d12a9c69edcafecafee417320488dfb8eda28f56
+-- hash: 0a280b82e6601cb4654595d662ca409cf54c96d31925d0281548019af6a4582d
 
 name:           aeson-schemas
 version:        1.2.0
@@ -50,6 +50,7 @@ library
       Data.Aeson.Schema.Key
       Data.Aeson.Schema.Show
       Data.Aeson.Schema.TH
+      Data.Aeson.Schema.Type
       Data.Aeson.Schema.Utils.All
       Data.Aeson.Schema.Utils.Invariant
       Data.Aeson.Schema.Utils.Sum
@@ -68,6 +69,7 @@ library
       aeson >=1.1.2.0 && <1.6
     , base >=4.9 && <5
     , first-class-families >=0.3.0.0 && <0.9
+    , hashable >=1.2.7.0 && <1.4
     , megaparsec >=6.0.0 && <10
     , template-haskell >=2.12.0.0 && <2.17
     , text >=1.2.2.2 && <1.3
@@ -113,6 +115,7 @@ test-suite aeson-schemas-test
     , base >=4.9 && <5
     , deepseq
     , first-class-families >=0.3.0.0 && <0.9
+    , hashable >=1.2.7.0 && <1.4
     , interpolate
     , megaparsec >=6.0.0 && <10
     , raw-strings-qq
@@ -148,6 +151,7 @@ benchmark aeson-schemas-bench
     , criterion
     , deepseq
     , first-class-families >=0.3.0.0 && <0.9
+    , hashable >=1.2.7.0 && <1.4
     , megaparsec >=6.0.0 && <10
     , template-haskell >=2.12.0.0 && <2.17
     , text >=1.2.2.2 && <1.3

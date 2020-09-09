@@ -158,10 +158,10 @@ testInvalidSchemas = testGroup "Invalid schemas"
       [schemaErr| { #Int } |] @?= "'GHC.Types.Int' is not a Schema"
 
   , testCase "Object importing an unknown schema" $
-      [schemaErr| { foo: #FooSchema } |] @?= "Unknown type: FooSchema"
+      [schemaErr| { foo: #FooSchema } |] @?= "Unknown schema: FooSchema"
 
   , testCase "Object extending an unknown schema" $
-      [schemaErr| { #FooSchema } |] @?= "Unknown type: FooSchema"
+      [schemaErr| { #FooSchema } |] @?= "Unknown schema: FooSchema"
 
   , testCase "Object with a phantom key for a scalar" $
       [schemaErr| { [a]: Int } |] @?= "Invalid schema for 'a': SchemaScalar Int"

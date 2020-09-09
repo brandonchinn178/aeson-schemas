@@ -72,10 +72,7 @@ testInvalidUnwrapDefs = testGroup "Invalid unwrap definitions"
       [unwrapErr| FooSchema.asdf |] @?= "Unknown schema: FooSchema"
 
   , testCase "Unwrap non-schema" $
-      let msg = [unwrapErr| NotASchema.foo |]
-          isPrefixOf a b = Text.isPrefixOf (Text.pack a) (Text.pack b)
-      in assertBool ("Error message does not match: " ++ msg) $
-        "Unknown reified schema: " `isPrefixOf` msg
+      [unwrapErr| NotASchema.foo |] @?= "'Tests.UnwrapQQ.TH.NotASchema' is not a Schema"
 
   , testCase "Unwrap key on non-object" $
       [unwrapErr| ListSchema.ids.foo |] @?= "Cannot get key 'foo' in schema: SchemaList Int"
@@ -91,7 +88,7 @@ testInvalidUnwrapDefs = testGroup "Invalid unwrap definitions"
       [unwrapErr| ListSchema.foo |] @?= [r|Key 'foo' does not exist in schema: SchemaObject { "ids": List Int }|]
 
   , testCase "Unwrap list of keys with different types" $
-      [unwrapErr| ABCSchema.[a,b,c] |] @?= [r|List contains different types with schema: SchemaObject { "a": Bool, "b": Bool, "c": Double }|]
+      [unwrapErr| ABCSchema.[a,b,c] |] @?= [r|List contains different types in schema: SchemaObject { "a": Bool, "b": Bool, "c": Double }|]
 
   , testCase "Unwrap list of keys on non-object schema" $
       [unwrapErr| ListSchema.ids.[a,b] |] @?= "Cannot get keys in schema: SchemaList Int"

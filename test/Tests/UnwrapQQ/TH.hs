@@ -35,6 +35,8 @@ type MySchema = [schema|
 
 type MySchemaResult = Object MySchema
 
+type NotASchema = Int
+
 -- Compile above types before reifying
 $(return [])
 
@@ -46,7 +48,7 @@ qState = QState
       , ("MaybeSchema", ''MaybeSchema)
       , ("SumSchema", ''SumSchema)
       , ("ABCSchema", ''ABCSchema)
-      , ("NotASchema", ''Maybe)
+      , ("NotASchema", ''NotASchema)
       , ("MySchemaResult", ''MySchemaResult)
       ]
   , reifyInfo = $(
@@ -55,7 +57,7 @@ qState = QState
         , ''MaybeSchema
         , ''SumSchema
         , ''ABCSchema
-        , ''Maybe
+        , ''NotASchema
         , ''MySchema
         , ''MySchemaResult
         ]

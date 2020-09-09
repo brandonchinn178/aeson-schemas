@@ -37,6 +37,7 @@ dependencies:
 - aeson >= 1.1.2.0 && < 1.6
 - base >= 4.9 && < 5
 - first-class-families >= 0.3.0.0 && < 0.9
+- hashable >= 1.2.7.0 && < 1.4
 - megaparsec >= 6.0.0 && < 10
 - template-haskell >= 2.12.0.0 && < 2.17
 - text >= 1.2.2.2 && < 1.3
