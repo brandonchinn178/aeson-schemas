@@ -17,13 +17,20 @@ import Data.Bifunctor (first)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
-import Data.Aeson.Schema.Internal (SchemaResult)
+import Data.Aeson.Schema.Internal (Object, SchemaResult)
 import Data.Aeson.Schema.Key (fromSchemaKeyV)
 import Data.Aeson.Schema.TH.Parse
     (GetterOperation(..), GetterOps, UnwrapSchema(..), parseUnwrapSchema)
-import Data.Aeson.Schema.TH.Utils (reifySchema, schemaTypeVToTypeQ)
+import Data.Aeson.Schema.TH.Utils
+    (reifySchema, schemaTypeVToTypeQ, schemaVToTypeQ)
 import Data.Aeson.Schema.Type
-    (SchemaType'(..), SchemaTypeV, SchemaV, showSchemaTypeV, toSchemaObjectV)
+    ( Schema'(..)
+    , SchemaType'(..)
+    , SchemaTypeV
+    , SchemaV
+    , showSchemaTypeV
+    , toSchemaObjectV
+    )
 
 -- | Defines a QuasiQuoter to extract a schema within the given schema.
 --
@@ -77,6 +84,8 @@ unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go
   where
     toResultTypeQ :: UnwrapSchemaResult -> TypeQ
     toResultTypeQ = \case
+      -- special case SchemaObject to make it further inspectable
+      SchemaResult (SchemaObject pairs) -> [t| Object $(schemaVToTypeQ (Schema pairs)) |]
       SchemaResult schemaType -> [t| SchemaResult $(schemaTypeVToTypeQ schemaType) |]
       SchemaResultList schemaResult -> appT listT (toResultTypeQ schemaResult)
       SchemaResultTuple schemaResults -> foldl appT (tupleT $ length schemaResults) $ map toResultTypeQ schemaResults
