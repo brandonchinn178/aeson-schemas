@@ -80,7 +80,7 @@ parseSchemaDef = parseSchemaDefWithUnions
     parseSchemaDefPair = do
       key <- choice
         [ SchemaDefObjKeyNormal <$> jsonKey
-        , SchemaDefObjKeyPhantom <$> between (lexeme "[") (lexeme "]") jsonKey
+        , SchemaDefObjKeyPhantom <$> between (lexeme "[") (lexeme "]") jsonKey'
         ]
       lexeme ":"
       value <- parseSchemaDefWithUnions
@@ -105,10 +105,23 @@ namespacedIdentifier start = choice [lexeme "(" *> namespaced <* lexeme ")", ide
       , (:[]) <$> end
       ]
 
--- | A string that can be used as a JSON key.
+-- | An optionally quoted JSON key.
 jsonKey :: Parser String
-jsonKey = some $ noneOf $ " " ++ schemaChars ++ getChars
+jsonKey = choice [char '"' *> jsonKey' <* char '"', jsonKey']
+
+-- | A string that can be used as a JSON key.
+jsonKey' :: Parser String
+jsonKey' = some $ choice
+  [ try $ char '\\' *> anySingle'
+  , noneOf $ [' ', '\\', '"'] ++ schemaChars ++ getChars
+  ]
   where
+#if MIN_VERSION_megaparsec(7,0,0)
+    anySingle' = anySingle
+#else
+    anySingle' = anyChar
+#endif
+
     -- characters that cause ambiguity when parsing 'get' expressions
     getChars = "!?[](),.@"
     -- characters that should not indicate the start of a key when parsing 'schema' definitions

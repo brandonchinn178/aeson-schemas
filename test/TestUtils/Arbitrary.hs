@@ -304,9 +304,9 @@ genSchemaObject n = do
 
 
 -- | Generate a valid JSON key
--- See Data.Aeson.Schema.TH.Parse.jsonKey
+-- See Data.Aeson.Schema.TH.Parse.jsonKey'
 genKey :: Gen String
-genKey = listOf1 $ arbitraryPrintableChar `suchThat` (`notElem` " !?[](),.@:{}#")
+genKey = listOf1 $ arbitraryPrintableChar `suchThat` (`notElem` " \"\\!?[](),.@:{}#")
 
 -- | Generate a non-empty and unique list of the given generator.
 --

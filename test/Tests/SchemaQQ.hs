@@ -4,6 +4,7 @@
 
 module Tests.SchemaQQ where
 
+import Data.List (isInfixOf)
 import qualified Data.Text as Text
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -15,6 +16,7 @@ test :: TestTree
 test = testGroup "`schema` quasiquoter"
   [ testValidSchemas
   , testInvalidSchemas
+  , testKeys
   ]
 
 testValidSchemas :: TestTree
@@ -174,9 +176,35 @@ testInvalidSchemas = testGroup "Invalid schemas"
       [schemaErr| { [a]: Bool | Int } |] @?= "Invalid schema for 'a': SchemaUnion ( Bool | Int )"
   ]
 
+testKeys :: TestTree
+testKeys = testGroup "Keys in schemas"
+  [ testCase "Quoted key same as plain key" $
+      [schemaRep| { a: Int } |] @?= [schemaRep| { "a": Int } |]
+
+  , testCase "Key with invalid character" $
+      assertContains
+        [schemaErr| { "a:b": Int } |]
+        "unexpected ':'"
+
+  , testCase "Key with escaped invalid character" $
+      assertMatches
+        [schemaRep| { "a\:b": Int } |]
+        [r| SchemaObject { "a:b": Int } |]
+
+  , testCase "Key with trailing escape" $
+      assertContains
+        [schemaErr| { "a\": Int } |]
+        "unexpected ':'"
+  ]
+
 {- Helpers -}
 
 assertMatches :: String -> String -> Assertion
 assertMatches a b = strip a @?= strip b
   where
     strip = Text.unpack . Text.strip . Text.pack
+
+assertContains :: String -> String -> Assertion
+assertContains whole sub = assertBool
+  ("Expected \"" ++ sub ++ "\" to be in \"" ++ whole ++ "\"")
+  (sub `isInfixOf` whole)
