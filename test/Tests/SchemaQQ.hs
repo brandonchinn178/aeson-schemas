@@ -195,6 +195,16 @@ testKeys = testGroup "Keys in schemas"
       assertContains
         [schemaErr| { "a\": Int } |]
         "unexpected ':'"
+
+  , testCase "Quoted key that starts with '//'" $
+      assertMatches
+        [schemaRep| { "//a": { b: Int } } |]
+        [r| SchemaObject { "//a": { "b": Int } } |]
+
+  , testCase "Phantom key that starts with '//'" $
+      assertMatches
+        [schemaRep| { [//a]: { b: Int } } |]
+        [r| SchemaObject { [//a]: { "b": Int } } |]
   ]
 
 {- Helpers -}

@@ -80,7 +80,7 @@ parseSchemaDef = parseSchemaDefWithUnions
     parseSchemaDefPair = do
       key <- choice
         [ SchemaDefObjKeyNormal <$> jsonKey
-        , SchemaDefObjKeyPhantom <$> between (lexeme "[") (lexeme "]") jsonKey'
+        , SchemaDefObjKeyPhantom <$> between (lexeme' "[") (lexeme' "]") jsonKey'
         ]
       lexeme ":"
       value <- parseSchemaDefWithUnions
@@ -92,7 +92,14 @@ identifier :: Parser Char -> Parser String
 identifier start = (:) <$> start <*> many (alphaNumChar <|> char '\'')
 
 lexeme :: String -> Parser ()
-lexeme = void . L.lexeme (L.space space1 (L.skipLineComment "//") empty) . string
+lexeme = lexemeUsingLineComment $ L.skipLineComment "//"
+
+-- | Same as 'lexeme', but without parsing comments.
+lexeme' :: String -> Parser ()
+lexeme' = lexemeUsingLineComment empty
+
+lexemeUsingLineComment :: Parser () -> String -> Parser ()
+lexemeUsingLineComment lineComment = void . L.lexeme (L.space space1 lineComment empty) . string
 
 -- | Parses `identifier`, but if parentheses are provided, parses a namespaced identifier.
 namespacedIdentifier :: Parser Char -> Parser String
