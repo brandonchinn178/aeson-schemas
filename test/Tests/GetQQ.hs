@@ -92,6 +92,10 @@ testBasicExpressions = testGroup "Basic expressions"
   [ testCase "Can query fields on namespaced object" $
       [runGet| (Tests.GetQQ.TH.testData).foo |] @?= [runGet| testData.foo |]
 
+  , testProperty "Can query quoted keys" $ \x ->
+      let o = $(parseObject "{ foo: Int }") [aesonQQ| { "foo": #{x :: Int} } |]
+      in [runGet| o."foo" |] === [runGet| o.foo |]
+
   , testProperty "Can query nested fields" $ \x ->
       let o = $(parseObject "{ foo: { bar: Int } }") [aesonQQ| { "foo": { "bar": #{x} } } |]
       in [runGet| o.foo.bar |] === x
