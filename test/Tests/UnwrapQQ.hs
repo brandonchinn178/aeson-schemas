@@ -11,7 +11,7 @@ import Text.RawString.QQ (r)
 
 import Data.Aeson.Schema (Object, get)
 import Tests.UnwrapQQ.TH
-import TestUtils (json)
+import TestUtils (json, testParseError)
 
 test :: TestTree
 test = testGroup "`unwrap` quasiquoter"
@@ -94,8 +94,14 @@ testInvalidUnwrapDefs = testGroup "Invalid unwrap definitions"
   , testCase "Unwrap list of keys on non-object schema" $
       [unwrapErr| ListSchema.ids.[a,b] |] @?= "Cannot get keys in schema: SchemaList Int"
 
+  , testParseError "Unwrap beyond list of keys" "unwrapqq_unwrap_past_list.golden"
+      [unwrapErr| ABCSchema.[a,b].foo |]
+
   , testCase "Unwrap tuple of keys on non-object schema" $
       [unwrapErr| ListSchema.ids.(a,b) |] @?= "Cannot get keys in schema: SchemaList Int"
+
+  , testParseError "Unwrap beyond tuple of keys" "unwrapqq_unwrap_past_tuple.golden"
+      [unwrapErr| ABCSchema.(a,b).foo |]
 
   , testCase "Unwrap branch on non-branch" $
       [unwrapErr| MaybeSchema.class@0 |] @?= "Cannot use `@` operator on schema: SchemaMaybe Text"

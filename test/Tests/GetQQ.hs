@@ -361,10 +361,10 @@ testInvalidExpressions = testGroup "Invalid expressions"
       [getErr| |]
   , testParseError "No operators" "getqq_no_operators.golden"
       [getErr| o |]
-  , testCase "Operators after tuple of keys" $
-      [getErr| o.(a,b).foo |] @?= ".(*) operation MUST be last."
-  , testCase "Operators after list of keys" $
-      [getErr| o.[a,b].foo |] @?= ".[*] operation MUST be last."
+  , testParseError "Operators after tuple of keys" "getqq_ops_after_tuple.golden"
+      [getErr| o.(a,b).foo |]
+  , testParseError "Operators after list of keys" "getqq_ops_after_list.golden"
+      [getErr| o.[a,b].foo |]
   ]
 
 {- Helpers -}
