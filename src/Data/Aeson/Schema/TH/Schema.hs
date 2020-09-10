@@ -28,7 +28,8 @@ import Data.Aeson.Schema.TH.Parse
     (SchemaDef(..), SchemaDefObjItem(..), SchemaDefObjKey(..), parseSchemaDef)
 import Data.Aeson.Schema.TH.Utils (reifySchema, schemaVToTypeQ)
 import Data.Aeson.Schema.Type
-    ( Schema'(..)
+    ( NameLike(..)
+    , Schema'(..)
     , SchemaObjectMapV
     , SchemaType'(..)
     , SchemaTypeV
@@ -174,7 +175,7 @@ fromSchemaDefKey = \case
 
 fromSchemaDefType :: SchemaDef -> Q SchemaTypeV
 fromSchemaDefType = \case
-  SchemaDefType other    -> return $ SchemaScalar other
+  SchemaDefType name     -> return $ SchemaScalar $ NameRef name
   SchemaDefMaybe inner   -> SchemaMaybe <$> fromSchemaDefType inner
   SchemaDefTry inner     -> SchemaTry <$> fromSchemaDefType inner
   SchemaDefList inner    -> SchemaList <$> fromSchemaDefType inner

@@ -21,6 +21,7 @@ module Data.Aeson.Schema.Type
   , SchemaV
   , SchemaTypeV
   , SchemaObjectMapV
+  , NameLike(..)
   , toSchemaObjectV
   , fromSchemaV
   , showSchemaV
@@ -60,10 +61,18 @@ data SchemaType' s ty
 
 type SchemaObjectMap' s ty = [(SchemaKey' s, SchemaType' s ty)]
 
+data NameLike = NameRef String
+
+instance Eq NameLike where
+  ty1 == ty2 = show ty1 == show ty2
+
+instance Show NameLike where
+  show (NameRef ty) = ty
+
 -- | Value-level schema types.
-type SchemaV = Schema' String String
-type SchemaTypeV = SchemaType' String String
-type SchemaObjectMapV = SchemaObjectMap' String String
+type SchemaV = Schema' String NameLike
+type SchemaTypeV = SchemaType' String NameLike
+type SchemaObjectMapV = SchemaObjectMap' String NameLike
 
 toSchemaObjectV :: SchemaV -> SchemaTypeV
 toSchemaObjectV (Schema schema) = SchemaObject schema
@@ -78,7 +87,7 @@ showSchemaV = showSchemaTypeV' . toSchemaObjectV
 -- | Pretty show the given SchemaType.
 showSchemaTypeV :: SchemaTypeV -> String
 showSchemaTypeV schema = case schema of
-  SchemaScalar s -> "SchemaScalar " ++ s
+  SchemaScalar _ -> "SchemaScalar " ++ showSchemaTypeV' schema
   SchemaMaybe inner -> "SchemaMaybe " ++ showSchemaTypeV' inner
   SchemaTry inner -> "SchemaTry " ++ showSchemaTypeV' inner
   SchemaList inner -> "SchemaList " ++ showSchemaTypeV' inner
@@ -87,7 +96,7 @@ showSchemaTypeV schema = case schema of
 
 showSchemaTypeV' :: SchemaTypeV -> String
 showSchemaTypeV' = \case
-  SchemaScalar s -> s
+  SchemaScalar ty -> show ty
   SchemaMaybe inner -> "Maybe " ++ showSchemaTypeV' inner
   SchemaTry inner -> "Try " ++ showSchemaTypeV' inner
   SchemaList inner -> "List " ++ showSchemaTypeV' inner
@@ -113,7 +122,7 @@ class IsSchemaType (schemaType :: SchemaType) where
   toSchemaTypeV :: Proxy schemaType -> SchemaTypeV
 
 instance Typeable inner => IsSchemaType ('SchemaScalar inner) where
-  toSchemaTypeV _ = SchemaScalar (tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)
+  toSchemaTypeV _ = SchemaScalar (NameRef $ tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)
 
 instance IsSchemaType inner => IsSchemaType ('SchemaMaybe inner) where
   toSchemaTypeV _ = SchemaMaybe (toSchemaTypeV $ Proxy @inner)
