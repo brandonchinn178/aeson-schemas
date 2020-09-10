@@ -119,12 +119,12 @@ schemaObjectMapVToTypeQ = promotedListT . map schemaObjectPairVToTypeQ
 
 schemaTypeVToTypeQ :: SchemaTypeV -> TypeQ
 schemaTypeVToTypeQ = \case
-  SchemaScalar name     -> [t| 'SchemaScalar $(resolveName name >>= conT) |]
-  SchemaMaybe inner     -> [t| 'SchemaMaybe $(schemaTypeVToTypeQ inner) |]
-  SchemaTry inner       -> [t| 'SchemaTry $(schemaTypeVToTypeQ inner) |]
-  SchemaList inner      -> [t| 'SchemaList $(schemaTypeVToTypeQ inner) |]
-  SchemaUnion schemas   -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas) |]
-  SchemaObject pairs    -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs) |]
+  SchemaScalar name   -> [t| 'SchemaScalar $(resolveName name >>= conT) |]
+  SchemaMaybe inner   -> [t| 'SchemaMaybe $(schemaTypeVToTypeQ inner) |]
+  SchemaTry inner     -> [t| 'SchemaTry $(schemaTypeVToTypeQ inner) |]
+  SchemaList inner    -> [t| 'SchemaList $(schemaTypeVToTypeQ inner) |]
+  SchemaUnion schemas -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas) |]
+  SchemaObject pairs  -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs) |]
 
 resolveName :: NameLike -> Q Name
 resolveName = \case
@@ -134,11 +134,9 @@ resolveName = \case
   NameRef "Double" -> pure ''Double
   NameRef "Text"   -> pure ''Text
 
-  NameRef name     -> getType name
+  -- general cases
+  NameRef name     -> lookupTypeName name >>= maybe (fail $ "Unknown type: " ++ name) pure
   NameTH name      -> pure name
-  where
-    getType :: String -> Q Name
-    getType ty = maybe (fail $ "Unknown type: " ++ ty) pure =<< lookupTypeName ty
 
 {- TH utilities -}
 
