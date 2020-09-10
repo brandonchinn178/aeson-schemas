@@ -14,6 +14,7 @@ module Data.Aeson.Schema.TH.Unwrap where
 
 import Control.Monad ((>=>))
 import Data.Bifunctor (first)
+import qualified Data.List.NonEmpty as NonEmpty
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
@@ -80,7 +81,7 @@ unwrapSchema = unwrapSchemaUsing StripFunctors
 
 -- | Unwrap the given schema by applying the given operations, using the given 'FunctorHandler'.
 unwrapSchemaUsing :: FunctorHandler -> GetterOps -> SchemaV -> TypeQ
-unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go getterOps . toSchemaObjectV
+unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go (NonEmpty.toList getterOps) . toSchemaObjectV
   where
     toResultTypeQ :: UnwrapSchemaResult -> TypeQ
     toResultTypeQ = \case
@@ -96,7 +97,7 @@ unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go
                 StripFunctors -> ty
         in handleFunctor <$> toResultTypeQ schemaResult
 
-    go :: SchemaTypeV -> GetterOps -> Either String UnwrapSchemaResult
+    go :: SchemaTypeV -> [GetterOperation] -> Either String UnwrapSchemaResult
     go schemaType [] = pure $ SchemaResult schemaType
     go schemaType (op:ops) =
       let invalid message = Left $ message ++ ": " ++ showSchemaTypeV schemaType
@@ -114,8 +115,8 @@ unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go
         GetterList elemOps ->
           case schemaType of
             SchemaObject _ -> do
-              elemSchemas <- mapM (go schemaType) elemOps
-              let elemSchema = head elemSchemas
+              elemSchemas <- traverse (go schemaType . NonEmpty.toList) elemOps
+              let elemSchema = NonEmpty.head elemSchemas
               if all (== elemSchema) elemSchemas
                 then pure $ SchemaResultList elemSchema
                 else invalid "List contains different types in schema"
@@ -123,7 +124,7 @@ unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go
 
         GetterTuple elemOps ->
           case schemaType of
-            SchemaObject _ -> SchemaResultTuple <$> mapM (go schemaType) elemOps
+            SchemaObject _ -> SchemaResultTuple <$> mapM (go schemaType . NonEmpty.toList) (NonEmpty.toList elemOps)
             _ -> invalid "Cannot get keys in schema"
 
         GetterBang ->

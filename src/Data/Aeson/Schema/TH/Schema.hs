@@ -20,6 +20,7 @@ import Data.Function (on)
 import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (nubBy)
+import qualified Data.List.NonEmpty as NonEmpty
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
@@ -100,7 +101,7 @@ schema = QuasiQuoter
   { quoteExp = error "Cannot use `schema` for Exp"
   , quoteDec = error "Cannot use `schema` for Dec"
   , quoteType = parseSchemaDef >=> \case
-      SchemaDefObj items -> generateSchemaObject items
+      SchemaDefObj items -> generateSchemaObject $ NonEmpty.toList items
       _ -> fail "`schema` definition must be an object"
   , quotePat = error "Cannot use `schema` for Pat"
   }
@@ -180,8 +181,8 @@ fromSchemaDefType = \case
   SchemaDefTry inner     -> SchemaTry <$> fromSchemaDefType inner
   SchemaDefList inner    -> SchemaList <$> fromSchemaDefType inner
   SchemaDefInclude other -> toSchemaObjectV <$> reifySchema other
-  SchemaDefUnion schemas -> SchemaUnion <$> mapM fromSchemaDefType schemas
-  SchemaDefObj items     -> SchemaObject <$> generateSchemaObjectV items
+  SchemaDefUnion schemas -> SchemaUnion <$> mapM fromSchemaDefType (NonEmpty.toList schemas)
+  SchemaDefObj items     -> SchemaObject <$> generateSchemaObjectV (NonEmpty.toList items)
 
 {- LookupMap utilities -}
 

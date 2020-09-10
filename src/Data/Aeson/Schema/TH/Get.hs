@@ -15,6 +15,7 @@ module Data.Aeson.Schema.TH.Get where
 
 import Control.Monad (unless, (>=>))
 import Data.List (intercalate)
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Maybe as Maybe
 import Data.Proxy (Proxy(..))
 import GHC.Stack (HasCallStack)
@@ -24,7 +25,7 @@ import Language.Haskell.TH.Syntax (lift)
 
 import Data.Aeson.Schema.Internal (getKey)
 import Data.Aeson.Schema.TH.Parse
-    (GetterExp(..), GetterOperation(..), GetterOps, parseGetterExp)
+    (GetterExp(..), GetterOperation(..), parseGetterExp)
 import Data.Aeson.Schema.Utils.Sum (fromSumType)
 
 -- | Defines a QuasiQuoter for extracting JSON data.
@@ -93,7 +94,7 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
     startDisplay = case start of
       Nothing -> ""
       Just s -> if '.' `elem` s then "(" ++ s ++ ")" else s
-    expr = mkGetterExp [] getterOps
+    expr = mkGetterExp [] $ NonEmpty.toList getterOps
 
     applyToNext next = \case
       Right f -> [| $next . $f |]
@@ -102,7 +103,7 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
     applyToEach history fromElems elemOps = do
       val <- newName "v"
       let mkElem ops = appE (mkGetterExp history ops) (varE val)
-      lamE [varP val] $ fromElems $ map mkElem elemOps
+      lamE [varP val] $ fromElems $ map (mkElem . NonEmpty.toList) $ NonEmpty.toList elemOps
 
     mkGetterExp history = \case
       [] -> [| id |]
@@ -139,13 +140,13 @@ fromJust msg = Maybe.fromMaybe (error errMsg)
 (<$:>) :: (a -> b) -> [a] -> [b]
 (<$:>) = (<$>)
 
-showGetterOps :: GetterOps -> String
+showGetterOps :: [GetterOperation] -> String
 showGetterOps = concatMap showGetterOp
   where
     showGetterOp = \case
       GetterKey key -> '.':key
-      GetterList elemOps -> ".[" ++ intercalate "," (map showGetterOps elemOps) ++ "]"
-      GetterTuple elemOps -> ".(" ++ intercalate "," (map showGetterOps elemOps) ++ ")"
+      GetterList elemOps -> ".[" ++ intercalate "," (map (showGetterOps . NonEmpty.toList) $ NonEmpty.toList elemOps) ++ "]"
+      GetterTuple elemOps -> ".(" ++ intercalate "," (map (showGetterOps . NonEmpty.toList) $ NonEmpty.toList elemOps) ++ ")"
       GetterBang -> "!"
       GetterMapList -> "[]"
       GetterMapMaybe -> "?"
