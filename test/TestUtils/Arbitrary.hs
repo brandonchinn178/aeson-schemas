@@ -34,7 +34,9 @@ import Data.Typeable (Typeable)
 import GHC.Exts (fromList)
 import GHC.TypeLits (KnownSymbol)
 import Language.Haskell.TH (ExpQ, listE, runIO)
+import Language.Haskell.TH.Instances ()
 import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
+import Language.Haskell.TH.Syntax (Lift)
 import Test.QuickCheck
 
 import Data.Aeson.Schema (Object, schema)
@@ -42,7 +44,8 @@ import Data.Aeson.Schema.Internal (HasSchemaResult)
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey'(..), SchemaKeyV, toContext)
 import Data.Aeson.Schema.Type
-    ( Schema'(..)
+    ( NameLike(..)
+    , Schema'(..)
     , SchemaObjectMapV
     , SchemaType
     , SchemaType'(..)
@@ -103,6 +106,8 @@ forAllArbitraryObjects = [| \runTest ->
 
 {- Run time helpers -}
 
+deriving instance Lift NameLike
+
 genSchema' :: forall schema.
   ( ArbitrarySchema ('SchemaObject schema)
   , HasSchemaResult ('SchemaObject schema)
@@ -132,7 +137,7 @@ getSchemaTypes :: SchemaV -> [String]
 getSchemaTypes = getSchemaTypes' . toSchemaObjectV
   where
     getSchemaTypes' = \case
-      SchemaScalar s -> [s]
+      SchemaScalar name -> [show name]
       SchemaMaybe inner -> "SchemaMaybe" : getSchemaTypes' inner
       SchemaTry inner -> "SchemaTry" : getSchemaTypes' inner
       SchemaList inner -> "SchemaList" : getSchemaTypes' inner
@@ -292,10 +297,10 @@ genSchemaObject n = do
       return (PhantomKey key, schemaType)
 
     scalarSchemaTypes =
-      [ (4, pure $ SchemaScalar "Bool")
-      , (4, pure $ SchemaScalar "Int")
-      , (4, pure $ SchemaScalar "Double")
-      , (4, pure $ SchemaScalar "Text")
+      [ (4, pure $ SchemaScalar $ NameRef "Bool")
+      , (4, pure $ SchemaScalar $ NameRef "Int")
+      , (4, pure $ SchemaScalar $ NameRef "Double")
+      , (4, pure $ SchemaScalar $ NameRef "Text")
       ]
 
     nonNullableSchemaTypes =

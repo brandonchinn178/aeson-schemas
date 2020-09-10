@@ -27,7 +27,8 @@ import Language.Haskell.TH
 import Data.Aeson.Schema.Internal (Object)
 import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV)
 import Data.Aeson.Schema.Type
-    ( Schema'(..)
+    ( NameLike(..)
+    , Schema'(..)
     , SchemaObjectMapV
     , SchemaType'(..)
     , SchemaTypeV
@@ -85,7 +86,7 @@ reifySchemaName = reifySchemaType >=> parseSchema
     parseSchemaType :: TypeWithoutKinds -> Maybe SchemaTypeV
     parseSchemaType = \case
       AppT (PromotedT name) (ConT inner)
-        | name == 'SchemaScalar -> Just $ SchemaScalar $ nameBase inner
+        | name == 'SchemaScalar -> Just $ SchemaScalar $ NameTH inner
 
       AppT (PromotedT name) inner
         | name == 'SchemaMaybe  -> SchemaMaybe <$> parseSchemaType inner
@@ -118,20 +119,24 @@ schemaObjectMapVToTypeQ = promotedListT . map schemaObjectPairVToTypeQ
 
 schemaTypeVToTypeQ :: SchemaTypeV -> TypeQ
 schemaTypeVToTypeQ = \case
+  SchemaScalar name   -> [t| 'SchemaScalar $(resolveName name >>= conT) |]
+  SchemaMaybe inner   -> [t| 'SchemaMaybe $(schemaTypeVToTypeQ inner) |]
+  SchemaTry inner     -> [t| 'SchemaTry $(schemaTypeVToTypeQ inner) |]
+  SchemaList inner    -> [t| 'SchemaList $(schemaTypeVToTypeQ inner) |]
+  SchemaUnion schemas -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas) |]
+  SchemaObject pairs  -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs) |]
+
+resolveName :: NameLike -> Q Name
+resolveName = \case
   -- some hardcoded cases
-  SchemaScalar "Bool"   -> [t| 'SchemaScalar Bool |]
-  SchemaScalar "Int"    -> [t| 'SchemaScalar Int |]
-  SchemaScalar "Double" -> [t| 'SchemaScalar Double |]
-  SchemaScalar "Text"   -> [t| 'SchemaScalar Text |]
-  SchemaScalar other    -> [t| 'SchemaScalar $(getType other) |]
-  SchemaMaybe inner     -> [t| 'SchemaMaybe $(schemaTypeVToTypeQ inner) |]
-  SchemaTry inner       -> [t| 'SchemaTry $(schemaTypeVToTypeQ inner) |]
-  SchemaList inner      -> [t| 'SchemaList $(schemaTypeVToTypeQ inner) |]
-  SchemaUnion schemas   -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas) |]
-  SchemaObject pairs    -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs) |]
-  where
-    getType :: String -> TypeQ
-    getType ty = maybe (fail $ "Unknown type: " ++ ty) conT =<< lookupTypeName ty
+  NameRef "Bool"   -> pure ''Bool
+  NameRef "Int"    -> pure ''Int
+  NameRef "Double" -> pure ''Double
+  NameRef "Text"   -> pure ''Text
+
+  -- general cases
+  NameRef name     -> lookupTypeName name >>= maybe (fail $ "Unknown type: " ++ name) pure
+  NameTH name      -> pure name
 
 {- TH utilities -}
 

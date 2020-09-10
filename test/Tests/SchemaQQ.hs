@@ -81,6 +81,11 @@ testValidSchemas = testGroup "Valid schemas"
         [schemaRep| { user: #(Tests.SchemaQQ.TH.UserSchema) } |]
         [r| SchemaObject { "user": { "name": Text } } |]
 
+  , testCase "Object with an imported schema that uses a non-imported type" $
+      assertMatches
+        [schemaRep| { a: #SchemaWithHiddenImport } |]
+        [r| SchemaObject { "a": { "a": CBool } } |]
+
   , testCase "Object with an extended schema" $
       assertMatches
         [schemaRep| { a: Int, #ExtraSchema } |]
@@ -90,6 +95,11 @@ testValidSchemas = testGroup "Valid schemas"
       assertMatches
         [schemaRep| { a: Int, #(Tests.SchemaQQ.TH.ExtraSchema) } |]
         [r| SchemaObject { "a": Int, "extra": Text } |]
+
+  , testCase "Object with an extended schema that uses a non-imported type" $
+      assertMatches
+        [schemaRep| { #SchemaWithHiddenImport } |]
+        [r| SchemaObject { "a": CBool } |]
 
   , testCase "Object with an extended schema with a shadowed key" $
       assertMatches
