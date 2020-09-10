@@ -111,19 +111,19 @@ unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go
                 Nothing -> invalid $ "Key '" ++ key ++ "' does not exist in schema"
             _ -> invalid $ "Cannot get key '" ++ key ++ "' in schema"
 
-        GetterList ops' ->
+        GetterList elemOps ->
           case schemaType of
             SchemaObject _ -> do
-              elemSchemas <- mapM (go schemaType) ops'
+              elemSchemas <- mapM (go schemaType) elemOps
               let elemSchema = head elemSchemas
               if all (== elemSchema) elemSchemas
                 then pure $ SchemaResultList elemSchema
                 else invalid "List contains different types in schema"
             _ -> invalid "Cannot get keys in schema"
 
-        GetterTuple ops' ->
+        GetterTuple elemOps ->
           case schemaType of
-            SchemaObject _ -> SchemaResultTuple <$> mapM (go schemaType) ops'
+            SchemaObject _ -> SchemaResultTuple <$> mapM (go schemaType) elemOps
             _ -> invalid "Cannot get keys in schema"
 
         GetterBang ->

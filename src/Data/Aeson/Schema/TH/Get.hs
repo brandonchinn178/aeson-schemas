@@ -99,10 +99,10 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
       Right f -> [| $next . $f |]
       Left f -> infixE (Just next) f Nothing
 
-    applyToEach history fromElems elems = do
+    applyToEach history fromElems elemOps = do
       val <- newName "v"
       let mkElem ops = appE (mkGetterExp history ops) (varE val)
-      lamE [varP val] $ fromElems $ map mkElem elems
+      lamE [varP val] $ fromElems $ map mkElem elemOps
 
     mkGetterExp history = \case
       [] -> [| id |]
@@ -116,8 +116,8 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
             let proxyCon = [| Proxy |]
                 proxyType = [t| Proxy $(litT $ strTyLit key) |]
             in applyToNext' $ Right $ appE [| getKey |] $ sigE proxyCon proxyType
-          GetterList elems    -> checkLast ".[*]" >> applyToEach' listE elems
-          GetterTuple elems   -> checkLast ".(*)" >> applyToEach' tupE elems
+          GetterList elemOps  -> checkLast ".[*]" >> applyToEach' listE elemOps
+          GetterTuple elemOps -> checkLast ".(*)" >> applyToEach' tupE elemOps
           GetterBang          -> applyToNext' $ Right [| fromJust $(lift fromJustMsg) |]
           GetterMapMaybe      -> applyToNext' $ Left [| (<$?>) |]
           GetterMapList       -> applyToNext' $ Left [| (<$:>) |]
@@ -144,8 +144,8 @@ showGetterOps = concatMap showGetterOp
   where
     showGetterOp = \case
       GetterKey key -> '.':key
-      GetterList elems -> ".[" ++ intercalate "," (map showGetterOps elems) ++ "]"
-      GetterTuple elems -> ".(" ++ intercalate "," (map showGetterOps elems) ++ ")"
+      GetterList elemOps -> ".[" ++ intercalate "," (map showGetterOps elemOps) ++ "]"
+      GetterTuple elemOps -> ".(" ++ intercalate "," (map showGetterOps elemOps) ++ ")"
       GetterBang -> "!"
       GetterMapList -> "[]"
       GetterMapMaybe -> "?"
