@@ -46,19 +46,33 @@ reifySchemaName = reifySchemaType >=> parseSchema
   where
     reifySchemaType :: Name -> Q TypeWithoutKinds
     reifySchemaType schemaName = reify schemaName >>= \case
-      -- reify `type MySchema = 'Schema '[ ... ]`
       TyConI (TySynD _ _ (stripKinds -> ty))
-        | AppT (PromotedT name) _ <- ty
-        , name == 'Schema
+        -- `type MySchema = 'Schema '[ ... ]`
+        | isPromotedSchema ty
         -> return ty
 
-      -- reify `type MySchema = Object OtherSchema`
-      TyConI (TySynD _ _ (stripKinds -> ty))
-        | AppT (ConT name) (ConT schemaName') <- ty
-        , name == ''Object
+        -- `type MySchema = Object ('Schema '[ ... ])`
+        | Just inner <- unwrapObject ty
+        , isPromotedSchema inner
+        -> return inner
+
+        -- `type MySchema = Object OtherSchema`
+        | Just (ConT schemaName') <- unwrapObject ty
         -> reifySchemaType schemaName'
 
       _ -> fail $ "'" ++ show schemaName ++ "' is not a Schema"
+
+    -- If the given type is of the format `Object a`, return `a`.
+    unwrapObject :: TypeWithoutKinds -> Maybe TypeWithoutKinds
+    unwrapObject = \case
+      AppT (ConT name) inner | name == ''Object -> Just inner
+      _ -> Nothing
+
+    -- Return True if the given type is of the format: 'Schema '[ ... ]
+    isPromotedSchema :: TypeWithoutKinds -> Bool
+    isPromotedSchema = \case
+      AppT (PromotedT name) _ | name == 'Schema -> True
+      _ -> False
 
     parseSchema :: TypeWithoutKinds -> Q SchemaV
     parseSchema ty = maybe (fail $ "Could not parse schema: " ++ show ty) return $ do

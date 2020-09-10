@@ -9,7 +9,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Text.RawString.QQ (r)
 
-import Data.Aeson.Schema (Object, get, unwrap)
+import Data.Aeson.Schema (Object, get)
 import Tests.UnwrapQQ.TH
 import TestUtils (json)
 
@@ -18,8 +18,6 @@ test = testGroup "`unwrap` quasiquoter"
   [ testValidUnwrapDefs
   , testInvalidUnwrapDefs
   ]
-
-type User = [unwrap| MySchema.users[] |]
 
 testValidUnwrapDefs :: TestTree
 testValidUnwrapDefs = testGroup "Valid unwrap definitions"
@@ -38,12 +36,15 @@ testValidUnwrapDefs = testGroup "Valid unwrap definitions"
       [unwrapRep| MaybeSchema.class! |] @?= "Text"
       [unwrapRep| MaybeSchema.class? |] @?= "Text"
 
-  , testCase "Can unwrap from an Object" $
-      [unwrapRep| MySchemaResult.users[].name |] @?= "Text"
-
   , testCase "Can unwrap a sum type" $ do
       [unwrapRep| SumSchema.verbosity@0 |] @?= "Int"
       [unwrapRep| SumSchema.verbosity@1 |] @?= "Bool"
+
+  , testCase "Can unwrap an included schema" $
+      [unwrapRep| ListSchema2.list.ids |] @?= "[Int]"
+
+  , testCase "Can unwrap an Object twice" $
+      [unwrapRep| UnwrappedNestedSchema.b |] @?= "Object (SchemaObject { \"c\": Bool })"
 
   , testCase "Can use unwrapped type" $ do
       let result :: Object MySchema
