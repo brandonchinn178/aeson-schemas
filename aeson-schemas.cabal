@@ -4,7 +4,7 @@ cabal-version: >= 1.10
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0a280b82e6601cb4654595d662ca409cf54c96d31925d0281548019af6a4582d
+-- hash: fd5f702f863b44ade602f91e5357c4eb8012976e65e943b49834155ac289488a
 
 name:           aeson-schemas
 version:        1.2.0
@@ -125,6 +125,7 @@ test-suite aeson-schemas-test
     , tasty-quickcheck
     , template-haskell >=2.12.0.0 && <2.17
     , text >=1.2.2.2 && <1.3
+    , th-orphans
     , th-test-utils
     , unordered-containers >=0.2.8.0 && <0.3
   if impl(ghc >= 8.0)

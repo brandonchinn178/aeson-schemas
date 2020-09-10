@@ -39,7 +39,7 @@ import Data.List (intercalate)
 import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable, tyConName, typeRep, typeRepTyCon)
 import GHC.TypeLits (Symbol)
-import Language.Haskell.TH.Syntax (Lift)
+import Language.Haskell.TH.Syntax (Lift, Name, nameBase)
 
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey', SchemaKeyV, showSchemaKeyV)
@@ -61,13 +61,14 @@ data SchemaType' s ty
 
 type SchemaObjectMap' s ty = [(SchemaKey' s, SchemaType' s ty)]
 
-data NameLike = NameRef String
+data NameLike = NameRef String | NameTH Name
 
 instance Eq NameLike where
   ty1 == ty2 = show ty1 == show ty2
 
 instance Show NameLike where
   show (NameRef ty) = ty
+  show (NameTH ty) = nameBase ty
 
 -- | Value-level schema types.
 type SchemaV = Schema' String NameLike

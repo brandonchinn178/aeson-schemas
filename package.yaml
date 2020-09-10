@@ -69,6 +69,7 @@ tests:
       - tasty-hunit
       - tasty-golden
       - tasty-quickcheck
+      - th-orphans
       - th-test-utils
 
 benchmarks:

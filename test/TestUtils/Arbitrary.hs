@@ -34,6 +34,7 @@ import Data.Typeable (Typeable)
 import GHC.Exts (fromList)
 import GHC.TypeLits (KnownSymbol)
 import Language.Haskell.TH (ExpQ, listE, runIO)
+import Language.Haskell.TH.Instances ()
 import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
 import Language.Haskell.TH.Syntax (Lift)
 import Test.QuickCheck

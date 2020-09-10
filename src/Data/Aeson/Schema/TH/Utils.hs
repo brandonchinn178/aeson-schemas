@@ -86,7 +86,7 @@ reifySchemaName = reifySchemaType >=> parseSchema
     parseSchemaType :: TypeWithoutKinds -> Maybe SchemaTypeV
     parseSchemaType = \case
       AppT (PromotedT name) (ConT inner)
-        | name == 'SchemaScalar -> Just $ SchemaScalar $ NameRef $ nameBase inner
+        | name == 'SchemaScalar -> Just $ SchemaScalar $ NameTH inner
 
       AppT (PromotedT name) inner
         | name == 'SchemaMaybe  -> SchemaMaybe <$> parseSchemaType inner
@@ -135,6 +135,7 @@ resolveName = \case
   NameRef "Text"   -> pure ''Text
 
   NameRef name     -> getType name
+  NameTH name      -> pure name
   where
     getType :: String -> Q Name
     getType ty = maybe (fail $ "Unknown type: " ++ ty) pure =<< lookupTypeName ty
