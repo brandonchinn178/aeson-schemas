@@ -1,7 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
@@ -20,13 +22,19 @@ module TestUtils
 
 import Data.Aeson (FromJSON(..), Value, eitherDecode)
 import Data.Aeson.Types (parseEither)
+#if !MIN_VERSION_megaparsec(7,0,0)
+import Data.Char (isDigit, isSpace)
+#endif
 import Data.Proxy (Proxy(..))
 import Data.String (fromString)
+import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
 import Data.Typeable (Typeable, typeRep)
 import Language.Haskell.TH (ExpQ)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Test.Tasty (TestTree)
 import Test.Tasty.Golden (goldenVsString)
+import Test.Tasty.Golden.Advanced (goldenTest)
 
 import Data.Aeson.Schema (IsSchema, Object, schema)
 import qualified Data.Aeson.Schema.Internal as Internal
@@ -78,4 +86,33 @@ testGolden name fp s = goldenVsString name ("test/goldens/" ++ fp) $ return $ fr
 
 -- | A golden test for testing parse errors.
 testParseError :: String -> FilePath -> String -> TestTree
-testParseError = testGolden
+testParseError name fp s = goldenTest name getExpected getActual cmp update
+  where
+    goldenFile = "test/goldens/" ++ fp
+    getExpected = sanitize <$> Text.readFile goldenFile
+    getActual = return $ Text.pack s
+    cmp expected actual = return $ if expected == actual
+      then Nothing
+      else Just $ "Test output was different from '" ++ goldenFile ++ "'. It was:\n" ++ Text.unpack actual
+    update = Text.writeFile goldenFile
+
+#if MIN_VERSION_megaparsec(7,0,0)
+    sanitize = id
+#else
+    -- megaparsec before version 7.0.0 doesn't display the offending lines, so we need to strip
+    -- out those lines from the golden before comparing them.
+    --
+    -- e.g.
+    --
+    --    { "a:b": Int } :1:6:
+    -- >   |
+    -- > 1 |  { "a:b": Int }
+    -- >   |      ^
+    --   unexpected ':'
+    --   expecting '"' or '\'
+    sanitize = Text.unlines . filter (not . isOffendingLine) . Text.lines
+
+    isOffendingLine line = case Text.splitOn "|" line of
+      [prefix, _] -> Text.all (\c -> isDigit c || isSpace c) prefix
+      _ -> False
+#endif
