@@ -137,6 +137,8 @@ unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go
                 else invalid "Branch out of bounds for schema"
             _ -> invalid "Cannot use `@` operator on schema"
 
+        -- suffixes; ops should be empty
+
         GetterList elemOps ->
           case schemaType of
             SchemaObject _ -> do

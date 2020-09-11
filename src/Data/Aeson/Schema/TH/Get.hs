@@ -123,6 +123,8 @@ generateGetterExp GetterExp{..} = applyStart $ mkGetterExp [] $ NonEmpty.toList 
           GetterBranch branch ->
             let branchTyLit = litT $ numTyLit $ fromIntegral branch
             in applyToNext' $ Right [| fromSumType (Proxy :: Proxy $branchTyLit) |]
+
+          -- suffixes; ops should be empty
           GetterList elemOps  -> applyToEach' listE elemOps
           GetterTuple elemOps -> applyToEach' tupE elemOps
 
