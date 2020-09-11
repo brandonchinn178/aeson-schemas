@@ -15,17 +15,17 @@ module Data.Aeson.Schema.TH.Get where
 
 import Control.Monad ((>=>))
 import Data.List (intercalate)
+import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Maybe as Maybe
 import Data.Proxy (Proxy(..))
 import GHC.Stack (HasCallStack)
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
-import Language.Haskell.TH.Syntax (lift)
 
 import Data.Aeson.Schema.Internal (getKey)
 import Data.Aeson.Schema.TH.Parse
-    (GetterExp(..), GetterOperation(..), parseGetterExp)
+    (GetterExp(..), GetterOperation(..), GetterOps, parseGetterExp)
 import Data.Aeson.Schema.Utils.Sum (fromSumType)
 
 -- | Defines a QuasiQuoter for extracting JSON data.
@@ -89,47 +89,50 @@ get = QuasiQuoter
   }
 
 generateGetterExp :: GetterExp -> ExpQ
-generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
+generateGetterExp GetterExp{..} = applyStart $ resolveGetterOpExps $ mkGetterOpExps [] getterOps
   where
+    applyStart expr = maybe expr (appE expr . varE . mkName) start
+
     startDisplay = case start of
       Nothing -> ""
       Just s -> if '.' `elem` s then "(" ++ s ++ ")" else s
-    expr = mkGetterExp [] $ NonEmpty.toList getterOps
 
-    applyToNext next = \case
-      Right f -> [| $next . $f |]
-      Left f -> infixE (Just next) f Nothing
+    mkGetterOpExps :: [GetterOperation] -> GetterOps -> GetterOpExps
+    mkGetterOpExps historyPrefix = mapWithHistory (mkGetterOpExp . (historyPrefix ++))
 
-    applyToEach history fromElems elemOps = do
-      val <- newName "v"
-      let mkElem ops = appE (mkGetterExp history ops) (varE val)
-      lamE [varP val] $ fromElems $ map (mkElem . NonEmpty.toList) $ NonEmpty.toList elemOps
+    mkGetterOpExp :: [GetterOperation] -> GetterOperation -> GetterOpExp
+    mkGetterOpExp history = \case
+      GetterKey key ->
+        let keyType = litT $ strTyLit key
+        in ApplyOp [| getKey (Proxy :: Proxy $keyType) |]
 
-    mkGetterExp history = \case
-      [] -> [| id |]
-      op:ops ->
-        let applyToNext' = applyToNext $ mkGetterExp (op:history) ops
-            applyToEach' = applyToEach history
-            fromJustMsg = startDisplay ++ showGetterOps (reverse history)
-        in case op of
-          GetterKey key       ->
-            let proxyCon = [| Proxy |]
-                proxyType = [t| Proxy $(litT $ strTyLit key) |]
-            in applyToNext' $ Right $ appE [| getKey |] $ sigE proxyCon proxyType
-          GetterBang          -> applyToNext' $ Right [| fromJust $(lift fromJustMsg) |]
-          GetterMapMaybe      -> applyToNext' $ Left [| (<$?>) |]
-          GetterMapList       -> applyToNext' $ Left [| (<$:>) |]
-          GetterBranch branch ->
-            let branchTyLit = litT $ numTyLit $ fromIntegral branch
-            in applyToNext' $ Right [| fromSumType (Proxy :: Proxy $branchTyLit) |]
-          GetterList elemOps  -> applyToEach' listE elemOps
-          GetterTuple elemOps -> applyToEach' tupE elemOps
+      GetterBang ->
+        let expr = startDisplay ++ showGetterOps history
+        in ApplyOp [| fromJust expr |]
+
+      GetterMapMaybe ->
+        ApplyOpInfix [| (<$?>) |]
+
+      GetterMapList ->
+        ApplyOpInfix [| (<$:>) |]
+
+      GetterBranch branch ->
+        let branchType = litT $ numTyLit $ fromIntegral branch
+        in ApplyOp [| fromSumType (Proxy :: Proxy $branchType) |]
+
+      GetterList elemOps ->
+        ApplyOpsIntoList $ mkGetterOpExps history <$> elemOps
+
+      GetterTuple elemOps ->
+        ApplyOpsIntoTuple $ mkGetterOpExps history <$> elemOps
+
+{- Runtime helpers -}
 
 -- | fromJust with helpful error message
 fromJust :: HasCallStack => String -> Maybe a -> a
-fromJust msg = Maybe.fromMaybe (error errMsg)
+fromJust expr = Maybe.fromMaybe (error errMsg)
   where
-    errMsg = "Called 'fromJust' on null expression" ++ if null msg then "" else ": " ++ msg
+    errMsg = "Called 'fromJust' on null expression" ++ if null expr then "" else ": " ++ expr
 
 -- | fmap specialized to Maybe
 (<$?>) :: (a -> b) -> Maybe a -> Maybe b
@@ -138,6 +141,33 @@ fromJust msg = Maybe.fromMaybe (error errMsg)
 -- | fmap specialized to [a]
 (<$:>) :: (a -> b) -> [a] -> [b]
 (<$:>) = (<$>)
+
+{- Code generation helpers -}
+
+data GetterOpExp
+  = ApplyOp ExpQ                              -- ^ next . f
+  | ApplyOpInfix ExpQ                         -- ^ (next `f`)
+  | ApplyOpsIntoList (NonEmpty GetterOpExps)  -- ^ \v -> [f1 v, f2 v, ...]
+  | ApplyOpsIntoTuple (NonEmpty GetterOpExps) -- ^ \v -> (f1 v, f2 v, ...)
+
+type GetterOpExps = NonEmpty GetterOpExp
+
+resolveGetterOpExps :: GetterOpExps -> ExpQ
+resolveGetterOpExps (op NonEmpty.:| ops) =
+  case op of
+    ApplyOp f -> [| $next . $f |]
+    ApplyOpInfix f -> infixE (Just next) f Nothing
+
+    -- suffixes; ops should be empty
+    ApplyOpsIntoList elemOps -> resolveEach listE elemOps
+    ApplyOpsIntoTuple elemOps -> resolveEach tupE elemOps
+  where
+    next = maybe [| id |] resolveGetterOpExps $ NonEmpty.nonEmpty ops
+
+    resolveEach fromElems elemOps = do
+      val <- newName "v"
+      let applyVal expr = appE expr (varE val)
+      lamE [varP val] $ fromElems $ map (applyVal . resolveGetterOpExps) $ NonEmpty.toList elemOps
 
 showGetterOps :: Foldable t => t GetterOperation -> String
 showGetterOps = concatMap showGetterOp
@@ -152,3 +182,13 @@ showGetterOps = concatMap showGetterOp
       GetterTuple elemOps -> ".(" ++ showGetterOpsList elemOps ++ ")"
 
     showGetterOpsList = intercalate "," . NonEmpty.toList . fmap showGetterOps
+
+{- Utilities -}
+
+-- | Run the given function for each element in the list, providing all elements seen so far.
+--
+-- e.g. for a list [1,2,3], this will return the result of
+--
+--   [f [] 1, f [1] 2, f [1,2] 3]
+mapWithHistory :: ([a] -> a -> b) -> NonEmpty a -> NonEmpty b
+mapWithHistory f xs = NonEmpty.zipWith f (NonEmpty.inits xs) xs

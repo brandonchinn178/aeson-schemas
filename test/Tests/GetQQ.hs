@@ -227,9 +227,17 @@ testFromJustErrors = testGroup "fromJust errors"
       let o = $(parseObject "{ foo: Maybe Bool }") [aesonQQ| { "foo": null } |]
       assertError "Called 'fromJust' on null expression: .foo" $ [runGet| .foo! |] o
 
+  , testCase "Within nested list of keys" $ do
+      let o = $(parseObject "{ foo: { a: Bool, b: Maybe Bool } }") [aesonQQ| { "foo": { "a": true, "b": null } } |]
+      assertError "Called 'fromJust' on null expression: o.foo.b" [runGet| o.foo.[a, b!] |]
+
   , testCase "Within list of keys" $ do
       let o = $(parseObject "{ foo: Bool, bar: Maybe Bool }") [aesonQQ| { "foo": true, "bar": null } |]
       assertError "Called 'fromJust' on null expression: o.bar" [runGet| o.[foo, bar!] |]
+
+  , testCase "Within nested tuple of keys" $ do
+      let o = $(parseObject "{ foo: { a: Int, b: Maybe Bool } }") [aesonQQ| { "foo": { "a": 1, "b": null } } |]
+      assertError "Called 'fromJust' on null expression: o.foo.b" [runGet| o.foo.(a, b!) |]
 
   , testCase "Within tuple of keys" $ do
       let o = $(parseObject "{ foo: Int, bar: Maybe Bool }") [aesonQQ| { "foo": 1, "bar": null } |]
