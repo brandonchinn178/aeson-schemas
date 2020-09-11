@@ -2,7 +2,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 import Criterion.Main
-import Language.Haskell.TH (Type)
 import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
 import Language.Haskell.TH.TestUtils
     (QMode(..), QState(..), loadNames, runTestQ)
@@ -56,14 +55,13 @@ schemaQQBenchmarks = bgroup "schema quasiquoter"
         let schemaDef = genSchemaDef [Field "a" "Int", Ref schema]
         in bench (show n) $ nf runSchema schemaDef
 
-runSchema :: String -> Type
-runSchema = runTestQ qstate . quoteType Data.Aeson.Schema.schema
-  where
-    qstate = QState
-      { mode = MockQ
-      , knownNames = sizedSchemasNames ++ singleSchemasNames
-      , reifyInfo = $(loadNames $ map snd $ sizedSchemasNames ++ singleSchemasNames)
-      }
+    runSchema =
+      let qstate = QState
+            { mode = MockQ
+            , knownNames = sizedSchemasNames ++ singleSchemasNames
+            , reifyInfo = $(loadNames $ map snd $ sizedSchemasNames ++ singleSchemasNames)
+            }
+      in runTestQ qstate . quoteType Data.Aeson.Schema.schema
 
 {- Utilities -}
 
