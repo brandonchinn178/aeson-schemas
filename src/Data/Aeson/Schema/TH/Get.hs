@@ -139,7 +139,7 @@ fromJust msg = Maybe.fromMaybe (error errMsg)
 (<$:>) :: (a -> b) -> [a] -> [b]
 (<$:>) = (<$>)
 
-showGetterOps :: [GetterOperation] -> String
+showGetterOps :: Foldable t => t GetterOperation -> String
 showGetterOps = concatMap showGetterOp
   where
     showGetterOp = \case
@@ -148,5 +148,7 @@ showGetterOps = concatMap showGetterOp
       GetterMapList -> "[]"
       GetterMapMaybe -> "?"
       GetterBranch x -> '@' : show x
-      GetterList elemOps -> ".[" ++ intercalate "," (map (showGetterOps . NonEmpty.toList) $ NonEmpty.toList elemOps) ++ "]"
-      GetterTuple elemOps -> ".(" ++ intercalate "," (map (showGetterOps . NonEmpty.toList) $ NonEmpty.toList elemOps) ++ ")"
+      GetterList elemOps -> ".[" ++ showGetterOpsList elemOps ++ "]"
+      GetterTuple elemOps -> ".(" ++ showGetterOpsList elemOps ++ ")"
+
+    showGetterOpsList = intercalate "," . NonEmpty.toList . fmap showGetterOps
