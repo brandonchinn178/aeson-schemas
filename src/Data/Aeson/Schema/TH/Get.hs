@@ -153,18 +153,16 @@ data GetterOpExp
 type GetterOpExps = NonEmpty GetterOpExp
 
 resolveGetterOpExps :: GetterOpExps -> ExpQ
-resolveGetterOpExps = resolve . NonEmpty.toList
-  where
-    resolve [] = [| id |]
-    resolve (op:ops) =
-      let next = resolve ops
-      in case op of
-        ApplyOp f -> [| $next . $f |]
-        ApplyOpInfix f -> infixE (Just next) f Nothing
+resolveGetterOpExps (op NonEmpty.:| ops) =
+  case op of
+    ApplyOp f -> [| $next . $f |]
+    ApplyOpInfix f -> infixE (Just next) f Nothing
 
-        -- suffixes; ops should be empty
-        ApplyOpsIntoList elemOps -> resolveEach listE elemOps
-        ApplyOpsIntoTuple elemOps -> resolveEach tupE elemOps
+    -- suffixes; ops should be empty
+    ApplyOpsIntoList elemOps -> resolveEach listE elemOps
+    ApplyOpsIntoTuple elemOps -> resolveEach tupE elemOps
+  where
+    next = maybe [| id |] resolveGetterOpExps $ NonEmpty.nonEmpty ops
 
     resolveEach fromElems elemOps = do
       val <- newName "v"
