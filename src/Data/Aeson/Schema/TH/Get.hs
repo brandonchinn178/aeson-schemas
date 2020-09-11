@@ -13,7 +13,7 @@ The 'get' quasiquoter.
 
 module Data.Aeson.Schema.TH.Get where
 
-import Control.Monad (unless, (>=>))
+import Control.Monad ((>=>))
 import Data.List (intercalate)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Maybe as Maybe
@@ -110,7 +110,6 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
       op:ops ->
         let applyToNext' = applyToNext $ mkGetterExp (op:history) ops
             applyToEach' = applyToEach history
-            checkLast label = unless (null ops) $ fail $ label ++ " operation MUST be last."
             fromJustMsg = startDisplay ++ showGetterOps (reverse history)
         in case op of
           GetterKey key       ->
@@ -123,8 +122,8 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
           GetterBranch branch ->
             let branchTyLit = litT $ numTyLit $ fromIntegral branch
             in applyToNext' $ Right [| fromSumType (Proxy :: Proxy $branchTyLit) |]
-          GetterList elemOps  -> checkLast ".[*]" >> applyToEach' listE elemOps
-          GetterTuple elemOps -> checkLast ".(*)" >> applyToEach' tupE elemOps
+          GetterList elemOps  -> applyToEach' listE elemOps
+          GetterTuple elemOps -> applyToEach' tupE elemOps
 
 -- | fromJust with helpful error message
 fromJust :: HasCallStack => String -> Maybe a -> a

@@ -131,10 +131,13 @@ parseUnwrapSchema = runParserFail $ do
 
 {- GetterOps -}
 
+-- | A non-empty list of GetterOperations.
+--
+-- Invariant: Any GetterList/GetterTuple operations MUST be last.
 type GetterOps = NonEmpty GetterOperation
 
 parseGetterOps :: Parser GetterOps
-parseGetterOps = some parseGetterOp
+parseGetterOps = someWith [parseGetterOp, parseGetterOpSuffix]
 
 data GetterOperation
   = GetterKey String
@@ -153,11 +156,13 @@ parseGetterOp = choice
   , lexeme "[]" $> GetterMapList
   , lexeme "?" $> GetterMapMaybe
   , lexeme "@" *> (GetterBranch . read . NonEmpty.toList <$> some digitChar)
-  , optional (lexeme ".") *> choice
-      [ GetterKey <$> jsonKey
-      , fmap GetterList $ between (lexeme "[") (lexeme "]") $ parseGetterOps `sepBy1` lexeme ","
-      , fmap GetterTuple $ between (lexeme "(") (lexeme ")") $ parseGetterOps `sepBy1` lexeme ","
-      ]
+  , optional (lexeme ".") *> (GetterKey <$> jsonKey)
+  ]
+
+parseGetterOpSuffix :: Parser GetterOperation
+parseGetterOpSuffix = optional (lexeme ".") *> choice
+  [ fmap GetterList $ between (lexeme "[") (lexeme "]") $ parseGetterOps `sepBy1` lexeme ","
+  , fmap GetterTuple $ between (lexeme "(") (lexeme ")") $ parseGetterOps `sepBy1` lexeme ","
   ]
 
 {- Parser primitives -}
@@ -222,3 +227,17 @@ sepBy1 p sep = NonEmpty.fromList <$> Megaparsec.sepBy1 p sep
 -- | Same as 'Megaparsec.sepEndBy1', except returns a 'NonEmpty'
 sepEndBy1 :: MonadPlus f => f a -> f sep -> f (NonEmpty a)
 sepEndBy1 p sep = NonEmpty.fromList <$> Megaparsec.sepEndBy1 p sep
+
+-- | Return a non-empty list containing elements from the given parsers in order.
+--
+-- i.e. for `someWith [p1, p2, p3]`, elements parsed with `p1` will come before
+-- elements parsed with `p2` and `p3`, etc.
+--
+-- An individual parser in the list may not parse anything, but at least one parser must return
+-- something.
+someWith :: MonadParsec e s m => [m a] -> m (NonEmpty a)
+someWith ps = do
+  as <- concatMapM (many . try) ps
+  maybe empty return $ NonEmpty.nonEmpty as
+  where
+    concatMapM f = fmap concat . mapM f
