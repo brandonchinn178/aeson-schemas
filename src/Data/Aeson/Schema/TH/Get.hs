@@ -89,12 +89,13 @@ get = QuasiQuoter
   }
 
 generateGetterExp :: GetterExp -> ExpQ
-generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
+generateGetterExp GetterExp{..} = applyStart $ mkGetterExp [] $ NonEmpty.toList getterOps
   where
+    applyStart expr = maybe expr (appE expr . varE . mkName) start
+
     startDisplay = case start of
       Nothing -> ""
       Just s -> if '.' `elem` s then "(" ++ s ++ ")" else s
-    expr = mkGetterExp [] $ NonEmpty.toList getterOps
 
     applyToNext next = \case
       Right f -> [| $next . $f |]
