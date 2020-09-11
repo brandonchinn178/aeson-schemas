@@ -20,6 +20,8 @@ import Data.Function (on)
 import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (nubBy)
+import Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NonEmpty
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 
@@ -110,7 +112,7 @@ schema = QuasiQuoter
 data KeySource = Provided | Imported
   deriving (Show, Eq)
 
-generateSchemaObjectV :: [SchemaDefObjItem] -> Q SchemaObjectMapV
+generateSchemaObjectV :: NonEmpty SchemaDefObjItem -> Q SchemaObjectMapV
 generateSchemaObjectV schemaDefObjItems = do
   schemaObjectMapsWithSource <- mapM getSchemaObjectMap schemaDefObjItems
 
@@ -180,7 +182,7 @@ fromSchemaDefType = \case
   SchemaDefTry inner     -> SchemaTry <$> fromSchemaDefType inner
   SchemaDefList inner    -> SchemaList <$> fromSchemaDefType inner
   SchemaDefInclude other -> toSchemaObjectV <$> reifySchema other
-  SchemaDefUnion schemas -> SchemaUnion <$> mapM fromSchemaDefType schemas
+  SchemaDefUnion schemas -> SchemaUnion . NonEmpty.toList <$> mapM fromSchemaDefType schemas
   SchemaDefObj items     -> SchemaObject <$> generateSchemaObjectV items
 
 {- LookupMap utilities -}

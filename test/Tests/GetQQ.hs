@@ -25,7 +25,7 @@ import Data.Aeson.Schema (Object, schema)
 import Data.Aeson.Schema.TH (mkEnum)
 import Data.Aeson.Schema.Utils.Sum (SumType(..))
 import Tests.GetQQ.TH
-import TestUtils (parseObject)
+import TestUtils (parseObject, testParseError)
 
 mkEnum "Greeting" ["HELLO", "GOODBYE"]
 
@@ -357,20 +357,15 @@ testNestedExpressions = testGroup "Nested expressions"
 
 testInvalidExpressions :: TestTree
 testInvalidExpressions = testGroup "Invalid expressions"
-  [ testCase "Empty expression" $
-      assertErrorContains "unexpected end of input" [getErr| |]
-  , testCase "No operators" $
-      assertErrorContains "unexpected space" [getErr| o |]
-  , testCase "Operators after tuple of keys" $
-      [getErr| o.(a,b).foo |] @?= ".(*) operation MUST be last."
-  , testCase "Operators after list of keys" $
-      [getErr| o.[a,b].foo |] @?= ".[*] operation MUST be last."
+  [ testParseError "Empty expression" "getqq_empty_expression.golden"
+      [getErr| |]
+  , testParseError "No operators" "getqq_no_operators.golden"
+      [getErr| o |]
+  , testParseError "Operators after tuple of keys" "getqq_ops_after_tuple.golden"
+      [getErr| o.(a,b).foo |]
+  , testParseError "Operators after list of keys" "getqq_ops_after_list.golden"
+      [getErr| o.[a,b].foo |]
   ]
-  where
-    assertErrorContains msg e =
-      if msg `Text.isInfixOf` Text.pack e
-        then return ()
-        else assertFailure $ "incorrect error message: " ++ e
 
 {- Helpers -}
 

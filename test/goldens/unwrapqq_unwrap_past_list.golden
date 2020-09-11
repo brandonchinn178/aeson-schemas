@@ -1,0 +1,6 @@
+ ABCSchema.[a,b].foo :1:17:
+  |
+1 |  ABCSchema.[a,b].foo 
+  |                 ^
+unexpected '.'
+expecting end of input or white space

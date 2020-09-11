@@ -1,0 +1,6 @@
+ { "a\": Int } :1:8:
+  |
+1 |  { "a\": Int } 
+  |        ^
+unexpected ':'
+expecting '"' or '\'

@@ -12,17 +12,17 @@ Definitions for parsing input text in QuasiQuoters.
 
 module Data.Aeson.Schema.TH.Parse where
 
-#if !MIN_VERSION_megaparsec(6,4,0)
-import Control.Applicative (empty)
-#endif
-import Control.Monad (void)
+import Control.Monad (MonadPlus, void)
 #if !MIN_VERSION_base(4,13,0)
 import Control.Monad.Fail (MonadFail)
 #endif
 import Data.Functor (($>))
 import Data.List (intercalate)
+import Data.List.NonEmpty (NonEmpty)
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Void (Void)
-import Text.Megaparsec
+import Text.Megaparsec hiding (sepBy1, sepEndBy1, some)
+import qualified Text.Megaparsec as Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
@@ -44,8 +44,8 @@ data SchemaDef
   | SchemaDefTry SchemaDef
   | SchemaDefList SchemaDef
   | SchemaDefInclude String
-  | SchemaDefObj [SchemaDefObjItem] -- ^ Invariant: non-empty
-  | SchemaDefUnion [SchemaDef] -- ^ Invariant: non-empty
+  | SchemaDefObj (NonEmpty SchemaDefObjItem)
+  | SchemaDefUnion (NonEmpty SchemaDef)
   deriving (Show)
 
 data SchemaDefObjItem
@@ -67,8 +67,9 @@ parseSchemaDef = runParserFail $ do
   return def
   where
     parseSchemaDefWithUnions =
-      let parseSchemaUnion [schemaDef'] = schemaDef'
-          parseSchemaUnion schemaDefs = SchemaDefUnion schemaDefs
+      let parseSchemaUnion schemaDefs
+            | length schemaDefs == 1 = NonEmpty.head schemaDefs
+            | otherwise = SchemaDefUnion schemaDefs
       in fmap parseSchemaUnion $ parseSchemaDefWithoutUnions `sepBy1` lexeme "|"
 
     parseSchemaDefWithoutUnions = choice
@@ -100,14 +101,14 @@ parseSchemaDef = runParserFail $ do
 
 data GetterExp = GetterExp
   { start     :: Maybe String
-  , getterOps :: GetterOps -- ^ Invariant: non-empty
+  , getterOps :: GetterOps
   } deriving (Show)
 
 parseGetterExp :: MonadFail m => String -> m GetterExp
 parseGetterExp = runParserFail $ do
   space
   start <- optional $ namespacedIdentifier lowerChar
-  getterOps <- some parseGetterOp
+  getterOps <- parseGetterOps
   space
   void eof
   return GetterExp{..}
@@ -116,30 +117,37 @@ parseGetterExp = runParserFail $ do
 
 data UnwrapSchema = UnwrapSchema
   { startSchema :: String
-  , getterOps   :: GetterOps -- ^ Invariant: non-empty
+  , getterOps   :: GetterOps
   } deriving (Show)
 
 parseUnwrapSchema :: MonadFail m => String -> m UnwrapSchema
 parseUnwrapSchema = runParserFail $ do
   space
   startSchema <- namespacedIdentifier upperChar
-  getterOps <- some parseGetterOp
+  getterOps <- parseGetterOps
   space
   void eof
   return UnwrapSchema{..}
 
 {- GetterOps -}
 
-type GetterOps = [GetterOperation]
+-- | A non-empty list of GetterOperations.
+--
+-- Invariant: Any GetterList/GetterTuple operations MUST be last.
+type GetterOps = NonEmpty GetterOperation
+
+parseGetterOps :: Parser GetterOps
+parseGetterOps = someWith [parseGetterOp, parseGetterOpSuffix]
 
 data GetterOperation
   = GetterKey String
-  | GetterList [GetterOps] -- ^ Invariant: non-empty
-  | GetterTuple [GetterOps] -- ^ Invariant: non-empty
   | GetterBang
   | GetterMapList
   | GetterMapMaybe
   | GetterBranch Int
+  -- suffixes
+  | GetterList (NonEmpty GetterOps)
+  | GetterTuple (NonEmpty GetterOps)
   deriving (Show)
 
 parseGetterOp :: Parser GetterOperation
@@ -147,12 +155,14 @@ parseGetterOp = choice
   [ lexeme "!" $> GetterBang
   , lexeme "[]" $> GetterMapList
   , lexeme "?" $> GetterMapMaybe
-  , lexeme "@" *> (GetterBranch . read <$> some digitChar)
-  , optional (lexeme ".") *> choice
-      [ GetterKey <$> jsonKey
-      , fmap GetterList $ between (lexeme "[") (lexeme "]") $ some parseGetterOp `sepBy1` lexeme ","
-      , fmap GetterTuple $ between (lexeme "(") (lexeme ")") $ some parseGetterOp `sepBy1` lexeme ","
-      ]
+  , lexeme "@" *> (GetterBranch . read . NonEmpty.toList <$> some digitChar)
+  , optional (lexeme ".") *> (GetterKey <$> jsonKey)
+  ]
+
+parseGetterOpSuffix :: Parser GetterOperation
+parseGetterOpSuffix = optional (lexeme ".") *> choice
+  [ fmap GetterList $ between (lexeme "[") (lexeme "]") $ parseGetterOps `sepBy1` lexeme ","
+  , fmap GetterTuple $ between (lexeme "(") (lexeme ")") $ parseGetterOps `sepBy1` lexeme ","
   ]
 
 {- Parser primitives -}
@@ -188,7 +198,7 @@ jsonKey = choice [char '"' *> jsonKey' <* char '"', jsonKey']
 
 -- | A string that can be used as a JSON key.
 jsonKey' :: Parser String
-jsonKey' = some $ choice
+jsonKey' = fmap NonEmpty.toList $ some $ choice
   [ try $ char '\\' *> anySingle'
   , noneOf $ [' ', '\\', '"'] ++ schemaChars ++ getChars
   ]
@@ -203,3 +213,31 @@ jsonKey' = some $ choice
     getChars = "!?[](),.@"
     -- characters that should not indicate the start of a key when parsing 'schema' definitions
     schemaChars = ":{}#"
+
+{- Parsing utilities -}
+
+-- | Same as 'Megaparsec.some', except returns a 'NonEmpty'
+some :: MonadPlus f => f a -> f (NonEmpty a)
+some p = NonEmpty.fromList <$> Megaparsec.some p
+
+-- | Same as 'Megaparsec.sepBy1', except returns a 'NonEmpty'
+sepBy1 :: MonadPlus f => f a -> f sep -> f (NonEmpty a)
+sepBy1 p sep = NonEmpty.fromList <$> Megaparsec.sepBy1 p sep
+
+-- | Same as 'Megaparsec.sepEndBy1', except returns a 'NonEmpty'
+sepEndBy1 :: MonadPlus f => f a -> f sep -> f (NonEmpty a)
+sepEndBy1 p sep = NonEmpty.fromList <$> Megaparsec.sepEndBy1 p sep
+
+-- | Return a non-empty list containing elements from the given parsers in order.
+--
+-- i.e. for `someWith [p1, p2, p3]`, elements parsed with `p1` will come before
+-- elements parsed with `p2` and `p3`, etc.
+--
+-- An individual parser in the list may not parse anything, but at least one parser must return
+-- something.
+someWith :: MonadParsec e s m => [m a] -> m (NonEmpty a)
+someWith ps = do
+  as <- concatMapM (many . try) ps
+  maybe empty return $ NonEmpty.nonEmpty as
+  where
+    concatMapM f = fmap concat . mapM f

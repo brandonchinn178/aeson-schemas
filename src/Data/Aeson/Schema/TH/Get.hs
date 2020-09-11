@@ -13,8 +13,9 @@ The 'get' quasiquoter.
 
 module Data.Aeson.Schema.TH.Get where
 
-import Control.Monad (unless, (>=>))
+import Control.Monad ((>=>))
 import Data.List (intercalate)
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Maybe as Maybe
 import Data.Proxy (Proxy(..))
 import GHC.Stack (HasCallStack)
@@ -24,7 +25,7 @@ import Language.Haskell.TH.Syntax (lift)
 
 import Data.Aeson.Schema.Internal (getKey)
 import Data.Aeson.Schema.TH.Parse
-    (GetterExp(..), GetterOperation(..), GetterOps, parseGetterExp)
+    (GetterExp(..), GetterOperation(..), parseGetterExp)
 import Data.Aeson.Schema.Utils.Sum (fromSumType)
 
 -- | Defines a QuasiQuoter for extracting JSON data.
@@ -93,37 +94,36 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
     startDisplay = case start of
       Nothing -> ""
       Just s -> if '.' `elem` s then "(" ++ s ++ ")" else s
-    expr = mkGetterExp [] getterOps
+    expr = mkGetterExp [] $ NonEmpty.toList getterOps
 
     applyToNext next = \case
       Right f -> [| $next . $f |]
       Left f -> infixE (Just next) f Nothing
 
-    applyToEach history fromElems elems = do
+    applyToEach history fromElems elemOps = do
       val <- newName "v"
       let mkElem ops = appE (mkGetterExp history ops) (varE val)
-      lamE [varP val] $ fromElems $ map mkElem elems
+      lamE [varP val] $ fromElems $ map (mkElem . NonEmpty.toList) $ NonEmpty.toList elemOps
 
     mkGetterExp history = \case
       [] -> [| id |]
       op:ops ->
         let applyToNext' = applyToNext $ mkGetterExp (op:history) ops
             applyToEach' = applyToEach history
-            checkLast label = unless (null ops) $ fail $ label ++ " operation MUST be last."
             fromJustMsg = startDisplay ++ showGetterOps (reverse history)
         in case op of
           GetterKey key       ->
             let proxyCon = [| Proxy |]
                 proxyType = [t| Proxy $(litT $ strTyLit key) |]
             in applyToNext' $ Right $ appE [| getKey |] $ sigE proxyCon proxyType
-          GetterList elems    -> checkLast ".[*]" >> applyToEach' listE elems
-          GetterTuple elems   -> checkLast ".(*)" >> applyToEach' tupE elems
           GetterBang          -> applyToNext' $ Right [| fromJust $(lift fromJustMsg) |]
           GetterMapMaybe      -> applyToNext' $ Left [| (<$?>) |]
           GetterMapList       -> applyToNext' $ Left [| (<$:>) |]
           GetterBranch branch ->
             let branchTyLit = litT $ numTyLit $ fromIntegral branch
             in applyToNext' $ Right [| fromSumType (Proxy :: Proxy $branchTyLit) |]
+          GetterList elemOps  -> applyToEach' listE elemOps
+          GetterTuple elemOps -> applyToEach' tupE elemOps
 
 -- | fromJust with helpful error message
 fromJust :: HasCallStack => String -> Maybe a -> a
@@ -139,14 +139,16 @@ fromJust msg = Maybe.fromMaybe (error errMsg)
 (<$:>) :: (a -> b) -> [a] -> [b]
 (<$:>) = (<$>)
 
-showGetterOps :: GetterOps -> String
+showGetterOps :: Foldable t => t GetterOperation -> String
 showGetterOps = concatMap showGetterOp
   where
     showGetterOp = \case
       GetterKey key -> '.':key
-      GetterList elems -> ".[" ++ intercalate "," (map showGetterOps elems) ++ "]"
-      GetterTuple elems -> ".(" ++ intercalate "," (map showGetterOps elems) ++ ")"
       GetterBang -> "!"
       GetterMapList -> "[]"
       GetterMapMaybe -> "?"
       GetterBranch x -> '@' : show x
+      GetterList elemOps -> ".[" ++ showGetterOpsList elemOps ++ "]"
+      GetterTuple elemOps -> ".(" ++ showGetterOpsList elemOps ++ ")"
+
+    showGetterOpsList = intercalate "," . NonEmpty.toList . fmap showGetterOps

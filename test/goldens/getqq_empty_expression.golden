@@ -1,0 +1,5 @@
+ :1:2:
+  |
+1 |  
+  |  ^
+expecting "[]", '!', '"', '(', '.', '?', '@', '[', '\', lowercase letter, or white space
