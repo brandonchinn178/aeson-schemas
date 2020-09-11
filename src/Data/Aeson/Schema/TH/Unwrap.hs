@@ -112,21 +112,6 @@ unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go
                 Nothing -> invalid $ "Key '" ++ key ++ "' does not exist in schema"
             _ -> invalid $ "Cannot get key '" ++ key ++ "' in schema"
 
-        GetterList elemOps ->
-          case schemaType of
-            SchemaObject _ -> do
-              elemSchemas <- traverse (go schemaType . NonEmpty.toList) elemOps
-              let elemSchema = NonEmpty.head elemSchemas
-              if all (== elemSchema) elemSchemas
-                then pure $ SchemaResultList elemSchema
-                else invalid "List contains different types in schema"
-            _ -> invalid "Cannot get keys in schema"
-
-        GetterTuple elemOps ->
-          case schemaType of
-            SchemaObject _ -> SchemaResultTuple <$> mapM (go schemaType . NonEmpty.toList) (NonEmpty.toList elemOps)
-            _ -> invalid "Cannot get keys in schema"
-
         GetterBang ->
           case schemaType of
             SchemaMaybe inner -> go inner ops
@@ -151,6 +136,21 @@ unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go
                 then go (schemas !! branch) ops
                 else invalid "Branch out of bounds for schema"
             _ -> invalid "Cannot use `@` operator on schema"
+
+        GetterList elemOps ->
+          case schemaType of
+            SchemaObject _ -> do
+              elemSchemas <- traverse (go schemaType . NonEmpty.toList) elemOps
+              let elemSchema = NonEmpty.head elemSchemas
+              if all (== elemSchema) elemSchemas
+                then pure $ SchemaResultList elemSchema
+                else invalid "List contains different types in schema"
+            _ -> invalid "Cannot get keys in schema"
+
+        GetterTuple elemOps ->
+          case schemaType of
+            SchemaObject _ -> SchemaResultTuple <$> mapM (go schemaType . NonEmpty.toList) (NonEmpty.toList elemOps)
+            _ -> invalid "Cannot get keys in schema"
 
 data UnwrapSchemaResult
   = SchemaResult SchemaTypeV

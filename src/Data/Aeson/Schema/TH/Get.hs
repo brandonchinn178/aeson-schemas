@@ -117,14 +117,14 @@ generateGetterExp GetterExp{..} = maybe expr (appE expr . varE . mkName) start
             let proxyCon = [| Proxy |]
                 proxyType = [t| Proxy $(litT $ strTyLit key) |]
             in applyToNext' $ Right $ appE [| getKey |] $ sigE proxyCon proxyType
-          GetterList elemOps  -> checkLast ".[*]" >> applyToEach' listE elemOps
-          GetterTuple elemOps -> checkLast ".(*)" >> applyToEach' tupE elemOps
           GetterBang          -> applyToNext' $ Right [| fromJust $(lift fromJustMsg) |]
           GetterMapMaybe      -> applyToNext' $ Left [| (<$?>) |]
           GetterMapList       -> applyToNext' $ Left [| (<$:>) |]
           GetterBranch branch ->
             let branchTyLit = litT $ numTyLit $ fromIntegral branch
             in applyToNext' $ Right [| fromSumType (Proxy :: Proxy $branchTyLit) |]
+          GetterList elemOps  -> checkLast ".[*]" >> applyToEach' listE elemOps
+          GetterTuple elemOps -> checkLast ".(*)" >> applyToEach' tupE elemOps
 
 -- | fromJust with helpful error message
 fromJust :: HasCallStack => String -> Maybe a -> a
@@ -145,9 +145,9 @@ showGetterOps = concatMap showGetterOp
   where
     showGetterOp = \case
       GetterKey key -> '.':key
-      GetterList elemOps -> ".[" ++ intercalate "," (map (showGetterOps . NonEmpty.toList) $ NonEmpty.toList elemOps) ++ "]"
-      GetterTuple elemOps -> ".(" ++ intercalate "," (map (showGetterOps . NonEmpty.toList) $ NonEmpty.toList elemOps) ++ ")"
       GetterBang -> "!"
       GetterMapList -> "[]"
       GetterMapMaybe -> "?"
       GetterBranch x -> '@' : show x
+      GetterList elemOps -> ".[" ++ intercalate "," (map (showGetterOps . NonEmpty.toList) $ NonEmpty.toList elemOps) ++ "]"
+      GetterTuple elemOps -> ".(" ++ intercalate "," (map (showGetterOps . NonEmpty.toList) $ NonEmpty.toList elemOps) ++ ")"

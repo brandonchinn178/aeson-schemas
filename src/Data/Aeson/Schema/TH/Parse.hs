@@ -138,12 +138,13 @@ parseGetterOps = some parseGetterOp
 
 data GetterOperation
   = GetterKey String
-  | GetterList (NonEmpty GetterOps)
-  | GetterTuple (NonEmpty GetterOps)
   | GetterBang
   | GetterMapList
   | GetterMapMaybe
   | GetterBranch Int
+  -- suffixes
+  | GetterList (NonEmpty GetterOps)
+  | GetterTuple (NonEmpty GetterOps)
   deriving (Show)
 
 parseGetterOp :: Parser GetterOperation
