@@ -1,0 +1,6 @@
+ o.[a,b].foo :1:9:
+  |
+1 |  o.[a,b].foo 
+  |         ^
+unexpected '.'
+expecting end of input or white space

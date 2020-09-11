@@ -2,5 +2,4 @@
   |
 1 |  
   |  ^
-unexpected end of input
 expecting "[]", '!', '"', '(', '.', '?', '@', '[', '\', lowercase letter, or white space
