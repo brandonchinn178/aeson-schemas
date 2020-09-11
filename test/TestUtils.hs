@@ -14,6 +14,8 @@ module TestUtils
   , parseObject
   , parseProxy
   , mkExpQQ
+  , testGolden
+  , testParseError
   ) where
 
 import Data.Aeson (FromJSON(..), Value, eitherDecode)
@@ -23,6 +25,8 @@ import Data.String (fromString)
 import Data.Typeable (Typeable, typeRep)
 import Language.Haskell.TH (ExpQ)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
+import Test.Tasty (TestTree)
+import Test.Tasty.Golden (goldenVsString)
 
 import Data.Aeson.Schema (IsSchema, Object, schema)
 import qualified Data.Aeson.Schema.Internal as Internal
@@ -66,3 +70,12 @@ mkExpQQ f = QuasiQuoter
   , quoteType = error "Cannot use this QuasiQuoter for types"
   , quoteDec = error "Cannot use this QuasiQuoter for declarations"
   }
+
+{- Tasty test trees -}
+
+testGolden :: String -> FilePath -> String -> TestTree
+testGolden name fp s = goldenVsString name ("test/goldens/" ++ fp) $ return $ fromString s
+
+-- | A golden test for testing parse errors.
+testParseError :: String -> FilePath -> String -> TestTree
+testParseError = testGolden

@@ -4,7 +4,7 @@ cabal-version: >= 1.10
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: fd5f702f863b44ade602f91e5357c4eb8012976e65e943b49834155ac289488a
+-- hash: 0f78c113f9a0f6c530eb87322ad0934b8de31326d8718ec12464a329d611cdd8
 
 name:           aeson-schemas
 version:        1.2.0
@@ -36,7 +36,11 @@ extra-source-files:
     test/goldens/fromjson_phantom_invalid.golden
     test/goldens/fromjson_scalar_invalid.golden
     test/goldens/fromjson_union_invalid.golden
+    test/goldens/getqq_empty_expression.golden
+    test/goldens/getqq_no_operators.golden
     test/goldens/README_Quickstart.golden
+    test/goldens/schemaqq_key_with_invalid_character.golden
+    test/goldens/schemaqq_key_with_trailing_escape.golden
     test/goldens/sumtype_decode_invalid.golden
 
 source-repository head

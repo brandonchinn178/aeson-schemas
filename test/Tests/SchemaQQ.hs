@@ -4,13 +4,13 @@
 
 module Tests.SchemaQQ where
 
-import Data.List (isInfixOf)
 import qualified Data.Text as Text
 import Test.Tasty
 import Test.Tasty.HUnit
 import Text.RawString.QQ (r)
 
 import Tests.SchemaQQ.TH
+import TestUtils (testParseError)
 
 test :: TestTree
 test = testGroup "`schema` quasiquoter"
@@ -191,20 +191,16 @@ testKeys = testGroup "Keys in schemas"
   [ testCase "Quoted key same as plain key" $
       [schemaRep| { a: Int } |] @?= [schemaRep| { "a": Int } |]
 
-  , testCase "Key with invalid character" $
-      assertContains
-        [schemaErr| { "a:b": Int } |]
-        "unexpected ':'"
+  , testParseError "Key with invalid character" "schemaqq_key_with_invalid_character.golden"
+      [schemaErr| { "a:b": Int } |]
 
   , testCase "Key with escaped invalid character" $
       assertMatches
         [schemaRep| { "a\:b": Int } |]
         [r| SchemaObject { "a:b": Int } |]
 
-  , testCase "Key with trailing escape" $
-      assertContains
-        [schemaErr| { "a\": Int } |]
-        "unexpected ':'"
+  , testParseError "Key with trailing escape" "schemaqq_key_with_trailing_escape.golden"
+      [schemaErr| { "a\": Int } |]
 
   , testCase "Quoted key that starts with '//'" $
       assertMatches
@@ -223,8 +219,3 @@ assertMatches :: String -> String -> Assertion
 assertMatches a b = strip a @?= strip b
   where
     strip = Text.unpack . Text.strip . Text.pack
-
-assertContains :: String -> String -> Assertion
-assertContains whole sub = assertBool
-  ("Expected \"" ++ sub ++ "\" to be in \"" ++ whole ++ "\"")
-  (sub `isInfixOf` whole)

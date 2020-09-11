@@ -14,14 +14,12 @@ import Data.Aeson (FromJSON(..), Value)
 import Data.Aeson.QQ (aesonQQ)
 import Data.Aeson.Types (parseEither)
 import Data.Proxy (Proxy)
-import Data.String (fromString)
 import Test.Tasty
-import Test.Tasty.Golden
 import Test.Tasty.QuickCheck
 
 import Data.Aeson.Schema (Object)
 import Tests.Object.FromJSON.TH
-import TestUtils (parseProxy)
+import TestUtils (parseProxy, testGolden)
 import TestUtils.Arbitrary (ArbitraryObject(..), forAllArbitraryObjects)
 
 test :: TestTree
@@ -147,11 +145,11 @@ runTestCase = \case
         Right _ -> ()
         Left e -> error $ "Unexpected failure: " ++ e
 
-  CheckError name golden schema value ->
-    goldenVsString name ("test/goldens/" ++ golden) $
+  CheckError name fp schema value ->
+    testGolden name fp $
       case parse schema value of
         Right o -> error $ "Unexpectedly parsed: " ++ show o
-        Left e -> return $ fromString e
+        Left e -> e
 
 parse :: FromJSON a => Proxy a -> Value -> Either String a
 parse _ = parseEither parseJSON
