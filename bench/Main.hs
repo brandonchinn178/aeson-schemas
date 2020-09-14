@@ -1,18 +1,26 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -freduction-depth=0 #-}
 
 import Criterion.Main
+import Data.Aeson ((.=))
+import qualified Data.Aeson as Aeson
+import Data.Maybe (fromJust)
+import qualified Data.Text as Text
 import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
 import Language.Haskell.TH.TestUtils
     (QMode(..), QState(..), loadNames, runTestQ)
 
 import qualified Data.Aeson.Schema
+import Data.Aeson.Schema.Internal (Object(..))
 import DeepSeq ()
 import Schemas
 
 main :: IO ()
 main = defaultMain
   [ schemaQQBenchmarks
+  , showBenchmarks
   ]
 
 schemaQQBenchmarks :: Benchmark
@@ -62,6 +70,41 @@ schemaQQBenchmarks = bgroup "schema quasiquoter"
             , reifyInfo = $(loadNames $ map snd $ sizedSchemasNames ++ singleSchemasNames)
             }
       in runTestQ qstate . quoteType Data.Aeson.Schema.schema
+
+showBenchmarks :: Benchmark
+showBenchmarks = bgroup "Show instance"
+  [ byKeys
+  , byNestedKeys
+  ]
+  where
+    byKeys = bgroup "# of keys"
+      [ bench "1" $ nf show $ coerceJSON @(Object Schema1) v100Ints
+      , bench "5" $ nf show $ coerceJSON @(Object Schema5) v100Ints
+      , bench "10" $ nf show $ coerceJSON @(Object Schema10) v100Ints
+      , bench "100" $ nf show $ coerceJSON @(Object Schema100) v100Ints
+      ]
+
+    byNestedKeys = bgroup "# of nested keys"
+      [ bench "1" $ nf show $ coerceJSON @(Object SchemaNest1) (vNested 1)
+      , bench "5" $ nf show $ coerceJSON @(Object SchemaNest5) (vNested 5)
+      , bench "10" $ nf show $ coerceJSON @(Object SchemaNest10) (vNested 10)
+      , bench "100" $ nf show $ coerceJSON @(Object SchemaNest100) (vNested 100)
+      ]
+
+    coerceJSON :: Aeson.FromJSON a => Aeson.Value -> a
+    coerceJSON = fromJust . Aeson.decode . Aeson.encode
+
+    v100Ints = Aeson.object
+      [ Text.pack (mkField i) .= vInt
+      | i <- [1..100]
+      ]
+
+    vNested n = foldr
+      (\i inner -> Aeson.object [Text.pack (mkField i) .= inner])
+      (Aeson.toJSON vInt)
+      [1..n]
+
+    vInt = 0 :: Int
 
 {- Utilities -}
 

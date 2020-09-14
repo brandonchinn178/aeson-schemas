@@ -3,8 +3,10 @@
 module Schemas.TH
   ( SchemaDef(..)
   , genSchema
+  , genSchema'
   , genSchemaDef
   , keysTo
+  , mkField
   ) where
 
 import Data.List (intercalate)
@@ -19,7 +21,10 @@ data SchemaDef
   | Ref String            -- ^ { #OtherSchema }
 
 genSchema :: Name -> [SchemaDef] -> DecQ
-genSchema name = tySynD name [] . quoteType schema . genSchemaDef
+genSchema name = genSchema' name . genSchemaDef
+
+genSchema' :: Name -> String -> DecQ
+genSchema' name = tySynD name [] . quoteType schema
 
 genSchemaDef :: [SchemaDef] -> String
 genSchemaDef schemaDef = "{" ++ intercalate "," (map fromSchemaDef schemaDef) ++ "}"
@@ -30,6 +35,7 @@ genSchemaDef schemaDef = "{" ++ intercalate "," (map fromSchemaDef schemaDef) ++
       Ref name -> "#" ++ name
 
 keysTo :: Int -> [SchemaDef]
-keysTo n = map mkField [1..n]
-  where
-    mkField i = Field ("a" ++ show i) "Int"
+keysTo n = map (\i -> Field (mkField i) "Int") [1..n]
+
+mkField :: Int -> String
+mkField i = "a" ++ show i
