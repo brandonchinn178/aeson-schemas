@@ -1,8 +1,12 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -freduction-depth=0 #-}
 
+import Control.DeepSeq (NFData(..))
 import Criterion.Main
 import Data.Aeson ((.=))
 import qualified Data.Aeson as Aeson
@@ -21,6 +25,7 @@ main :: IO ()
 main = defaultMain
   [ schemaQQBenchmarks
   , showBenchmarks
+  , fromJSONBenchmarks
   ]
 
 schemaQQBenchmarks :: Benchmark
@@ -105,6 +110,43 @@ showBenchmarks = bgroup "Show instance"
       [1..n]
 
     vInt = 0 :: Int
+
+fromJSONBenchmarks :: Benchmark
+fromJSONBenchmarks = bgroup "FromJSON instance"
+  [ byKeys
+  , byNestedKeys
+  ]
+  where
+    byKeys = bgroup "# of keys"
+      [ bench "1" $ nf (Aeson.fromJSON @(Object Schema1)) v100Ints
+      , bench "5" $ nf (Aeson.fromJSON @(Object Schema5)) v100Ints
+      , bench "10" $ nf (Aeson.fromJSON @(Object Schema10)) v100Ints
+      , bench "100" $ nf (Aeson.fromJSON @(Object Schema100)) v100Ints
+      ]
+
+    byNestedKeys = bgroup "# of nested keys"
+      [ bench "1" $ nf (Aeson.fromJSON @(Object SchemaNest1)) (vNested 1)
+      , bench "5" $ nf (Aeson.fromJSON @(Object SchemaNest5)) (vNested 5)
+      , bench "10" $ nf (Aeson.fromJSON @(Object SchemaNest10)) (vNested 10)
+      , bench "100" $ nf (Aeson.fromJSON @(Object SchemaNest100)) (vNested 100)
+      ]
+
+    v100Ints = Aeson.object
+      [ Text.pack (mkField i) .= vInt
+      | i <- [1..100]
+      ]
+
+    vNested n = foldr
+      (\i inner -> Aeson.object [Text.pack (mkField i) .= inner])
+      (Aeson.toJSON vInt)
+      [1..n]
+
+    vInt = 0 :: Int
+
+{- Orphans -}
+
+instance Show (Object schema) => NFData (Object schema) where
+  rnf = rnf . show
 
 {- Utilities -}
 
