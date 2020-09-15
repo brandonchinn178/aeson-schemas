@@ -8,7 +8,7 @@
 
 import Control.DeepSeq (NFData(..))
 import Criterion.Main
-import Data.Aeson ((.=))
+import Data.Aeson (FromJSON, Value, (.=))
 import qualified Data.Aeson as Aeson
 import Data.Maybe (fromJust)
 import qualified Data.Text as Text
@@ -96,20 +96,8 @@ showBenchmarks = bgroup "Show instance"
       , bench "100" $ nf show $ coerceJSON @(Object SchemaNest100) (vNested 100)
       ]
 
-    coerceJSON :: Aeson.FromJSON a => Aeson.Value -> a
+    coerceJSON :: FromJSON a => Value -> a
     coerceJSON = fromJust . Aeson.decode . Aeson.encode
-
-    v100Ints = Aeson.object
-      [ Text.pack (mkField i) .= vInt
-      | i <- [1..100]
-      ]
-
-    vNested n = foldr
-      (\i inner -> Aeson.object [Text.pack (mkField i) .= inner])
-      (Aeson.toJSON vInt)
-      [1..n]
-
-    vInt = 0 :: Int
 
 fromJSONBenchmarks :: Benchmark
 fromJSONBenchmarks = bgroup "FromJSON instance"
@@ -131,18 +119,6 @@ fromJSONBenchmarks = bgroup "FromJSON instance"
       , bench "100" $ nf (Aeson.fromJSON @(Object SchemaNest100)) (vNested 100)
       ]
 
-    v100Ints = Aeson.object
-      [ Text.pack (mkField i) .= vInt
-      | i <- [1..100]
-      ]
-
-    vNested n = foldr
-      (\i inner -> Aeson.object [Text.pack (mkField i) .= inner])
-      (Aeson.toJSON vInt)
-      [1..n]
-
-    vInt = 0 :: Int
-
 {- Orphans -}
 
 instance Show (Object schema) => NFData (Object schema) where
@@ -155,3 +131,24 @@ instance Show (Object schema) => NFData (Object schema) where
 -- The first parameter must be >= 0.
 iterateN :: Int -> (a -> a) -> a -> a
 iterateN n f x = iterate f x !! n
+
+-- | An Aeson Value with 100 fields set to vInt.
+--
+-- Matches any of the SchemaN schemas.
+v100Ints :: Value
+v100Ints = Aeson.object
+  [ Text.pack (mkField i) .= vInt
+  | i <- [1..100]
+  ]
+
+-- | An Aeson Value with N levels of nesting.
+--
+-- Matches a SchemaNestN schema for the same N.
+vNested :: Int -> Value
+vNested n = foldr
+  (\i inner -> Aeson.object [Text.pack (mkField i) .= inner])
+  vInt
+  [1..n]
+
+vInt :: Value
+vInt = Aeson.Number 0
