@@ -26,6 +26,7 @@ main = defaultMain
   [ schemaQQBenchmarks
   , showBenchmarks
   , fromJSONBenchmarks
+  , toJSONBenchmarks
   ]
 
 schemaQQBenchmarks :: Benchmark
@@ -96,9 +97,6 @@ showBenchmarks = bgroup "Show instance"
       , bench "100" $ nf show $ coerceJSON @(Object SchemaNest100) (vNested 100)
       ]
 
-    coerceJSON :: FromJSON a => Value -> a
-    coerceJSON = fromJust . Aeson.decode . Aeson.encode
-
 fromJSONBenchmarks :: Benchmark
 fromJSONBenchmarks = bgroup "FromJSON instance"
   [ byKeys
@@ -119,6 +117,26 @@ fromJSONBenchmarks = bgroup "FromJSON instance"
       , bench "100" $ nf (Aeson.fromJSON @(Object SchemaNest100)) (vNested 100)
       ]
 
+toJSONBenchmarks :: Benchmark
+toJSONBenchmarks = bgroup "ToJSON instance"
+  [ byKeys
+  , byNestedKeys
+  ]
+  where
+    byKeys = bgroup "# of keys"
+      [ bench "1" $ nf Aeson.toJSON $ coerceJSON @(Object Schema1) v100Ints
+      , bench "5" $ nf Aeson.toJSON $ coerceJSON @(Object Schema5) v100Ints
+      , bench "10" $ nf Aeson.toJSON $ coerceJSON @(Object Schema10) v100Ints
+      , bench "100" $ nf Aeson.toJSON $ coerceJSON @(Object Schema100) v100Ints
+      ]
+
+    byNestedKeys = bgroup "# of nested keys"
+      [ bench "1" $ nf Aeson.toJSON $ coerceJSON @(Object SchemaNest1) (vNested 1)
+      , bench "5" $ nf Aeson.toJSON $ coerceJSON @(Object SchemaNest5) (vNested 5)
+      , bench "10" $ nf Aeson.toJSON $ coerceJSON @(Object SchemaNest10) (vNested 10)
+      , bench "100" $ nf Aeson.toJSON $ coerceJSON @(Object SchemaNest100) (vNested 100)
+      ]
+
 {- Orphans -}
 
 instance Show (Object schema) => NFData (Object schema) where
@@ -131,6 +149,9 @@ instance Show (Object schema) => NFData (Object schema) where
 -- The first parameter must be >= 0.
 iterateN :: Int -> (a -> a) -> a -> a
 iterateN n f x = iterate f x !! n
+
+coerceJSON :: FromJSON a => Value -> a
+coerceJSON = fromJust . Aeson.decode . Aeson.encode
 
 -- | An Aeson Value with 100 fields set to vInt.
 --
