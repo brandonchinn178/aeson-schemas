@@ -154,7 +154,7 @@ jobs:
       # benchmarks
       - run:
           name: Run benchmarks
-          command: stack bench --ba '--output=.ci/benchmark-results.html'
+          command: stack bench --jobs 1 --ba '--output=.ci/benchmark-results.html'
 
       # build haddock
       - when:
