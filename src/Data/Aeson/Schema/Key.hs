@@ -26,6 +26,7 @@ module Data.Aeson.Schema.Key
   , toContext
   , SchemaKey
   , IsSchemaKey(..)
+  , fromSchemaKey
   , showSchemaKey
   ) where
 
@@ -96,6 +97,9 @@ instance KnownSymbol key => IsSchemaKey ('NormalKey key) where
 instance KnownSymbol key => IsSchemaKey ('PhantomKey key) where
   type FromSchemaKey ('PhantomKey key) = key
   toSchemaKeyV _ = PhantomKey $ symbolVal $ Proxy @key
+
+fromSchemaKey :: forall key. IsSchemaKey key => String
+fromSchemaKey = fromSchemaKeyV $ toSchemaKeyV $ Proxy @key
 
 showSchemaKey :: forall key. IsSchemaKey key => String
 showSchemaKey = showSchemaKeyV $ toSchemaKeyV $ Proxy @key

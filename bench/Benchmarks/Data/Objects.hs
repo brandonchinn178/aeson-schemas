@@ -1,32 +1,55 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeInType #-}
+
 module Benchmarks.Data.Objects where
 
-import Data.Aeson (FromJSON, Value, (.=))
-import qualified Data.Aeson as Aeson
-import Data.Maybe (fromJust)
+import Data.Aeson (ToJSON(..), Value)
+import Data.Dynamic (Dynamic, Typeable, toDyn)
+import qualified Data.HashMap.Strict as HashMap
+import Data.Proxy (Proxy(..))
+import Data.Text (Text)
 import qualified Data.Text as Text
 
-import Benchmarks.Data.Schemas (mkField)
+import Data.Aeson.Schema.Internal (Object(..), SchemaResult)
+import Data.Aeson.Schema.Key (IsSchemaKey, SchemaKey, fromSchemaKey)
+import Data.Aeson.Schema.Type
+    (IsSchemaObjectMap, SchemaType, SchemaType'(..), ToSchemaObject)
+import Data.Aeson.Schema.Utils.All (All(..))
 
-coerceJSON :: FromJSON a => Value -> a
-coerceJSON = fromJust . Aeson.decode . Aeson.encode
+type MockSchema schema =
+  ( MockSchemaResult (ToSchemaObject schema)
+  , Object schema ~ SchemaResult (ToSchemaObject schema)
+  , ToJSON (Object schema)
+  )
 
--- | An Aeson Value with 100 fields set to vInt.
---
--- Matches any of the SchemaN schemas.
-v100Ints :: Value
-v100Ints = Aeson.object
-  [ Text.pack (mkField i) .= vInt
-  | i <- [1..100]
-  ]
+schemaObject :: forall schema. MockSchema schema => Object schema
+schemaObject = schemaResult (Proxy @(ToSchemaObject schema))
 
--- | An Aeson Value with N levels of nesting.
---
--- Matches a SchemaNestN schema for the same N.
-vNested :: Int -> Value
-vNested n = foldr
-  (\i inner -> Aeson.object [Text.pack (mkField i) .= inner])
-  vInt
-  [1..n]
+schemaValue :: forall schema. MockSchema schema => Value
+schemaValue = toJSON $ schemaObject @schema
 
-vInt :: Value
-vInt = Aeson.Number 0
+class Typeable (SchemaResult schema) => MockSchemaResult (schema :: SchemaType) where
+  schemaResult :: Proxy schema -> SchemaResult schema
+
+instance MockSchemaResult ('SchemaScalar Int) where
+  schemaResult _ = 42
+
+instance
+  ( All MockSchemaResultPair pairs
+  , IsSchemaObjectMap pairs
+  , Typeable pairs
+  ) => MockSchemaResult ('SchemaObject pairs) where
+  schemaResult _ = UnsafeObject $ HashMap.fromList $ mapAll @MockSchemaResultPair @pairs schemaResultPair
+
+class MockSchemaResultPair (pair :: (SchemaKey, SchemaType)) where
+  schemaResultPair :: Proxy pair -> (Text, Dynamic)
+
+instance (IsSchemaKey key, MockSchemaResult inner) => MockSchemaResultPair '(key, inner) where
+  schemaResultPair _ = (Text.pack $ fromSchemaKey @key, toDyn $ schemaResult $ Proxy @inner)

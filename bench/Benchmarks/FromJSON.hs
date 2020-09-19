@@ -22,17 +22,17 @@ benchmarks = bgroup "FromJSON instance"
   ]
   where
     byKeys = bgroup "# of keys"
-      [ bench "1" $ nf (Aeson.fromJSON @(Object Schema1)) v100Ints
-      , bench "5" $ nf (Aeson.fromJSON @(Object Schema5)) v100Ints
-      , bench "10" $ nf (Aeson.fromJSON @(Object Schema10)) v100Ints
-      , bench "100" $ nf (Aeson.fromJSON @(Object Schema100)) v100Ints
+      [ bench "1" $ nf (Aeson.fromJSON @(Object Schema1)) (schemaValue @Schema1)
+      , bench "5" $ nf (Aeson.fromJSON @(Object Schema5)) (schemaValue @Schema5)
+      , bench "10" $ nf (Aeson.fromJSON @(Object Schema10)) (schemaValue @Schema10)
+      , bench "100" $ nf (Aeson.fromJSON @(Object Schema100)) (schemaValue @Schema100)
       ]
 
     byNestedKeys = bgroup "# of nested keys"
-      [ bench "1" $ nf (Aeson.fromJSON @(Object SchemaNest1)) (vNested 1)
-      , bench "5" $ nf (Aeson.fromJSON @(Object SchemaNest5)) (vNested 5)
-      , bench "10" $ nf (Aeson.fromJSON @(Object SchemaNest10)) (vNested 10)
-      , bench "100" $ nf (Aeson.fromJSON @(Object SchemaNest100)) (vNested 100)
+      [ bench "1" $ nf (Aeson.fromJSON @(Object SchemaNest1)) (schemaValue @SchemaNest1)
+      , bench "5" $ nf (Aeson.fromJSON @(Object SchemaNest5)) (schemaValue @SchemaNest5)
+      , bench "10" $ nf (Aeson.fromJSON @(Object SchemaNest10)) (schemaValue @SchemaNest10)
+      , bench "100" $ nf (Aeson.fromJSON @(Object SchemaNest100)) (schemaValue @SchemaNest100)
       ]
 
 {- Orphans -}
