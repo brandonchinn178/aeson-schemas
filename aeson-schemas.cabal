@@ -4,7 +4,7 @@ cabal-version: >= 1.10
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 842928cde07b5e3840763172b2c2e5aa6ff65a41cde7029314196acbc016ecbf
+-- hash: 8d12959bdbac717ab5f20a45538b5a1933eb7f894b9068158c555ee61de90e29
 
 name:           aeson-schemas
 version:        1.2.0
@@ -146,9 +146,14 @@ benchmark aeson-schemas-bench
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
-      DeepSeq
-      Schemas
-      Schemas.TH
+      Benchmarks.Data.Objects
+      Benchmarks.Data.Schemas
+      Benchmarks.Data.Schemas.TH
+      Benchmarks.FromJSON
+      Benchmarks.SchemaQQ
+      Benchmarks.Show
+      Benchmarks.ToJSON
+      Utils.DeepSeq
       Paths_aeson_schemas
   hs-source-dirs:
       bench

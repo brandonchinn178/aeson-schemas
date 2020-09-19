@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Schemas.TH
+module Benchmarks.Data.Schemas.TH
   ( SchemaDef(..)
   , genSchema
   , genSchema'

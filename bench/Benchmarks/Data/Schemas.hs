@@ -1,9 +1,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Schemas
-  ( module Schemas
-  , module Schemas.TH
+module Benchmarks.Data.Schemas
+  ( module Benchmarks.Data.Schemas
+  , module Benchmarks.Data.Schemas.TH
   ) where
 
 import Control.Monad (forM)
@@ -12,7 +12,7 @@ import Language.Haskell.TH
 import Language.Haskell.TH.Syntax (lift)
 import Language.Haskell.TH.TestUtils ()
 
-import Schemas.TH
+import Benchmarks.Data.Schemas.TH
 
 -- Generates:
 --
