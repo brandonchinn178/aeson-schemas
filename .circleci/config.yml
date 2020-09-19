@@ -95,8 +95,6 @@ jobs:
             STACK_ARGS=(
                 --test
                 --no-run-tests
-                --bench
-                --no-run-benchmarks
                 --ghc-options '-Werror -ddump-splices -ddump-to-file'
                 --ddump-dir .ci/
             )
