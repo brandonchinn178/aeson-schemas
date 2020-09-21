@@ -36,7 +36,7 @@ import Data.Aeson.Types (Parser)
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
 import Data.HashMap.Strict (HashMap, (!))
 import qualified Data.HashMap.Strict as HashMap
-import Data.List (intercalate)
+import Data.List (intersperse)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text)
@@ -82,7 +82,7 @@ import Data.Aeson.Schema.Utils.Sum (SumType(..))
 newtype Object (schema :: Schema) = UnsafeObject (HashMap Text Dynamic)
 
 instance HasSchemaResult ('SchemaObject schema) => Show (Object ('Schema schema)) where
-  show = showValue @('SchemaObject schema)
+  showsPrec _ = showValue @('SchemaObject schema)
 
 instance HasSchemaResult ('SchemaObject schema) => Eq (Object ('Schema schema)) where
   a == b = toJSON a == toJSON b
@@ -144,9 +144,11 @@ class IsSchemaType schema => HasSchemaResult (schema :: SchemaType) where
   default toValue :: ToJSON (SchemaResult schema) => SchemaResult schema -> Value
   toValue = toJSON
 
-  showValue :: SchemaResult schema -> String
-  default showValue :: Show (SchemaResult schema) => SchemaResult schema -> String
-  showValue = show
+  -- Note: Using ShowS here instead of just returning String to avoid quadratic performance when
+  -- using (++)
+  showValue :: SchemaResult schema -> ShowS
+  default showValue :: Show (SchemaResult schema) => SchemaResult schema -> ShowS
+  showValue = shows
 
 instance (Show inner, Typeable inner, FromJSON inner, ToJSON inner) => HasSchemaResult ('SchemaScalar inner)
 
@@ -197,10 +199,17 @@ instance (All HasSchemaResultPair pairs, IsSchemaObjectMap pairs) => HasSchemaRe
 
   toValue = Aeson.Object . toValueMap
 
-  showValue o = "{ " ++ intercalate ", " (map fromPair pairs) ++ " }"
+  showValue o = showString "{ " . intercalateShowS ", " (map fromPair pairs) . showString " }"
     where
-      fromPair (k, v) = k ++ ": " ++ v
+      fromPair (k, v) = showString k . showString ": " . v
       pairs = mapAll @HasSchemaResultPair @pairs $ \proxy -> showValuePair proxy o
+
+      -- intercalate for ShowS
+      intercalateShowS :: String -> [ShowS] -> ShowS
+      intercalateShowS s = concatShowS . intersperse (showString s)
+
+      concatShowS :: [ShowS] -> ShowS
+      concatShowS = foldr (.) id
 
 toValueMap :: forall pairs. All HasSchemaResultPair pairs => Object ('Schema pairs) -> Aeson.Object
 toValueMap o = HashMap.unions $ mapAll @HasSchemaResultPair @pairs (\proxy -> toValuePair proxy o)
@@ -208,7 +217,7 @@ toValueMap o = HashMap.unions $ mapAll @HasSchemaResultPair @pairs (\proxy -> to
 class HasSchemaResultPair (a :: (SchemaKey, SchemaType)) where
   parseValuePair :: Proxy a -> [Text] -> Aeson.Object -> Parser (Text, Dynamic)
   toValuePair :: Proxy a -> Object schema -> Aeson.Object
-  showValuePair :: Proxy a -> Object schema -> (String, String)
+  showValuePair :: Proxy a -> Object schema -> (String, ShowS)
 
 instance
   ( IsSchemaKey key

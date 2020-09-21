@@ -30,6 +30,69 @@ executors:
 orbs:
   codecov: codecov/codecov@1.0.2
 
+  helpers:
+    commands:
+      setup:
+        steps:
+          - checkout
+          - run:
+              name: Install stack
+              command: |
+                curl -sSL https://get.haskellstack.org/ | sh
+                stack --version
+          - run: mkdir -p .ci
+
+      build_stack_deps:
+        parameters:
+          build_haddock:
+            type: boolean
+            default: false
+          install_linters:
+            type: boolean
+            default: false
+          install_hpc_lcov:
+            type: boolean
+            default: false
+
+        steps:
+          - run:
+              name: Build cache key
+              command: |
+                FILES=(
+                  "${STACK_YAML}"
+                  package.yaml
+                )
+                echo "${STACK_YAML}" > cache-key.txt
+                cat "${FILES[@]}" >> cache-key.txt
+                stack --version >> cache-key.txt
+                cat cache-key.txt
+          - restore_cache:
+              key: *cache_key
+          - run:
+              name: Build external dependencies
+              command: |
+                STACK_ARGS=(--test --bench --only-dependencies)
+                if [[ -n "${BUILD_HADDOCK}" ]]; then
+                    STACK_ARGS+=(--haddock)
+                fi
+
+                # break up parallelism to avoid OOM
+                stack build haskell-src-exts
+
+                stack build "${STACK_ARGS[@]}"
+
+                if [[ -n "${INSTALL_LINTERS}" ]]; then
+                    STACK_YAML=stack-ghc-8.8.yaml stack build -j1 hlint stylish-haskell
+                fi
+
+                if [[ -n "${INSTALL_HPC_LCOV}" ]]; then
+                    stack install hpc-lcov --local-bin-path /usr/local/bin
+                fi
+              environment:
+                BUILD_HADDOCK: <<# parameters.build_haddock >>1<</ parameters.build_haddock >>
+                INSTALL_LINTERS: <<# parameters.install_linters >>1<</ parameters.install_linters >>
+                INSTALL_HPC_LCOV: <<# parameters.install_hpc_lcov >>1<</ parameters.install_hpc_lcov >>
+
 jobs:
   run_build_and_test:
     parameters:
@@ -42,46 +105,13 @@ jobs:
 
     steps:
       # init
-      - checkout
-      - run:
-          name: Install stack
-          command: |
-            curl -sSL https://get.haskellstack.org/ | sh
-            stack --version
-      - run: mkdir -p .ci
+      - helpers/setup
 
       # install stack dependencies
-      - run:
-          name: Build cache key
-          command: |
-            FILES=(
-              "${STACK_YAML}"
-              package.yaml
-            )
-            echo "${STACK_YAML}" > cache-key.txt
-            cat "${FILES[@]}" >> cache-key.txt
-            stack --version >> cache-key.txt
-            cat cache-key.txt
-      - restore_cache:
-          key: *cache_key
-      - run:
-          name: Build external dependencies
-          command: |
-            STACK_ARGS=(--test --bench --only-dependencies)
-            if [[ -n "${CI_LATEST}" ]]; then
-                STACK_ARGS+=(--haddock)
-            fi
-
-            # break up parallelism to avoid OOM
-            stack build haskell-src-exts
-
-            stack build "${STACK_ARGS[@]}"
-
-            # build hlint/stylish-haskell for cache
-            if [[ -n "${CI_LATEST}" ]]; then
-                STACK_YAML=stack-ghc-8.8.yaml stack build -j1 hlint stylish-haskell
-                stack install hpc-lcov --local-bin-path /usr/local/bin
-            fi
+      - helpers/build_stack_deps:
+          build_haddock: << parameters.latest >>
+          install_linters: << parameters.latest >>
+          install_hpc_lcov: << parameters.latest >>
       - save_cache:
           key: *cache_key
           paths:
@@ -95,8 +125,6 @@ jobs:
             STACK_ARGS=(
                 --test
                 --no-run-tests
-                --bench
-                --no-run-benchmarks
                 --ghc-options '-Werror -ddump-splices -ddump-to-file'
                 --ddump-dir .ci/
             )
@@ -153,11 +181,6 @@ jobs:
                   stack runghc "${TESTDIR}/README_Quickstart.hs" | tee "${TESTDIR}/README_Quickstart.out"
                   diff -u  "${TESTDIR}/README_Quickstart.out" test/goldens/README_Quickstart.golden
 
-      # benchmarks
-      - run:
-          name: Run benchmarks
-          command: stack bench --ba '--output=.ci/benchmark-results.html'
-
       # build haddock
       - when:
           condition: << parameters.latest >>
@@ -169,6 +192,21 @@ jobs:
                 name: Bundle haddock docs
                 command: tar czf .ci/haddock-docs.tar.gz -C "$(find .stack-work/dist -regex '.*/doc/html/[^/]*')" .
 
+      - store_artifacts:
+          path: .ci/
+
+  run_benchmarks:
+    executor: centos7
+
+    steps:
+      - helpers/setup
+      - helpers/build_stack_deps
+      - run:
+          name: Run benchmarks
+          # Note: We need to use --fast here because CI runs out of memory when optimizing the code.
+          # This means that the timings are slower than a normal `stack bench` locally, but at least
+          # we have some indication of performance regression in CI this way.
+          command: stack bench --fast --ba '--output=.ci/benchmark-results.html'
       - store_artifacts:
           path: .ci/
 
@@ -195,3 +233,5 @@ workflows:
       - run_build_and_test:
           name: test_ghc_8.2
           stack_yaml: stack-ghc-8.2.yaml
+
+      - run_benchmarks

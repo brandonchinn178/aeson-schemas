@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module DeepSeq () where
+module Utils.DeepSeq () where
 
 import Control.DeepSeq (NFData(..))
 #if MIN_VERSION_template_haskell(2,16,0)
