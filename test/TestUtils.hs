@@ -17,6 +17,7 @@ module TestUtils
   , parseProxy
   , mkExpQQ
   , testGolden
+  , testGoldenIO
   , testParseError
   ) where
 
@@ -29,6 +30,8 @@ import Data.Proxy (Proxy(..))
 import Data.String (fromString)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
+import qualified Data.Text.Lazy as TextL
+import qualified Data.Text.Lazy.Encoding as TextL
 import Data.Typeable (Typeable, typeRep)
 import Language.Haskell.TH (ExpQ)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
@@ -82,7 +85,12 @@ mkExpQQ f = QuasiQuoter
 {- Tasty test trees -}
 
 testGolden :: String -> FilePath -> String -> TestTree
-testGolden name fp s = goldenVsString name ("test/goldens/" ++ fp) $ return $ fromString s
+testGolden name fp = testGoldenIO name fp . return
+
+testGoldenIO :: String -> FilePath -> IO String -> TestTree
+testGoldenIO name fp = goldenVsString name ("test/goldens/" ++ fp) . fmap toByteString
+  where
+    toByteString = TextL.encodeUtf8 . TextL.fromStrict . Text.pack
 
 -- | A golden test for testing parse errors.
 testParseError :: String -> FilePath -> String -> TestTree
