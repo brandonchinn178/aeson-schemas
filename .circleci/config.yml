@@ -66,6 +66,9 @@ orbs:
                 cat "${FILES[@]}" >> cache-key.txt
                 stack --version >> cache-key.txt
                 cat cache-key.txt
+          - run:
+              name: Install system dependencies
+              command: yum install -y ncurses-devel
           - restore_cache:
               key: *cache_key
           - run:
