@@ -81,17 +81,17 @@ import Data.Aeson.Schema.Utils.Sum (SumType(..))
 -- > obj = decode "{\"a\": 1}" :: Maybe (Object [schema| { a: Int } |])
 newtype Object (schema :: Schema) = UnsafeObject (HashMap Text Dynamic)
 
-instance HasSchemaResult ('SchemaObject schema) => Show (Object ('Schema schema)) where
-  showsPrec _ = showValue @('SchemaObject schema)
+instance IsSchema schema => Show (Object schema) where
+  showsPrec _ = showValue @(ToSchemaObject schema)
 
-instance HasSchemaResult ('SchemaObject schema) => Eq (Object ('Schema schema)) where
+instance IsSchema schema => Eq (Object schema) where
   a == b = toJSON a == toJSON b
 
-instance HasSchemaResult ('SchemaObject schema) => FromJSON (Object ('Schema schema)) where
-  parseJSON = parseValue @('SchemaObject schema) []
+instance IsSchema schema => FromJSON (Object schema) where
+  parseJSON = parseValue @(ToSchemaObject schema) []
 
-instance HasSchemaResult ('SchemaObject schema) => ToJSON (Object ('Schema schema)) where
-  toJSON = toValue @('SchemaObject schema)
+instance IsSchema schema => ToJSON (Object schema) where
+  toJSON = toValue @(ToSchemaObject schema)
 
 toMap :: IsSchema ('Schema schema) => Object ('Schema schema) -> Aeson.Object
 toMap = toValueMap
@@ -101,7 +101,7 @@ toMap = toValueMap
 type IsSchema (schema :: Schema) =
   ( HasSchemaResult (ToSchemaObject schema)
   , All HasSchemaResultPair (FromSchema schema)
-  , FromJSON (Object schema)
+  , SchemaResult (ToSchemaObject schema) ~ Object schema
   )
 
 -- | Show the given schema.
