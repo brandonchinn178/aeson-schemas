@@ -23,7 +23,7 @@ module TestUtils.Arbitrary
   ) where
 
 import Control.Monad (forM)
-import Data.Aeson (FromJSON, ToJSON(..), Value(..), encode)
+import Data.Aeson (ToJSON(..), Value(..), encode)
 import qualified Data.Aeson as Aeson
 import qualified Data.HashMap.Strict as HashMap
 import Data.List (nub)
@@ -39,8 +39,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(quoteType))
 import Language.Haskell.TH.Syntax (Lift)
 import Test.QuickCheck
 
-import Data.Aeson.Schema (Object, schema)
-import Data.Aeson.Schema.Internal (HasSchemaResult)
+import Data.Aeson.Schema (IsSchema, Object, schema)
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey'(..), SchemaKeyV, toContext)
 import Data.Aeson.Schema.Type
@@ -57,11 +56,7 @@ import Data.Aeson.Schema.Utils.All (All(..))
 
 data ArbitraryObject where
   ArbitraryObject
-    :: ( Eq (Object schema)
-       , Show (Object schema)
-       , FromJSON (Object schema)
-       , ToJSON (Object schema)
-       )
+    :: IsSchema schema
     => Proxy (Object schema)
     -> Value
     -> SchemaV
@@ -95,14 +90,16 @@ arbitraryObject = do
 --
 -- $(forAllArbitraryObjects) :: Testable prop => ArbitraryObject -> prop
 forAllArbitraryObjects :: ExpQ
-forAllArbitraryObjects = [| \runTest ->
-  forAll $arbitraryObject $ \o@(ArbitraryObject _ _ schemaType) ->
+forAllArbitraryObjects = [| forAllArbitraryObjects' $arbitraryObject |]
+
+forAllArbitraryObjects' :: Gen ArbitraryObject -> (ArbitraryObject -> Property) -> Property
+forAllArbitraryObjects' genArbitraryObject runTest =
+  forAll @_ @Property genArbitraryObject $ \o@(ArbitraryObject _ _ schemaType) ->
     tabulate' "Key types" (map getKeyType $ getKeys schemaType) $
     tabulate' "Schema types" (getSchemaTypes schemaType) $
     tabulate' "Object sizes" (map show $ getObjectSizes schemaType) $
     tabulate' "Object depth" [show $ getObjectDepth schemaType] $
     runTest o
-  |]
 
 {- Run time helpers -}
 
@@ -110,7 +107,7 @@ deriving instance Lift NameLike
 
 genSchema' :: forall schema.
   ( ArbitrarySchema ('SchemaObject schema)
-  , HasSchemaResult ('SchemaObject schema)
+  , IsSchema ('Schema schema)
   )
   => Proxy (Object ('Schema schema)) -> SchemaV -> Gen ArbitraryObject
 genSchema' proxy schemaV = do
