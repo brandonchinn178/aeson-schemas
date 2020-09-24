@@ -71,6 +71,7 @@ Follow these steps to release this project:
     1. Run `stack sdist` to check for any deployment errors
     1. Add comments to new features indicating when it was added (e.g.
        `-- @since v2.0.0`)
+    1. Run `stack haddock` and skim through documentation
 
 1. Create PR as usual and merge into `master`
 
