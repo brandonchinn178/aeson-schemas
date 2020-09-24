@@ -1,0 +1,12 @@
+test/wont-compile/GetMissingKey.hs:16:1: error:
+    • Key 'missing' does not exist in the following schema:
+      '[ '( 'Data.Aeson.Schema.Key.NormalKey "foo",
+            'Data.Aeson.Schema.Type.SchemaScalar Bool)]
+    • When checking the inferred type
+        result :: SchemaResult (TypeError ...)
+test/wont-compile/GetMissingKey.hs:16:1: error:
+    • Key 'missing' does not exist in the following schema:
+      '[ '( 'Data.Aeson.Schema.Key.NormalKey "foo",
+            'Data.Aeson.Schema.Type.SchemaScalar Bool)]
+    • When checking the inferred type
+        result :: SchemaResult (TypeError ...)

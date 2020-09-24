@@ -66,20 +66,23 @@ orbs:
                 cat "${FILES[@]}" >> cache-key.txt
                 stack --version >> cache-key.txt
                 cat cache-key.txt
+          - run:
+              name: Install system dependencies
+              command: yum install -y ncurses-devel
           - restore_cache:
               key: *cache_key
           - run:
               name: Build external dependencies
               command: |
-                STACK_ARGS=(--test --bench --only-dependencies)
+                STACK_ARGS=(--test --bench)
                 if [[ -n "${BUILD_HADDOCK}" ]]; then
                     STACK_ARGS+=(--haddock)
                 fi
 
                 # break up parallelism to avoid OOM
-                stack build haskell-src-exts
+                stack build "${STACK_ARGS[@]}" haskell-src-exts
 
-                stack build "${STACK_ARGS[@]}"
+                stack build "${STACK_ARGS[@]}" --only-dependencies
 
                 if [[ -n "${INSTALL_LINTERS}" ]]; then
                     STACK_YAML=stack-ghc-8.8.yaml stack build -j1 hlint stylish-haskell
@@ -161,7 +164,12 @@ jobs:
             if [[ -n "${CI_LATEST}" ]]; then
               STACK_ARGS+=(--coverage)
             fi
-            stack build "${STACK_ARGS[@]}"
+
+            stack build "${STACK_ARGS[@]}" --ta '-p "!/Compile-time errors/"'
+
+            if [[ -n "${CI_LATEST}" ]]; then
+              stack build "${STACK_ARGS[@]}" --ta '-p "Compile-time errors"'
+            fi
       - when:
           condition: << parameters.latest >>
           steps:

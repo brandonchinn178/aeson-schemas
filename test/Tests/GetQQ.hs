@@ -17,6 +17,7 @@ import Data.Aeson (FromJSON(..), ToJSON(..), withText)
 import Data.Aeson.QQ (aesonQQ)
 import Data.Text (Text)
 import qualified Data.Text as Text
+import qualified Language.Haskell.Interpreter as Hint
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
@@ -25,7 +26,7 @@ import Data.Aeson.Schema (Object, schema)
 import Data.Aeson.Schema.TH (mkEnum)
 import Data.Aeson.Schema.Utils.Sum (SumType(..))
 import Tests.GetQQ.TH
-import TestUtils (parseObject, testParseError)
+import TestUtils (parseObject, testGoldenIO, testParseError)
 
 mkEnum "Greeting" ["HELLO", "GOODBYE"]
 
@@ -47,6 +48,7 @@ test :: TestTree
 test = testGroup "`get` quasiquoter"
   [ testValidExpressions
   , testInvalidExpressions
+  , testCompileTimeErrors
   ]
 
 testValidExpressions :: TestTree
@@ -374,6 +376,19 @@ testInvalidExpressions = testGroup "Invalid expressions"
   , testParseError "Operators after list of keys" "getqq_ops_after_list.golden"
       [getErr| o.[a,b].foo |]
   ]
+
+testCompileTimeErrors :: TestTree
+testCompileTimeErrors = testGroup "Compile-time errors"
+  [ testGoldenIO "Key not in schema" "getqq_missing_key.golden" $
+      getCompileError "GetMissingKey"
+  ]
+  where
+    getCompileError name = do
+      let fp = "test/wont-compile/" ++ name ++ ".hs"
+      Hint.runInterpreter (Hint.loadModules [fp]) >>= \case
+        Left (Hint.WontCompile errors) -> return $ unlines $ map Hint.errMsg errors
+        Left e -> fail $ show e
+        Right _ -> fail "Compilation unexpectedly succeeded"
 
 {- Helpers -}
 

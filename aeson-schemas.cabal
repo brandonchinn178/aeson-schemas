@@ -4,7 +4,7 @@ cabal-version: >= 1.10
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8d12959bdbac717ab5f20a45538b5a1933eb7f894b9068158c555ee61de90e29
+-- hash: 0f354af34de1df68b2c0b5328fcb253404017a19cda81e16cc610f74955bbe8a
 
 name:           aeson-schemas
 version:        1.2.0
@@ -37,6 +37,7 @@ extra-source-files:
     test/goldens/fromjson_scalar_invalid.golden
     test/goldens/fromjson_union_invalid.golden
     test/goldens/getqq_empty_expression.golden
+    test/goldens/getqq_missing_key.golden
     test/goldens/getqq_no_operators.golden
     test/goldens/getqq_ops_after_list.golden
     test/goldens/getqq_ops_after_tuple.golden
@@ -124,6 +125,7 @@ test-suite aeson-schemas-test
     , deepseq
     , first-class-families >=0.3.0.0 && <0.9
     , hashable >=1.2.7.0 && <1.4
+    , hint
     , interpolate
     , megaparsec >=6.0.0 && <10
     , raw-strings-qq
