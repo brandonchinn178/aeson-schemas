@@ -17,7 +17,6 @@ module Data.Aeson.Schema
   , Schema
   , IsSchema
   , showSchema
-  , SchemaResult
     -- * Quasiquoters for extracting or manipulating JSON data or schemas
   , schema
   , get
