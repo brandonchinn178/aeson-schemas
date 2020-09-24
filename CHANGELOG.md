@@ -1,10 +1,38 @@
 ## Upcoming
 
+Breaking changes:
+
+* Refactored types to be correct by construction. Namely, the `schema` parameter in `Object schema` now has kind `Schema` instead of `SchemaType`, which prevents the possibility of a non-object schema stored in an `Object`. This means that any schemas previously annotated with the `SchemaType` kind should now be annotated as `Schema`.
+* Instead of using `IsSchemaObject` is obviated because of this change, so it's been removed. You may use the new `IsSchema` instead, if you need it.
+* `SchemaResult` has been removed from the export list of `Data.Aeson.Schema`. You probably won't need this in typical usage of this library, but if you need it, you can always get it from `Data.Aeson.Schema.Internal`.
+
+New features:
+
+* Add support for unwrapping into included schemas
+
 Bug fixes:
 
 * Avoid requiring `TypeApplications` when using `get` quasiquoter ([#16](https://github.com/LeapYear/aeson-schemas/issues/16))
 * Allow optional quotes around keys, both in getter-expressions and in schema definitions
 * Allow `//` at the beginning of phantom keys (were previously parsed as comments)
+
+Performance:
+
+* We've added benchmarks! To view performance metrics, you can clone the repo and run `stack bench`. You may also view the benchmark statistics in CI, but due to Circle CI's memory limitations, we're forced to run them with `--fast`, so it'll be a factor slower than it would actually be at runtime.
+* Fixed the `Show` instance from being `O(n^2)` to `O(n)`, where `n` is the depth of the object.
+* In order to fix some bugs and implement new features, the `schema` quasiquoter took a performance hit. The biggest slowdown occurs if you're including other schemas like:
+
+    ```
+    {
+        user: #UserSchema
+    }
+    ```
+
+    If this causes your build to be noticeably slower, please open an issue. Thanks!
+
+Miscellaneous changes:
+
+* The `Show` instance for objects added some whitespace, from `{"foo": 0}` to `{ "foo": 0 }`
 
 ## 1.2.0
 
