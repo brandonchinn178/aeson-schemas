@@ -5,16 +5,12 @@
 
 packages:
 - completed:
-    size: 14911
-    url: https://github.com/LeapYear/th-test-utils/archive/02b59f9b139f19acd354edd67f9e6cca20d65fa9.tar.gz
-    name: th-test-utils
-    version: 1.0.2
-    sha256: 3bb14deec55fbbc7c9847640738046a98da1ea10518cd929d8a92283b92ee979
+    hackage: th-test-utils-1.1.0@sha256:9031e177727b96703e30c2b8d0c376a96270137b9bc82a822e2c55d4f36d7a74,2258
     pantry-tree:
-      size: 3142
-      sha256: 1151579aa4aa2887b12e63e012cadb4916242e30cbdc1500897b34f37fd6ec1a
+      size: 616
+      sha256: bf617740d3f066b28b14dd6657efd7f8b249d8c9f1493c8a7688a051baab362c
   original:
-    url: https://github.com/LeapYear/th-test-utils/archive/02b59f9b139f19acd354edd67f9e6cca20d65fa9.tar.gz
+    hackage: th-test-utils-1.1.0
 snapshots:
 - completed:
     size: 524996
