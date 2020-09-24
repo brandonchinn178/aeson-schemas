@@ -70,7 +70,8 @@ instance Show NameLike where
   show (NameRef ty) = ty
   show (NameTH ty) = nameBase ty
 
--- | Value-level schema types.
+{- Value-level schema types -}
+
 type SchemaV = Schema' String NameLike
 type SchemaTypeV = SchemaType' String NameLike
 type SchemaObjectMapV = SchemaObjectMap' String NameLike
@@ -108,9 +109,18 @@ showSchemaTypeV' = \case
 
     mapJoin f delim = intercalate delim . map f
 
--- | Type-level schema types.
+{- Type-level schema types -}
+
+-- | The kind of schemas that may be used with Object; e.g.
+--
+-- > data Payload (schema :: Schema) = Payload
+-- >   { getPayload :: Object schema
+-- >   , timestamp  :: UTCTime
+-- >   }
 type Schema = Schema' Symbol Type
+
 type SchemaType = SchemaType' Symbol Type
+
 type SchemaObjectMap = SchemaObjectMap' Symbol Type
 
 type family ToSchemaObject (schema :: Schema) :: SchemaType where

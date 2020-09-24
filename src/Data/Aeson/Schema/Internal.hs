@@ -76,7 +76,7 @@ import Data.Aeson.Schema.Utils.Sum (SumType(..))
 
 -- | The object containing JSON data and its schema.
 --
--- Has a 'FromJSON' instance, so you can use the usual 'Data.Aeson' decoding functions.
+-- Has a 'FromJSON' instance, so you can use the usual @Data.Aeson@ decoding functions.
 --
 -- > obj = decode "{\"a\": 1}" :: Maybe (Object [schema| { a: Int } |])
 newtype Object (schema :: Schema) = UnsafeObject (HashMap Text Dynamic)
@@ -93,11 +93,17 @@ instance IsSchema schema => FromJSON (Object schema) where
 instance IsSchema schema => ToJSON (Object schema) where
   toJSON = toValue @(ToSchemaObject schema)
 
+-- | Convert an 'Object' into a 'HashMap', losing the type information in the schema.
 toMap :: IsSchema ('Schema schema) => Object ('Schema schema) -> Aeson.Object
 toMap = toValueMap
 
 {- Type-level schema definitions -}
 
+-- | The constraint for most operations involving @Object schema@. If you're writing functions
+-- on general Objects, you should use this constraint. e.g.
+--
+-- > logObject :: (MonadLogger m, IsSchema schema) => Object schema -> m ()
+-- > logObject = logInfoN . Text.pack . show
 type IsSchema (schema :: Schema) =
   ( HasSchemaResult (ToSchemaObject schema)
   , All HasSchemaResultPair (FromSchema schema)
@@ -107,10 +113,10 @@ type IsSchema (schema :: Schema) =
 -- | Show the given schema.
 --
 -- Usage:
--- @
--- >>> type MySchema = [schema| { a: Int } |]
--- >>> showSchema @MySchema
--- @
+--
+-- > type MySchema = [schema| { a: Int } |]
+-- > showSchema @MySchema
+--
 showSchema :: forall (schema :: Schema). IsSchema schema => String
 showSchema = showSchemaType @(ToSchemaObject schema)
 
