@@ -30,8 +30,7 @@ import Data.Aeson.Schema.TH.Parse
     (SchemaDef(..), SchemaDefObjItem(..), SchemaDefObjKey(..), parseSchemaDef)
 import Data.Aeson.Schema.TH.Utils (reifySchema, schemaVToTypeQ)
 import Data.Aeson.Schema.Type
-    ( NameLike(..)
-    , Schema'(..)
+    ( Schema'(..)
     , SchemaObjectMapV
     , SchemaType'(..)
     , SchemaTypeV
@@ -40,6 +39,7 @@ import Data.Aeson.Schema.Type
     , toSchemaObjectV
     )
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
+import Data.Aeson.Schema.Utils.NameLike (NameLike(..))
 
 -- | Defines a QuasiQuoter for writing schemas.
 --

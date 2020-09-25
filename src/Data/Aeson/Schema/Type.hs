@@ -21,7 +21,6 @@ module Data.Aeson.Schema.Type
   , SchemaV
   , SchemaTypeV
   , SchemaObjectMapV
-  , NameLike(..)
   , toSchemaObjectV
   , fromSchemaV
   , showSchemaV
@@ -39,11 +38,12 @@ import Data.List (intercalate)
 import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable, tyConName, typeRep, typeRepTyCon)
 import GHC.TypeLits (Symbol)
-import Language.Haskell.TH.Syntax (Lift, Name, nameBase)
+import Language.Haskell.TH.Syntax (Lift)
 
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey', SchemaKeyV, showSchemaKeyV)
 import Data.Aeson.Schema.Utils.All (All(..))
+import Data.Aeson.Schema.Utils.NameLike (NameLike(..))
 
 -- | The schema definition for a JSON object.
 data Schema' s ty = Schema (SchemaObjectMap' s ty)
@@ -60,15 +60,6 @@ data SchemaType' s ty
   deriving (Show, Eq, Lift)
 
 type SchemaObjectMap' s ty = [(SchemaKey' s, SchemaType' s ty)]
-
-data NameLike = NameRef String | NameTH Name
-
-instance Eq NameLike where
-  ty1 == ty2 = show ty1 == show ty2
-
-instance Show NameLike where
-  show (NameRef ty) = ty
-  show (NameTH ty) = nameBase ty
 
 {- Value-level schema types -}
 

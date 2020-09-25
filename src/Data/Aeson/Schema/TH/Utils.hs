@@ -21,20 +21,19 @@ module Data.Aeson.Schema.TH.Utils
 
 import Control.Monad (forM, (>=>))
 import Data.Bifunctor (bimap)
-import Data.Text (Text)
 import Language.Haskell.TH
 
 import Data.Aeson.Schema.Internal (Object)
 import Data.Aeson.Schema.Key (SchemaKey'(..), SchemaKeyV)
 import Data.Aeson.Schema.Type
-    ( NameLike(..)
-    , Schema'(..)
+    ( Schema'(..)
     , SchemaObjectMapV
     , SchemaType'(..)
     , SchemaTypeV
     , SchemaV
     , fromSchemaV
     )
+import Data.Aeson.Schema.Utils.NameLike (NameLike(..), resolveName)
 
 reifySchema :: String -> Q SchemaV
 reifySchema name = lookupTypeName name >>= maybe unknownSchemaErr reifySchemaName
@@ -139,18 +138,6 @@ schemaTypeVToTypeQ = \case
   SchemaList inner    -> [t| 'SchemaList $(schemaTypeVToTypeQ inner) |]
   SchemaUnion schemas -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas) |]
   SchemaObject pairs  -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs) |]
-
-resolveName :: NameLike -> Q Name
-resolveName = \case
-  -- some hardcoded cases
-  NameRef "Bool"   -> pure ''Bool
-  NameRef "Int"    -> pure ''Int
-  NameRef "Double" -> pure ''Double
-  NameRef "Text"   -> pure ''Text
-
-  -- general cases
-  NameRef name     -> lookupTypeName name >>= maybe (fail $ "Unknown type: " ++ name) pure
-  NameTH name      -> pure name
 
 {- TH utilities -}
 

@@ -43,8 +43,7 @@ import Data.Aeson.Schema (IsSchema, Object, schema)
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey'(..), SchemaKeyV, toContext)
 import Data.Aeson.Schema.Type
-    ( NameLike(..)
-    , Schema'(..)
+    ( Schema'(..)
     , SchemaObjectMapV
     , SchemaType
     , SchemaType'(..)
@@ -53,6 +52,7 @@ import Data.Aeson.Schema.Type
     , toSchemaObjectV
     )
 import Data.Aeson.Schema.Utils.All (All(..))
+import Data.Aeson.Schema.Utils.NameLike (NameLike(..))
 
 data ArbitraryObject where
   ArbitraryObject
