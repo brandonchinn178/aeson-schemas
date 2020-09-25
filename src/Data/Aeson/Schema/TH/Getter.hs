@@ -25,12 +25,15 @@ import Data.Aeson.Schema.TH.Utils (reifySchemaName, schemaVToTypeQ)
 -- | A helper that generates a 'Data.Aeson.Schema.TH.get' expression and a type alias for the result
 -- of the expression.
 --
--- > mkGetter "Node" "getNodes" ''MySchema ".nodes![]"
+-- > mkGetter "Node" "getNodes" ''MySchema ".nodes[]"
 -- >
--- > -- is equivalent to:
--- > type Node = [unwrap| MySchema.nodes[] |] -- Object [schema| { b: Maybe Bool } |]
+-- > {- is equivalent to -}
+-- >
+-- > -- | Node ~ { b: Maybe Bool }
+-- > type Node = [unwrap| MySchema.nodes[] |]
+-- >
 -- > getNodes :: Object MySchema -> [Node]
--- > getNodes = [get| .nodes![] |]
+-- > getNodes = [get| .nodes[] |]
 --
 -- 'mkGetter' takes four arguments:
 --
@@ -46,23 +49,29 @@ import Data.Aeson.Schema.TH.Utils (reifySchemaName, schemaVToTypeQ)
 -- There is one subtlety that occurs from the use of the same @ops@ string for both the
 -- 'Data.Aeson.Schema.TH.unwrap' and 'Data.Aeson.Schema.TH.get' quasiquoters:
 -- 'Data.Aeson.Schema.TH.unwrap' strips out intermediate functors, while 'Data.Aeson.Schema.TH.get'
--- applies within the functor. So in the above example, @".nodes![]"@ strips out the list when
--- saving the schema to @Node@, while in the below example, @".nodes!"@ doesn't strip out the list
+-- applies within the functor. So in the above example, @".nodes[]"@ strips out the list when
+-- saving the schema to @Node@, while in the below example, @".nodes"@ doesn't strip out the list
 -- when saving the schema to @Nodes@.
 --
 -- > mkGetter "Nodes" "getNodes" ''MySchema ".nodes"
 -- >
--- > -- is equivalent to:
--- > type Nodes = [unwrap| MySchema.nodes! |] -- [Object [schema| { b: Maybe Bool } |]]
+-- > {- is equivalent to -}
+-- >
+-- > -- | Nodes ~ List { b: Maybe Bool }
+-- > type Nodes = [unwrap| MySchema.nodes |]
+-- >
 -- > getNodes :: Object MySchema -> Nodes
--- > getNodes = [get| .nodes! |]
+-- > getNodes = [get| .nodes |]
 --
 -- As another example,
 --
 -- > mkGetter "MyName" "getMyName" ''MySchema ".f?[].name"
 -- >
--- > -- is equivalent to:
--- > type MyName = [unwrap| MySchema.f?[].name |] -- Text
+-- > {- is equivalent to -}
+-- >
+-- > -- | MyName ~ Text
+-- > type MyName = [unwrap| MySchema.f?[].name |]
+-- >
 -- > getMyBool :: Object MySchema -> Maybe [MyName]
 -- > getMyBool = [get| .f?[].name |]
 mkGetter :: String -> String -> Name -> String -> DecsQ

@@ -2,5 +2,4 @@ resolver: lts-11.22
 
 extra-deps:
   - first-class-families-0.3.0.0
-  - github: LeapYear/th-test-utils
-    commit: 02b59f9b139f19acd354edd67f9e6cca20d65fa9
+  - th-test-utils-1.1.0
