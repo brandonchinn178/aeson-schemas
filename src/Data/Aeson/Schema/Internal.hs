@@ -94,6 +94,8 @@ instance IsSchema schema => ToJSON (Object schema) where
   toJSON = toValue @(ToSchemaObject schema)
 
 -- | Convert an 'Object' into a 'HashMap', losing the type information in the schema.
+--
+-- @since 1.3.0
 toMap :: IsSchema ('Schema schema) => Object ('Schema schema) -> Aeson.Object
 toMap = toValueMap
 
@@ -104,6 +106,8 @@ toMap = toValueMap
 --
 -- > logObject :: (MonadLogger m, IsSchema schema) => Object schema -> m ()
 -- > logObject = logInfoN . Text.pack . show
+--
+-- @since 1.3.0
 type IsSchema (schema :: Schema) =
   ( HasSchemaResult (ToSchemaObject schema)
   , All HasSchemaResultPair (FromSchema schema)

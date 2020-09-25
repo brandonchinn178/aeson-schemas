@@ -1,5 +1,7 @@
 ## Upcoming
 
+## 1.3.0
+
 Breaking changes:
 
 * Refactored types to be correct by construction. Namely, the `schema` parameter in `Object schema` now has kind `Schema` instead of `SchemaType`, which prevents the possibility of a non-object schema stored in an `Object`. This means that any schemas previously annotated with the `SchemaType` kind should now be annotated as `Schema`.
@@ -9,6 +11,8 @@ Breaking changes:
 New features:
 
 * Add support for unwrapping into included schemas
+* Add `toMap`
+* Re-export `showSchema` in `Data.Aeson.Schema`
 
 Bug fixes:
 
