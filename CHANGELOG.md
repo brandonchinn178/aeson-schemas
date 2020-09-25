@@ -1,5 +1,11 @@
 ## Upcoming
 
+## 1.3.1
+
+Bug fixes:
+
+* Update extra-source-files with files needed for testing
+
 ## 1.3.0
 
 Breaking changes:
