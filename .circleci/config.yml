@@ -128,7 +128,7 @@ jobs:
             STACK_ARGS=(
                 --test
                 --no-run-tests
-                --ghc-options '-Werror -ddump-splices -ddump-to-file'
+                --ghc-options '-ddump-splices -ddump-to-file'
                 --ddump-dir .ci/
             )
             if [[ -n "${CI_LATEST}" ]]; then

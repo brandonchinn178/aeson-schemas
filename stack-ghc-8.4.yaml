@@ -3,3 +3,6 @@ resolver: lts-12.26
 extra-deps:
   - first-class-families-0.3.0.0
   - th-test-utils-1.1.0
+
+ghc-options:
+  '$locals': -Werror

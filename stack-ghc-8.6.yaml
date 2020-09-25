@@ -2,3 +2,6 @@ resolver: lts-14.27
 
 extra-deps:
   - th-test-utils-1.1.0
+
+ghc-options:
+  '$locals': -Werror
