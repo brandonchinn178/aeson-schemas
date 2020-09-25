@@ -4,3 +4,6 @@ extra-deps:
   - aeson-1.4.5.0
   - time-compat-1.9.2.2
   - th-test-utils-1.1.0
+
+ghc-options:
+  '$locals': -Werror
