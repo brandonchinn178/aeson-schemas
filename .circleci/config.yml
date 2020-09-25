@@ -11,7 +11,7 @@ aliases:
       default: false
 
   - &cache_key
-    v0-{{ checksum "cache-key.txt" }}
+    v1-{{ checksum "cache-key.txt" }}
 
 executors:
   centos7:
@@ -44,9 +44,6 @@ orbs:
 
       build_stack_deps:
         parameters:
-          build_haddock:
-            type: boolean
-            default: false
           install_linters:
             type: boolean
             default: false
@@ -75,9 +72,6 @@ orbs:
               name: Build external dependencies
               command: |
                 STACK_ARGS=(--test --bench)
-                if [[ -n "${BUILD_HADDOCK}" ]]; then
-                    STACK_ARGS+=(--haddock)
-                fi
 
                 # break up parallelism to avoid OOM
                 stack build "${STACK_ARGS[@]}" haskell-src-exts
@@ -92,7 +86,6 @@ orbs:
                     stack install hpc-lcov --local-bin-path /usr/local/bin
                 fi
               environment:
-                BUILD_HADDOCK: <<# parameters.build_haddock >>1<</ parameters.build_haddock >>
                 INSTALL_LINTERS: <<# parameters.install_linters >>1<</ parameters.install_linters >>
                 INSTALL_HPC_LCOV: <<# parameters.install_hpc_lcov >>1<</ parameters.install_hpc_lcov >>
 
@@ -112,7 +105,6 @@ jobs:
 
       # install stack dependencies
       - helpers/build_stack_deps:
-          build_haddock: << parameters.latest >>
           install_linters: << parameters.latest >>
           install_hpc_lcov: << parameters.latest >>
       - save_cache:
@@ -195,7 +187,7 @@ jobs:
           steps:
             - run:
                 name: Build haddock
-                command: stack build --haddock
+                command: stack haddock --no-haddock-deps
             - run:
                 name: Bundle haddock docs
                 command: tar czf .ci/haddock-docs.tar.gz -C "$(find .stack-work/dist -regex '.*/doc/html/[^/]*')" .
