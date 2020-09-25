@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -freduction-depth=0 #-}
@@ -10,7 +11,7 @@ import Control.DeepSeq (NFData(..))
 import Criterion.Main
 import qualified Data.Aeson as Aeson
 
-import Data.Aeson.Schema (Object)
+import Data.Aeson.Schema (IsSchema, Object)
 
 import Benchmarks.Data.Objects
 import Benchmarks.Data.Schemas
@@ -37,5 +38,5 @@ benchmarks = bgroup "FromJSON instance"
 
 {- Orphans -}
 
-instance Show (Object schema) => NFData (Object schema) where
+instance IsSchema schema => NFData (Object schema) where
   rnf = rnf . show
