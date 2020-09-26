@@ -143,6 +143,7 @@ getSchemaTypes = getSchemaTypes' . toSchemaObjectV
       SchemaList inner -> "SchemaList" : getSchemaTypes' inner
       SchemaUnion schemas -> "SchemaUnion" : concatMap getSchemaTypes' schemas
       SchemaObject pairs -> "SchemaObject" : concatMap (getSchemaTypes' . snd) pairs
+      SchemaInclude _ -> error "ArbitraryObject unexpectedly generated a schema that includes another schema"
 
 getObjectSizes :: SchemaV -> [Int]
 getObjectSizes = getObjectSizes' . toSchemaObjectV
@@ -154,6 +155,7 @@ getObjectSizes = getObjectSizes' . toSchemaObjectV
       SchemaList inner -> getObjectSizes' inner
       SchemaUnion schemas -> concatMap getObjectSizes' schemas
       SchemaObject pairs -> length pairs : concatMap (getObjectSizes' . snd) pairs
+      SchemaInclude _ -> error "ArbitraryObject unexpectedly generated a schema that includes another schema"
 
 getObjectDepth :: SchemaV -> Int
 getObjectDepth = getObjectDepth' . toSchemaObjectV
@@ -165,6 +167,7 @@ getObjectDepth = getObjectDepth' . toSchemaObjectV
       SchemaList inner -> getObjectDepth' inner
       SchemaUnion schemas -> maximum $ map getObjectDepth' schemas
       SchemaObject pairs -> 1 + maximum (map (getObjectDepth' . snd) pairs)
+      SchemaInclude _ -> error "ArbitraryObject unexpectedly generated a schema that includes another schema"
 
 tabulate' :: String -> [String] -> Property -> Property
 #if MIN_VERSION_QuickCheck(2,12,0)
