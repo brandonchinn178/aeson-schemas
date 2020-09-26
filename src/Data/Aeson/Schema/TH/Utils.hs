@@ -19,6 +19,7 @@ module Data.Aeson.Schema.TH.Utils
   , schemaTypeVToTypeQ
   ) where
 
+import Control.Applicative (empty)
 import Control.Monad (forM, (>=>))
 import Data.Bifunctor (bimap)
 import Language.Haskell.TH
@@ -80,8 +81,8 @@ reifySchemaName = reifySchemaType >=> loadSchema
     parseSchema :: TypeWithoutKinds -> Maybe SchemaV
     parseSchema ty = do
       schemaObjectType <- case ty of
-        AppT (PromotedT name) schemaType | name == 'Schema -> Just schemaType
-        _ -> Nothing
+        AppT (PromotedT name) schemaType | name == 'Schema -> return schemaType
+        _ -> empty
 
       Schema <$> parseSchemaObjectMap schemaObjectType
 
@@ -92,21 +93,21 @@ reifySchemaName = reifySchemaType >=> loadSchema
       forM schemaObjectListOfPairs $ \(schemaKeyType, schemaTypeType) -> do
         schemaKey <- parseSchemaKey schemaKeyType
         schemaType <- parseSchemaType schemaTypeType
-        Just (schemaKey, schemaType)
+        return (schemaKey, schemaType)
 
     -- should be the inverse of schemaKeyVToTypeQ
     parseSchemaKey :: TypeWithoutKinds -> Maybe SchemaKeyV
     parseSchemaKey = \case
       AppT (PromotedT ty) (LitT (StrTyLit key))
-        | ty == 'NormalKey -> Just $ NormalKey key
-        | ty == 'PhantomKey -> Just $ PhantomKey key
-      _ -> Nothing
+        | ty == 'NormalKey -> return $ NormalKey key
+        | ty == 'PhantomKey -> return $ PhantomKey key
+      _ -> empty
 
     -- should be the inverse of schemaTypeVToTypeQ
     parseSchemaType :: TypeWithoutKinds -> Maybe SchemaTypeV
     parseSchemaType = \case
       AppT (PromotedT name) (ConT inner)
-        | name == 'SchemaScalar -> Just $ SchemaScalar $ NameTH inner
+        | name == 'SchemaScalar -> return $ SchemaScalar $ NameTH inner
 
       AppT (PromotedT name) inner
         | name == 'SchemaMaybe  -> SchemaMaybe <$> parseSchemaType inner
@@ -121,7 +122,7 @@ reifySchemaName = reifySchemaType >=> loadSchema
 
         | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectMap inner
 
-      _ -> Nothing
+      _ -> empty
 
 schemaVToTypeQ :: SchemaV -> TypeQ
 schemaVToTypeQ = appT [t| 'Schema |] . schemaObjectMapVToTypeQ . fromSchemaV
