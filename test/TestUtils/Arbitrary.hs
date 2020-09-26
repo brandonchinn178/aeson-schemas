@@ -47,6 +47,7 @@ import Data.Aeson.Schema.Type
     , SchemaObjectMapV
     , SchemaType
     , SchemaType'(..)
+    , SchemaTypeV
     , SchemaV
     , showSchemaV
     , toSchemaObjectV
@@ -104,6 +105,8 @@ forAllArbitraryObjects' genArbitraryObject runTest =
 {- Run time helpers -}
 
 deriving instance Lift NameLike
+deriving instance Lift SchemaV
+deriving instance Lift SchemaTypeV
 
 genSchema' :: forall schema.
   ( ArbitrarySchema ('SchemaObject schema)

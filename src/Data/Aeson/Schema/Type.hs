@@ -7,7 +7,6 @@ Portability :  portable
 Defines SchemaType, the AST that defines a JSON schema.
 -}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -38,7 +37,6 @@ import Data.List (intercalate)
 import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable, tyConName, typeRep, typeRepTyCon)
 import GHC.TypeLits (Symbol)
-import Language.Haskell.TH.Syntax (Lift)
 
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey', SchemaKeyV, showSchemaKeyV)
@@ -47,7 +45,7 @@ import Data.Aeson.Schema.Utils.NameLike (NameLike(..))
 
 -- | The schema definition for a JSON object.
 data Schema' s ty = Schema (SchemaObjectMap' s ty)
-  deriving (Show, Eq, Lift)
+  deriving (Show, Eq)
 
 -- | The AST defining a JSON schema.
 data SchemaType' s ty
@@ -57,7 +55,7 @@ data SchemaType' s ty
   | SchemaList (SchemaType' s ty)
   | SchemaUnion [SchemaType' s ty] -- ^ @since v1.1.0
   | SchemaObject (SchemaObjectMap' s ty)
-  deriving (Show, Eq, Lift)
+  deriving (Show, Eq)
 
 type SchemaObjectMap' s ty = [(SchemaKey' s, SchemaType' s ty)]
 
