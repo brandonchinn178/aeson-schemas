@@ -30,6 +30,7 @@ module Data.Aeson.Schema.Type
   , FromSchema
   , IsSchemaType(..)
   , IsSchemaObjectMap
+  , toSchemaV
   ) where
 
 import Data.Kind (Type)
@@ -118,6 +119,12 @@ type family ToSchemaObject (schema :: Schema) :: SchemaType where
 type family FromSchema (schema :: Schema) :: SchemaObjectMap where
   FromSchema ('Schema schema) = schema
 
+toSchemaV :: forall schema. IsSchemaObjectMap (FromSchema schema) => Proxy schema -> SchemaV
+toSchemaV _ = Schema $ toSchemaTypeMapV $ Proxy @(FromSchema schema)
+
+toSchemaTypeMapV :: forall pairs. IsSchemaObjectMap pairs => Proxy pairs -> SchemaObjectMapV
+toSchemaTypeMapV _ = mapAll @IsSchemaObjectPair @pairs toSchemaTypePairV
+
 class IsSchemaType (schemaType :: SchemaType) where
   toSchemaTypeV :: Proxy schemaType -> SchemaTypeV
 
@@ -137,7 +144,7 @@ instance All IsSchemaType schemas => IsSchemaType ('SchemaUnion schemas) where
   toSchemaTypeV _ = SchemaUnion (mapAll @IsSchemaType @schemas toSchemaTypeV)
 
 instance IsSchemaObjectMap pairs => IsSchemaType ('SchemaObject pairs) where
-  toSchemaTypeV _ = SchemaObject (mapAll @IsSchemaObjectPair @pairs toSchemaTypePairV)
+  toSchemaTypeV _ = SchemaObject (toSchemaTypeMapV $ Proxy @pairs)
 
 type IsSchemaObjectMap (pairs :: SchemaObjectMap) = All IsSchemaObjectPair pairs
 
