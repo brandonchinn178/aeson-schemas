@@ -43,8 +43,9 @@ import Data.Aeson.Schema.Utils.NameLike (NameLike(..), resolveName)
 reifySchema :: String -> Q SchemaV
 reifySchema name = lookupSchema (NameRef name) >>= loadSchema
 
-newtype ReifiedSchema = ReifiedSchema
-  { reifiedSchemaType :: TypeWithoutKinds
+data ReifiedSchema = ReifiedSchema
+  { reifiedSchemaName :: Name
+  , reifiedSchemaType :: TypeWithoutKinds
   }
 
 -- | Look up a schema with the given name. Errors if the name doesn't exist or if the name does
@@ -52,7 +53,7 @@ newtype ReifiedSchema = ReifiedSchema
 lookupSchema :: NameLike -> Q ReifiedSchema
 lookupSchema nameLike = do
   name <- lookupSchemaName nameLike
-  ReifiedSchema <$> reifySchemaType name
+  ReifiedSchema name <$> reifySchemaType name
   where
     lookupSchemaName = \case
       NameRef name -> lookupTypeName name >>= maybe (fail $ "Unknown schema: " ++ name) return
