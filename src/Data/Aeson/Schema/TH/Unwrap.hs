@@ -12,7 +12,7 @@ The 'unwrap' quasiquoter.
 
 module Data.Aeson.Schema.TH.Unwrap where
 
-import Control.Monad ((>=>))
+import Control.Monad ((<=<), (>=>))
 import Data.Bifunctor (first)
 import qualified Data.List.NonEmpty as NonEmpty
 import Language.Haskell.TH
@@ -23,7 +23,7 @@ import Data.Aeson.Schema.Key (fromSchemaKeyV)
 import Data.Aeson.Schema.TH.Parse
     (GetterOperation(..), GetterOps, UnwrapSchema(..), parseUnwrapSchema)
 import Data.Aeson.Schema.TH.Utils
-    (reifySchema, schemaTypeVToTypeQ, schemaVToTypeQ)
+    (reifySchema, resolveSchemaType, schemaTypeVToTypeQ, schemaVToTypeQ)
 import Data.Aeson.Schema.Type
     ( Schema'(..)
     , SchemaType'(..)
@@ -81,7 +81,7 @@ unwrapSchema = unwrapSchemaUsing StripFunctors
 
 -- | Unwrap the given schema by applying the given operations, using the given 'FunctorHandler'.
 unwrapSchemaUsing :: FunctorHandler -> GetterOps -> SchemaV -> TypeQ
-unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go (NonEmpty.toList getterOps) . toSchemaObjectV
+unwrapSchemaUsing functorHandler getterOps = toResultTypeQ <=< flip go (NonEmpty.toList getterOps) . toSchemaObjectV
   where
     toResultTypeQ :: UnwrapSchemaResult -> TypeQ
     toResultTypeQ = \case
@@ -97,13 +97,16 @@ unwrapSchemaUsing functorHandler getterOps = either fail toResultTypeQ . flip go
                 StripFunctors -> ty
         in handleFunctor <$> toResultTypeQ schemaResult
 
-    go :: SchemaTypeV -> [GetterOperation] -> Either String UnwrapSchemaResult
+    go :: SchemaTypeV -> [GetterOperation] -> Q UnwrapSchemaResult
     go schemaType [] = pure $ SchemaResult schemaType
-    go schemaType (op:ops) =
-      let invalid message = Left $ message ++ ": " ++ showSchemaTypeV schemaType
+    go schemaType' (op:ops) = do
+      schemaType <- resolveSchemaType schemaType'
+
+      let invalid message = fail $ message ++ ": " ++ showSchemaTypeV schemaType
           wrapMaybe = SchemaResultWrapped (ConT ''Maybe)
           wrapList = SchemaResultWrapped ListT
-      in case op of
+
+      case op of
         GetterKey key ->
           case schemaType of
             SchemaObject pairs ->

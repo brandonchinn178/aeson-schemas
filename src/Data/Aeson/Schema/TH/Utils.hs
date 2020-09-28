@@ -17,6 +17,7 @@ module Data.Aeson.Schema.TH.Utils
   ( reifySchema
   , lookupSchema
   , loadSchema
+  , resolveSchemaType
   , schemaVToTypeQ
   , schemaTypeVToTypeQ
   ) where
@@ -35,6 +36,7 @@ import Data.Aeson.Schema.Type
     , SchemaTypeV
     , SchemaV
     , fromSchemaV
+    , toSchemaObjectV
     )
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.NameLike (NameLike(..), resolveName)
@@ -145,6 +147,13 @@ loadSchema ReifiedSchema{reifiedSchemaType} =
         -> return $ SchemaInclude $ Left $ NameTH inner
 
       _ -> empty
+
+-- | Resolve SchemaInclude, if present. (Not recursive)
+resolveSchemaType :: SchemaTypeV -> Q SchemaTypeV
+resolveSchemaType = \case
+  SchemaInclude (Left name) -> fmap toSchemaObjectV . loadSchema =<< lookupSchema name
+  SchemaInclude (Right _) -> unreachable "Found 'SchemaInclude Right' when resolving schema type"
+  schemaType -> pure schemaType
 
 {- Splicing schema into TH -}
 
