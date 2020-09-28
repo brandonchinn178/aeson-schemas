@@ -67,6 +67,8 @@ import Data.Aeson.Schema.Type
     , SchemaType'(..)
     , ToSchemaObject
     , showSchemaTypeV
+    , showSchemaV
+    , toSchemaV
     )
 import Data.Aeson.Schema.Utils.All (All(..))
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
@@ -111,6 +113,7 @@ toMap = toValueMap
 type IsSchema (schema :: Schema) =
   ( HasSchemaResult (ToSchemaObject schema)
   , All HasSchemaResultPair (FromSchema schema)
+  , IsSchemaObjectMap (FromSchema schema)
   , SchemaResult (ToSchemaObject schema) ~ Object schema
   )
 
@@ -122,7 +125,9 @@ type IsSchema (schema :: Schema) =
 -- > showSchema @MySchema
 --
 showSchema :: forall (schema :: Schema). IsSchema schema => String
-showSchema = showSchemaType @(ToSchemaObject schema)
+showSchema = "SchemaObject " ++ showSchemaV schema -- TODO: Remove "SchemaObject" prefix? Or rename to "Schema"?
+  where
+    schema = toSchemaV $ Proxy @schema
 
 showSchemaType :: forall (schemaType :: SchemaType). HasSchemaResult schemaType => String
 showSchemaType = showSchemaTypeV schemaType
