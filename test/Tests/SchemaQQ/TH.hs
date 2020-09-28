@@ -15,9 +15,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH.TestUtils
     (MockedMode(..), QMode(..), QState(..), loadNames, runTestQ, runTestQErr)
 
-import Data.Aeson.Schema (schema)
-import Data.Aeson.Schema.Internal (showSchemaType)
-import Data.Aeson.Schema.Type (ToSchemaObject)
+import Data.Aeson.Schema (schema, showSchema)
 import TestUtils (mkExpQQ)
 import TestUtils.DeepSeq ()
 
@@ -65,7 +63,7 @@ qState = QState
 schemaRep :: QuasiQuoter
 schemaRep = mkExpQQ $ \s ->
   let schemaType = quoteType schema s
-  in [| runTestQ qState (quoteType schema s) `deepseq` showSchemaType @(ToSchemaObject $schemaType) |]
+  in [| runTestQ qState (quoteType schema s) `deepseq` showSchema @ $schemaType |]
 
 schemaErr :: QuasiQuoter
 schemaErr = mkExpQQ $ \s -> [| runTestQErr qState (quoteType schema s) |]
