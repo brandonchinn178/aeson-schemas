@@ -20,7 +20,8 @@ import Data.Aeson.Schema.TH.Get (generateGetterExp)
 import Data.Aeson.Schema.TH.Parse (GetterExp(..), parseGetterExp)
 import Data.Aeson.Schema.TH.Unwrap
     (FunctorHandler(..), unwrapSchema, unwrapSchemaUsing)
-import Data.Aeson.Schema.TH.Utils (reifySchemaName, schemaVToTypeQ)
+import Data.Aeson.Schema.TH.Utils (loadSchema, lookupSchema, schemaVToTypeQ)
+import Data.Aeson.Schema.Utils.NameLike (NameLike(..))
 
 -- | A helper that generates a 'Data.Aeson.Schema.TH.get' expression and a type alias for the result
 -- of the expression.
@@ -80,7 +81,7 @@ mkGetter unwrapName funcName startSchemaName ops = do
   unless (isNothing start) $
     fail $ "Getter expression should start with '.': " ++ ops
 
-  startSchema <- reifySchemaName startSchemaName
+  startSchema <- lookupSchema (NameTH startSchemaName) >>= loadSchema
 
   let unwrapResult = unwrapSchema getterOps startSchema
       funcResult = unwrapSchemaUsing ApplyFunctors getterOps startSchema

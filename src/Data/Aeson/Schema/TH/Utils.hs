@@ -8,18 +8,21 @@ Portability :  portable
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module Data.Aeson.Schema.TH.Utils
   ( reifySchema
-  , reifySchemaName
+  , lookupSchema
+  , loadSchema
   , schemaVToTypeQ
   , schemaTypeVToTypeQ
   ) where
 
-import Control.Monad (forM, (>=>))
+import Control.Applicative (empty)
+import Control.Monad (forM)
 import Data.Bifunctor (bimap)
 import Language.Haskell.TH
 
@@ -35,14 +38,26 @@ import Data.Aeson.Schema.Type
     )
 import Data.Aeson.Schema.Utils.NameLike (NameLike(..), resolveName)
 
-reifySchema :: String -> Q SchemaV
-reifySchema name = lookupTypeName name >>= maybe unknownSchemaErr reifySchemaName
-  where
-    unknownSchemaErr = fail $ "Unknown schema: " ++ name
+{- Loading schema from TH -}
 
-reifySchemaName :: Name -> Q SchemaV
-reifySchemaName = reifySchemaType >=> parseSchema
+reifySchema :: String -> Q SchemaV
+reifySchema name = lookupSchema (NameRef name) >>= loadSchema
+
+newtype ReifiedSchema = ReifiedSchema
+  { reifiedSchemaType :: TypeWithoutKinds
+  }
+
+-- | Look up a schema with the given name. Errors if the name doesn't exist or if the name does
+-- not refer to a schema.
+lookupSchema :: NameLike -> Q ReifiedSchema
+lookupSchema nameLike = do
+  name <- lookupSchemaName nameLike
+  ReifiedSchema <$> reifySchemaType name
   where
+    lookupSchemaName = \case
+      NameRef name -> lookupTypeName name >>= maybe (fail $ "Unknown schema: " ++ name) return
+      NameTH name -> return name
+
     reifySchemaType :: Name -> Q TypeWithoutKinds
     reifySchemaType schemaName = reify schemaName >>= \case
       TyConI (TySynD _ _ (stripKinds -> ty))
@@ -73,33 +88,41 @@ reifySchemaName = reifySchemaType >=> parseSchema
       AppT (PromotedT name) _ | name == 'Schema -> True
       _ -> False
 
-    parseSchema :: TypeWithoutKinds -> Q SchemaV
-    parseSchema ty = maybe (fail $ "Could not parse schema: " ++ show ty) return $ do
+loadSchema :: ReifiedSchema -> Q SchemaV
+loadSchema ReifiedSchema{reifiedSchemaType} =
+  maybe (fail $ "Could not parse schema: " ++ show reifiedSchemaType) return $ parseSchema reifiedSchemaType
+  where
+    -- should be the inverse of schemaVToTypeQ
+    parseSchema :: TypeWithoutKinds -> Maybe SchemaV
+    parseSchema ty = do
       schemaObjectType <- case ty of
-        AppT (PromotedT name) schemaType | name == 'Schema -> Just schemaType
-        _ -> Nothing
+        AppT (PromotedT name) schemaType | name == 'Schema -> return schemaType
+        _ -> empty
 
-      Schema <$> parseSchemaObjectType schemaObjectType
+      Schema <$> parseSchemaObjectMap schemaObjectType
 
-    parseSchemaObjectType :: TypeWithoutKinds -> Maybe SchemaObjectMapV
-    parseSchemaObjectType schemaObjectType = do
+    -- should be the inverse of schemaObjectMapVToTypeQ
+    parseSchemaObjectMap :: TypeWithoutKinds -> Maybe SchemaObjectMapV
+    parseSchemaObjectMap schemaObjectType = do
       schemaObjectListOfPairs <- mapM typeToPair =<< typeToList schemaObjectType
       forM schemaObjectListOfPairs $ \(schemaKeyType, schemaTypeType) -> do
         schemaKey <- parseSchemaKey schemaKeyType
         schemaType <- parseSchemaType schemaTypeType
-        Just (schemaKey, schemaType)
+        return (schemaKey, schemaType)
 
+    -- should be the inverse of schemaKeyVToTypeQ
     parseSchemaKey :: TypeWithoutKinds -> Maybe SchemaKeyV
     parseSchemaKey = \case
       AppT (PromotedT ty) (LitT (StrTyLit key))
-        | ty == 'NormalKey -> Just $ NormalKey key
-        | ty == 'PhantomKey -> Just $ PhantomKey key
-      _ -> Nothing
+        | ty == 'NormalKey -> return $ NormalKey key
+        | ty == 'PhantomKey -> return $ PhantomKey key
+      _ -> empty
 
+    -- should be the inverse of schemaTypeVToTypeQ
     parseSchemaType :: TypeWithoutKinds -> Maybe SchemaTypeV
     parseSchemaType = \case
       AppT (PromotedT name) (ConT inner)
-        | name == 'SchemaScalar -> Just $ SchemaScalar $ NameTH inner
+        | name == 'SchemaScalar -> return $ SchemaScalar $ NameTH inner
 
       AppT (PromotedT name) inner
         | name == 'SchemaMaybe  -> SchemaMaybe <$> parseSchemaType inner
@@ -112,9 +135,11 @@ reifySchemaName = reifySchemaType >=> parseSchema
             schemas <- typeToList inner
             SchemaUnion <$> mapM parseSchemaType schemas
 
-        | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectType inner
+        | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectMap inner
 
-      _ -> Nothing
+      _ -> empty
+
+{- Splicing schema into TH -}
 
 schemaVToTypeQ :: SchemaV -> TypeQ
 schemaVToTypeQ = appT [t| 'Schema |] . schemaObjectMapVToTypeQ . fromSchemaV
