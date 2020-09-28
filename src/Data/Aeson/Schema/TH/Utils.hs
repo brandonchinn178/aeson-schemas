@@ -41,7 +41,7 @@ reifySchema name = lookupTypeName name >>= maybe unknownSchemaErr reifySchemaNam
     unknownSchemaErr = fail $ "Unknown schema: " ++ name
 
 reifySchemaName :: Name -> Q SchemaV
-reifySchemaName = reifySchemaType >=> parseSchema
+reifySchemaName = reifySchemaType >=> loadSchema
   where
     reifySchemaType :: Name -> Q TypeWithoutKinds
     reifySchemaType schemaName = reify schemaName >>= \case
@@ -73,22 +73,28 @@ reifySchemaName = reifySchemaType >=> parseSchema
       AppT (PromotedT name) _ | name == 'Schema -> True
       _ -> False
 
-    parseSchema :: TypeWithoutKinds -> Q SchemaV
-    parseSchema ty = maybe (fail $ "Could not parse schema: " ++ show ty) return $ do
+    loadSchema :: TypeWithoutKinds -> Q SchemaV
+    loadSchema ty = maybe (fail $ "Could not parse schema: " ++ show ty) return $ parseSchema ty
+
+    -- should be the inverse of schemaVToTypeQ
+    parseSchema :: TypeWithoutKinds -> Maybe SchemaV
+    parseSchema ty = do
       schemaObjectType <- case ty of
         AppT (PromotedT name) schemaType | name == 'Schema -> Just schemaType
         _ -> Nothing
 
-      Schema <$> parseSchemaObjectType schemaObjectType
+      Schema <$> parseSchemaObjectMap schemaObjectType
 
-    parseSchemaObjectType :: TypeWithoutKinds -> Maybe SchemaObjectMapV
-    parseSchemaObjectType schemaObjectType = do
+    -- should be the inverse of schemaObjectMapVToTypeQ
+    parseSchemaObjectMap :: TypeWithoutKinds -> Maybe SchemaObjectMapV
+    parseSchemaObjectMap schemaObjectType = do
       schemaObjectListOfPairs <- mapM typeToPair =<< typeToList schemaObjectType
       forM schemaObjectListOfPairs $ \(schemaKeyType, schemaTypeType) -> do
         schemaKey <- parseSchemaKey schemaKeyType
         schemaType <- parseSchemaType schemaTypeType
         Just (schemaKey, schemaType)
 
+    -- should be the inverse of schemaKeyVToTypeQ
     parseSchemaKey :: TypeWithoutKinds -> Maybe SchemaKeyV
     parseSchemaKey = \case
       AppT (PromotedT ty) (LitT (StrTyLit key))
@@ -96,6 +102,7 @@ reifySchemaName = reifySchemaType >=> parseSchema
         | ty == 'PhantomKey -> Just $ PhantomKey key
       _ -> Nothing
 
+    -- should be the inverse of schemaTypeVToTypeQ
     parseSchemaType :: TypeWithoutKinds -> Maybe SchemaTypeV
     parseSchemaType = \case
       AppT (PromotedT name) (ConT inner)
@@ -112,7 +119,7 @@ reifySchemaName = reifySchemaType >=> parseSchema
             schemas <- typeToList inner
             SchemaUnion <$> mapM parseSchemaType schemas
 
-        | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectType inner
+        | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectMap inner
 
       _ -> Nothing
 
