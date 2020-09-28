@@ -8,6 +8,7 @@ Portability :  portable
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -42,10 +43,16 @@ import Data.Aeson.Schema.Utils.NameLike (NameLike(..), resolveName)
 reifySchema :: String -> Q SchemaV
 reifySchema name = lookupSchema (NameRef name) >>= loadSchema
 
-lookupSchema :: NameLike -> Q TypeWithoutKinds
+newtype ReifiedSchema = ReifiedSchema
+  { reifiedSchemaType :: TypeWithoutKinds
+  }
+
+-- | Look up a schema with the given name. Errors if the name doesn't exist or if the name does
+-- not refer to a schema.
+lookupSchema :: NameLike -> Q ReifiedSchema
 lookupSchema nameLike = do
   name <- lookupSchemaName nameLike
-  reifySchemaType name
+  ReifiedSchema <$> reifySchemaType name
   where
     lookupSchemaName = \case
       NameRef name -> lookupTypeName name >>= maybe (fail $ "Unknown schema: " ++ name) return
@@ -81,8 +88,9 @@ lookupSchema nameLike = do
       AppT (PromotedT name) _ | name == 'Schema -> True
       _ -> False
 
-loadSchema :: TypeWithoutKinds -> Q SchemaV
-loadSchema ty' = maybe (fail $ "Could not parse schema: " ++ show ty') return $ parseSchema ty'
+loadSchema :: ReifiedSchema -> Q SchemaV
+loadSchema ReifiedSchema{reifiedSchemaType} =
+  maybe (fail $ "Could not parse schema: " ++ show reifiedSchemaType) return $ parseSchema reifiedSchemaType
   where
     -- should be the inverse of schemaVToTypeQ
     parseSchema :: TypeWithoutKinds -> Maybe SchemaV
