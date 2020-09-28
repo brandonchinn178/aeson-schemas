@@ -14,7 +14,7 @@ Portability :  portable
 
 module Data.Aeson.Schema.TH.Utils
   ( reifySchema
-  , reifySchemaName
+  , lookupAndLoadSchema
   , schemaVToTypeQ
   , schemaTypeVToTypeQ
   ) where
@@ -36,14 +36,22 @@ import Data.Aeson.Schema.Type
     )
 import Data.Aeson.Schema.Utils.NameLike (NameLike(..), resolveName)
 
-reifySchema :: String -> Q SchemaV
-reifySchema name = lookupTypeName name >>= maybe unknownSchemaErr reifySchemaName
-  where
-    unknownSchemaErr = fail $ "Unknown schema: " ++ name
+{- Loading schema from TH -}
 
-reifySchemaName :: Name -> Q SchemaV
-reifySchemaName = reifySchemaType >=> loadSchema
+reifySchema :: String -> Q SchemaV
+reifySchema = lookupAndLoadSchema . NameRef
+
+lookupAndLoadSchema :: NameLike -> Q SchemaV
+lookupAndLoadSchema = lookupSchema >=> loadSchema
   where
+    lookupSchema nameLike = do
+      name <- lookupSchemaName nameLike
+      reifySchemaType name
+
+    lookupSchemaName = \case
+      NameRef name -> lookupTypeName name >>= maybe (fail $ "Unknown schema: " ++ name) return
+      NameTH name -> return name
+
     reifySchemaType :: Name -> Q TypeWithoutKinds
     reifySchemaType schemaName = reify schemaName >>= \case
       TyConI (TySynD _ _ (stripKinds -> ty))
@@ -123,6 +131,8 @@ reifySchemaName = reifySchemaType >=> loadSchema
         | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectMap inner
 
       _ -> empty
+
+{- Splicing schema into TH -}
 
 schemaVToTypeQ :: SchemaV -> TypeQ
 schemaVToTypeQ = appT [t| 'Schema |] . schemaObjectMapVToTypeQ . fromSchemaV
