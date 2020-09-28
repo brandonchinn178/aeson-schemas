@@ -14,13 +14,14 @@ Portability :  portable
 
 module Data.Aeson.Schema.TH.Utils
   ( reifySchema
-  , lookupAndLoadSchema
+  , lookupSchema
+  , loadSchema
   , schemaVToTypeQ
   , schemaTypeVToTypeQ
   ) where
 
 import Control.Applicative (empty)
-import Control.Monad (forM, (>=>))
+import Control.Monad (forM)
 import Data.Bifunctor (bimap)
 import Language.Haskell.TH
 
@@ -39,15 +40,13 @@ import Data.Aeson.Schema.Utils.NameLike (NameLike(..), resolveName)
 {- Loading schema from TH -}
 
 reifySchema :: String -> Q SchemaV
-reifySchema = lookupAndLoadSchema . NameRef
+reifySchema name = lookupSchema (NameRef name) >>= loadSchema
 
-lookupAndLoadSchema :: NameLike -> Q SchemaV
-lookupAndLoadSchema = lookupSchema >=> loadSchema
+lookupSchema :: NameLike -> Q TypeWithoutKinds
+lookupSchema nameLike = do
+  name <- lookupSchemaName nameLike
+  reifySchemaType name
   where
-    lookupSchema nameLike = do
-      name <- lookupSchemaName nameLike
-      reifySchemaType name
-
     lookupSchemaName = \case
       NameRef name -> lookupTypeName name >>= maybe (fail $ "Unknown schema: " ++ name) return
       NameTH name -> return name
@@ -82,9 +81,9 @@ lookupAndLoadSchema = lookupSchema >=> loadSchema
       AppT (PromotedT name) _ | name == 'Schema -> True
       _ -> False
 
-    loadSchema :: TypeWithoutKinds -> Q SchemaV
-    loadSchema ty = maybe (fail $ "Could not parse schema: " ++ show ty) return $ parseSchema ty
-
+loadSchema :: TypeWithoutKinds -> Q SchemaV
+loadSchema ty' = maybe (fail $ "Could not parse schema: " ++ show ty') return $ parseSchema ty'
+  where
     -- should be the inverse of schemaVToTypeQ
     parseSchema :: TypeWithoutKinds -> Maybe SchemaV
     parseSchema ty = do
