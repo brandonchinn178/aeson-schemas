@@ -41,7 +41,7 @@ import GHC.TypeLits (Symbol)
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey', SchemaKeyV, showSchemaKeyV)
 import Data.Aeson.Schema.Utils.All (All(..))
-import Data.Aeson.Schema.Utils.NameLike (NameLike(..))
+import Data.Aeson.Schema.Utils.NameLike (NameLike(..), fromName)
 
 -- | The schema definition for a JSON object.
 data Schema' s ty = Schema (SchemaObjectMap' s ty)
@@ -87,7 +87,7 @@ showSchemaTypeV schema = case schema of
 
 showSchemaTypeV' :: SchemaTypeV -> String
 showSchemaTypeV' = \case
-  SchemaScalar ty -> show ty
+  SchemaScalar ty -> fromName ty
   SchemaMaybe inner -> "Maybe " ++ showSchemaTypeV' inner
   SchemaTry inner -> "Try " ++ showSchemaTypeV' inner
   SchemaList inner -> "List " ++ showSchemaTypeV' inner

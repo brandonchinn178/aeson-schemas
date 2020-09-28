@@ -53,7 +53,7 @@ import Data.Aeson.Schema.Type
     , toSchemaObjectV
     )
 import Data.Aeson.Schema.Utils.All (All(..))
-import Data.Aeson.Schema.Utils.NameLike (NameLike(..))
+import Data.Aeson.Schema.Utils.NameLike (NameLike(..), fromName)
 
 data ArbitraryObject where
   ArbitraryObject
@@ -137,7 +137,7 @@ getSchemaTypes :: SchemaV -> [String]
 getSchemaTypes = getSchemaTypes' . toSchemaObjectV
   where
     getSchemaTypes' = \case
-      SchemaScalar name -> [show name]
+      SchemaScalar name -> [fromName name]
       SchemaMaybe inner -> "SchemaMaybe" : getSchemaTypes' inner
       SchemaTry inner -> "SchemaTry" : getSchemaTypes' inner
       SchemaList inner -> "SchemaList" : getSchemaTypes' inner

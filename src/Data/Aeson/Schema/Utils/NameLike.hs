@@ -3,6 +3,7 @@
 
 module Data.Aeson.Schema.Utils.NameLike
   ( NameLike(..)
+  , fromName
   , resolveName
   ) where
 
@@ -12,11 +13,15 @@ import Language.Haskell.TH.Syntax (Name, Q, lookupTypeName, nameBase)
 data NameLike = NameRef String | NameTH Name
 
 instance Eq NameLike where
-  ty1 == ty2 = show ty1 == show ty2
+  ty1 == ty2 = fromName ty1 == fromName ty2
 
 instance Show NameLike where
-  show (NameRef ty) = ty
-  show (NameTH ty) = nameBase ty
+  show = show . fromName
+
+fromName :: NameLike -> String
+fromName = \case
+  NameRef s -> s
+  NameTH name -> nameBase name
 
 resolveName :: NameLike -> Q Name
 resolveName = \case
