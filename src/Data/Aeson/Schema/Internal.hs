@@ -113,6 +113,7 @@ toMap = toValueMap
 type IsSchema (schema :: Schema) =
   ( HasSchemaResult (ToSchemaObject schema)
   , All HasSchemaResultPair (FromSchema schema)
+  , IsSchemaObjectMap (FromSchema schema)
   , SchemaResult (ToSchemaObject schema) ~ Object schema
   )
 
