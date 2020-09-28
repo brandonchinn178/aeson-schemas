@@ -43,16 +43,17 @@ import Data.Aeson.Schema (IsSchema, Object, schema)
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey'(..), SchemaKeyV, toContext)
 import Data.Aeson.Schema.Type
-    ( NameLike(..)
-    , Schema'(..)
+    ( Schema'(..)
     , SchemaObjectMapV
     , SchemaType
     , SchemaType'(..)
+    , SchemaTypeV
     , SchemaV
     , showSchemaV
     , toSchemaObjectV
     )
 import Data.Aeson.Schema.Utils.All (All(..))
+import Data.Aeson.Schema.Utils.NameLike (NameLike(..), fromName)
 
 data ArbitraryObject where
   ArbitraryObject
@@ -104,6 +105,8 @@ forAllArbitraryObjects' genArbitraryObject runTest =
 {- Run time helpers -}
 
 deriving instance Lift NameLike
+deriving instance Lift SchemaV
+deriving instance Lift SchemaTypeV
 
 genSchema' :: forall schema.
   ( ArbitrarySchema ('SchemaObject schema)
@@ -134,7 +137,7 @@ getSchemaTypes :: SchemaV -> [String]
 getSchemaTypes = getSchemaTypes' . toSchemaObjectV
   where
     getSchemaTypes' = \case
-      SchemaScalar name -> [show name]
+      SchemaScalar name -> [fromName name]
       SchemaMaybe inner -> "SchemaMaybe" : getSchemaTypes' inner
       SchemaTry inner -> "SchemaTry" : getSchemaTypes' inner
       SchemaList inner -> "SchemaList" : getSchemaTypes' inner

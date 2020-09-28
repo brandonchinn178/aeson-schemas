@@ -7,7 +7,6 @@ Portability :  portable
 Defines SchemaType, the AST that defines a JSON schema.
 -}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -21,7 +20,6 @@ module Data.Aeson.Schema.Type
   , SchemaV
   , SchemaTypeV
   , SchemaObjectMapV
-  , NameLike(..)
   , toSchemaObjectV
   , fromSchemaV
   , showSchemaV
@@ -39,15 +37,15 @@ import Data.List (intercalate)
 import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable, tyConName, typeRep, typeRepTyCon)
 import GHC.TypeLits (Symbol)
-import Language.Haskell.TH.Syntax (Lift, Name, nameBase)
 
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey', SchemaKeyV, showSchemaKeyV)
 import Data.Aeson.Schema.Utils.All (All(..))
+import Data.Aeson.Schema.Utils.NameLike (NameLike(..), fromName)
 
 -- | The schema definition for a JSON object.
 data Schema' s ty = Schema (SchemaObjectMap' s ty)
-  deriving (Show, Eq, Lift)
+  deriving (Show, Eq)
 
 -- | The AST defining a JSON schema.
 data SchemaType' s ty
@@ -57,18 +55,9 @@ data SchemaType' s ty
   | SchemaList (SchemaType' s ty)
   | SchemaUnion [SchemaType' s ty] -- ^ @since v1.1.0
   | SchemaObject (SchemaObjectMap' s ty)
-  deriving (Show, Eq, Lift)
+  deriving (Show, Eq)
 
 type SchemaObjectMap' s ty = [(SchemaKey' s, SchemaType' s ty)]
-
-data NameLike = NameRef String | NameTH Name
-
-instance Eq NameLike where
-  ty1 == ty2 = show ty1 == show ty2
-
-instance Show NameLike where
-  show (NameRef ty) = ty
-  show (NameTH ty) = nameBase ty
 
 {- Value-level schema types -}
 
@@ -98,7 +87,7 @@ showSchemaTypeV schema = case schema of
 
 showSchemaTypeV' :: SchemaTypeV -> String
 showSchemaTypeV' = \case
-  SchemaScalar ty -> show ty
+  SchemaScalar ty -> fromName ty
   SchemaMaybe inner -> "Maybe " ++ showSchemaTypeV' inner
   SchemaTry inner -> "Try " ++ showSchemaTypeV' inner
   SchemaList inner -> "List " ++ showSchemaTypeV' inner
