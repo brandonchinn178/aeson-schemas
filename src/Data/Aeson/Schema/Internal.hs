@@ -144,6 +144,7 @@ type family SchemaResult (schema :: SchemaType) where
   SchemaResult ('SchemaList inner) = [SchemaResult inner]
   SchemaResult ('SchemaUnion schemas) = SumType (SchemaResultList schemas)
   SchemaResult ('SchemaObject inner) = Object ('Schema inner)
+  SchemaResult ('SchemaInclude ('Right schema)) = SchemaResult (ToSchemaObject schema)
 
 type family SchemaResultList (xs :: [SchemaType]) where
   SchemaResultList '[] = '[]
@@ -254,6 +255,11 @@ instance
   showValuePair _ o = (showSchemaKey @key, showValue @inner val)
     where
       val = unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
+
+instance IsSchema schema => HasSchemaResult ('SchemaInclude ('Right schema)) where
+  parseValue = parseValue @(ToSchemaObject schema)
+  toValue = toValue @(ToSchemaObject schema)
+  showValue = showValue @(ToSchemaObject schema)
 
 -- | A helper for creating fail messages when parsing a schema.
 parseFail :: forall (schema :: SchemaType) m a. (MonadFail m, HasSchemaResult schema) => [Text] -> Value -> m a

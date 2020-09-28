@@ -36,6 +36,7 @@ import Data.Aeson.Schema.Type
     , SchemaV
     , fromSchemaV
     )
+import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.NameLike (NameLike(..), resolveName)
 
 {- Loading schema from TH -}
@@ -138,6 +139,11 @@ loadSchema ReifiedSchema{reifiedSchemaType} =
 
         | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectMap inner
 
+      AppT (PromotedT name) (AppT (PromotedT right) (ConT inner))
+        | name == 'SchemaInclude
+        , right == 'Right
+        -> return $ SchemaInclude $ Left $ NameTH inner
+
       _ -> empty
 
 {- Splicing schema into TH -}
@@ -164,6 +170,8 @@ schemaTypeVToTypeQ = \case
   SchemaList inner    -> [t| 'SchemaList $(schemaTypeVToTypeQ inner) |]
   SchemaUnion schemas -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas) |]
   SchemaObject pairs  -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs) |]
+  SchemaInclude (Left name) -> [t| 'SchemaInclude ('Right $(conT . reifiedSchemaName =<< lookupSchema name)) |]
+  SchemaInclude (Right _)   -> unreachable "Found 'SchemaInclude Right' when converting to TypeQ"
 
 {- TH utilities -}
 
