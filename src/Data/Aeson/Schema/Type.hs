@@ -65,6 +65,8 @@ data SchemaType' s ty
     -- Will always be 'Left' when used in a value-level schema and 'Right' when used in
     -- a type-level schema. We can't use a type parameter for this because type synonyms
     -- can't be recursive (e.g. `type Schema = Schema' Symbol Type Schema`).
+    --
+    -- @since v1.3.2
   deriving (Show, Eq)
 
 type SchemaObjectMap' s ty = [(SchemaKey' s, SchemaType' s ty)]
