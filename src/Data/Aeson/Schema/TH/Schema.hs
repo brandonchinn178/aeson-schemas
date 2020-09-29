@@ -36,7 +36,6 @@ import Data.Aeson.Schema.Type
     , SchemaTypeV
     , fromSchemaV
     , showSchemaTypeV
-    , toSchemaObjectV
     )
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.NameLike (NameLike(..))
@@ -147,6 +146,7 @@ getSchemaObjectMap = \case
       SchemaTry _ -> True -- even if inner is a non-object schema, it'll still parse to be Nothing
       SchemaUnion schemas -> any isValidPhantomSchema schemas
       SchemaObject _ -> True
+      SchemaInclude _ -> True
       _ -> False
 
 -- | Resolve the given keys with the following rules:
@@ -181,7 +181,7 @@ fromSchemaDefType = \case
   SchemaDefMaybe inner   -> SchemaMaybe <$> fromSchemaDefType inner
   SchemaDefTry inner     -> SchemaTry <$> fromSchemaDefType inner
   SchemaDefList inner    -> SchemaList <$> fromSchemaDefType inner
-  SchemaDefInclude other -> toSchemaObjectV <$> reifySchema other
+  SchemaDefInclude other -> return $ SchemaInclude $ Left $ NameRef other
   SchemaDefUnion schemas -> SchemaUnion . NonEmpty.toList <$> mapM fromSchemaDefType schemas
   SchemaDefObj items     -> SchemaObject <$> generateSchemaObjectV items
 

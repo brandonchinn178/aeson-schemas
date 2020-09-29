@@ -34,6 +34,11 @@ deriving instance FromJSON CBool
 -- Compile above types before reifying
 $(return [])
 
+type WithUser = [schema| { user: #UserSchema } |]
+
+-- Compile above types before reifying
+$(return [])
+
 qState :: QState 'FullyMocked
 qState = QState
   { mode = MockQ
@@ -45,6 +50,7 @@ qState = QState
       , ("Tests.SchemaQQ.TH.UserSchema", ''UserSchema)
       , ("Tests.SchemaQQ.TH.ExtraSchema", ''ExtraSchema)
       , ("SchemaWithHiddenImport", ''SchemaWithHiddenImport)
+      , ("WithUser", ''WithUser)
       , ("Int", ''Int)
       ]
   , reifyInfo = $(loadNames
@@ -52,6 +58,7 @@ qState = QState
       , ''ExtraSchema
       , ''ExtraSchema2
       , ''SchemaWithHiddenImport
+      , ''WithUser
       , ''Int
       ]
     )

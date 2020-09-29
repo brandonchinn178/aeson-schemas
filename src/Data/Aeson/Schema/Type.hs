@@ -8,11 +8,13 @@ Defines SchemaType, the AST that defines a JSON schema.
 -}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Data.Aeson.Schema.Type
   ( Schema'(..)
@@ -42,6 +44,7 @@ import GHC.TypeLits (Symbol)
 import Data.Aeson.Schema.Key
     (IsSchemaKey(..), SchemaKey, SchemaKey', SchemaKeyV, showSchemaKeyV)
 import Data.Aeson.Schema.Utils.All (All(..))
+import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.NameLike (NameLike(..), fromName)
 
 -- | The schema definition for a JSON object.
@@ -56,6 +59,14 @@ data SchemaType' s ty
   | SchemaList (SchemaType' s ty)
   | SchemaUnion [SchemaType' s ty] -- ^ @since v1.1.0
   | SchemaObject (SchemaObjectMap' s ty)
+  | SchemaInclude (Either ty (Schema' s ty))
+    -- ^ An optimization for including schemas.
+    --
+    -- Will always be 'Left' when used in a value-level schema and 'Right' when used in
+    -- a type-level schema. We can't use a type parameter for this because type synonyms
+    -- can't be recursive (e.g. `type Schema = Schema' Symbol Type Schema`).
+    --
+    -- @since v1.3.2
   deriving (Show, Eq)
 
 type SchemaObjectMap' s ty = [(SchemaKey' s, SchemaType' s ty)]
@@ -85,6 +96,7 @@ showSchemaTypeV schema = case schema of
   SchemaList inner -> "SchemaList " ++ showSchemaTypeV' inner
   SchemaUnion _ -> "SchemaUnion " ++ showSchemaTypeV' schema
   SchemaObject _ -> "SchemaObject " ++ showSchemaTypeV' schema
+  SchemaInclude _ -> "SchemaInclude " ++ showSchemaTypeV' schema
 
 showSchemaTypeV' :: SchemaTypeV -> String
 showSchemaTypeV' = \case
@@ -94,6 +106,8 @@ showSchemaTypeV' = \case
   SchemaList inner -> "List " ++ showSchemaTypeV' inner
   SchemaUnion schemas -> "( " ++ mapJoin showSchemaTypeV' " | " schemas ++ " )"
   SchemaObject pairs -> "{ " ++ mapJoin showPair ", " pairs ++ " }"
+  SchemaInclude (Left name) -> fromName name
+  SchemaInclude (Right _) -> unreachable "Found 'SchemaInclude Right' when showing schema type"
   where
     showPair (key, inner) = showSchemaKeyV key ++ ": " ++ showSchemaTypeV' inner
 
@@ -145,6 +159,9 @@ instance All IsSchemaType schemas => IsSchemaType ('SchemaUnion schemas) where
 
 instance IsSchemaObjectMap pairs => IsSchemaType ('SchemaObject pairs) where
   toSchemaTypeV _ = SchemaObject (toSchemaTypeMapV $ Proxy @pairs)
+
+instance IsSchemaObjectMap (FromSchema schema) => IsSchemaType ('SchemaInclude ('Right schema)) where
+  toSchemaTypeV _ = toSchemaObjectV $ toSchemaV $ Proxy @schema
 
 type IsSchemaObjectMap (pairs :: SchemaObjectMap) = All IsSchemaObjectPair pairs
 

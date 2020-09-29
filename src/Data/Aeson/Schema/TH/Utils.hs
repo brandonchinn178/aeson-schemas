@@ -17,6 +17,7 @@ module Data.Aeson.Schema.TH.Utils
   ( reifySchema
   , lookupSchema
   , loadSchema
+  , resolveSchemaType
   , schemaVToTypeQ
   , schemaTypeVToTypeQ
   ) where
@@ -35,7 +36,9 @@ import Data.Aeson.Schema.Type
     , SchemaTypeV
     , SchemaV
     , fromSchemaV
+    , toSchemaObjectV
     )
+import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.NameLike (NameLike(..), resolveName)
 
 {- Loading schema from TH -}
@@ -43,8 +46,9 @@ import Data.Aeson.Schema.Utils.NameLike (NameLike(..), resolveName)
 reifySchema :: String -> Q SchemaV
 reifySchema name = lookupSchema (NameRef name) >>= loadSchema
 
-newtype ReifiedSchema = ReifiedSchema
-  { reifiedSchemaType :: TypeWithoutKinds
+data ReifiedSchema = ReifiedSchema
+  { reifiedSchemaName :: Name
+  , reifiedSchemaType :: TypeWithoutKinds
   }
 
 -- | Look up a schema with the given name. Errors if the name doesn't exist or if the name does
@@ -52,7 +56,7 @@ newtype ReifiedSchema = ReifiedSchema
 lookupSchema :: NameLike -> Q ReifiedSchema
 lookupSchema nameLike = do
   name <- lookupSchemaName nameLike
-  ReifiedSchema <$> reifySchemaType name
+  ReifiedSchema name <$> reifySchemaType name
   where
     lookupSchemaName = \case
       NameRef name -> lookupTypeName name >>= maybe (fail $ "Unknown schema: " ++ name) return
@@ -137,7 +141,19 @@ loadSchema ReifiedSchema{reifiedSchemaType} =
 
         | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectMap inner
 
+      AppT (PromotedT name) (AppT (PromotedT right) (ConT inner))
+        | name == 'SchemaInclude
+        , right == 'Right
+        -> return $ SchemaInclude $ Left $ NameTH inner
+
       _ -> empty
+
+-- | Resolve SchemaInclude, if present. (Not recursive)
+resolveSchemaType :: SchemaTypeV -> Q SchemaTypeV
+resolveSchemaType = \case
+  SchemaInclude (Left name) -> fmap toSchemaObjectV . loadSchema =<< lookupSchema name
+  SchemaInclude (Right _) -> unreachable "Found 'SchemaInclude Right' when resolving schema type"
+  schemaType -> pure schemaType
 
 {- Splicing schema into TH -}
 
@@ -163,6 +179,8 @@ schemaTypeVToTypeQ = \case
   SchemaList inner    -> [t| 'SchemaList $(schemaTypeVToTypeQ inner) |]
   SchemaUnion schemas -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas) |]
   SchemaObject pairs  -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs) |]
+  SchemaInclude (Left name) -> [t| 'SchemaInclude ('Right $(conT . reifiedSchemaName =<< lookupSchema name)) |]
+  SchemaInclude (Right _)   -> unreachable "Found 'SchemaInclude Right' when converting to TypeQ"
 
 {- TH utilities -}
 

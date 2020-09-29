@@ -1,5 +1,11 @@
 ## Upcoming
 
+## 1.3.2
+
+Performance:
+
+* Optimized including other schemas in a schema, which previously caused a huge slowdown, and possibly even out-of-memory errors.
+
 ## 1.3.1
 
 Bug fixes:
