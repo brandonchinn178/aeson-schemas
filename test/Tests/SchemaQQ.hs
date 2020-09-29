@@ -86,6 +86,11 @@ testValidSchemas = testGroup "Valid schemas"
         [schemaRep| { a: #SchemaWithHiddenImport } |]
         [r| SchemaObject { "a": { "a": CBool } } |]
 
+  , testCase "Object with an imported schema that itself imports a schema" $
+      assertMatches
+        [schemaRep| { a: #WithUser } |]
+        [r| SchemaObject { "a": { "user": { "name": Text } } } |]
+
   , testCase "Object with an extended schema" $
       assertMatches
         [schemaRep| { a: Int, #ExtraSchema } |]
