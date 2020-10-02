@@ -57,3 +57,5 @@ test = testGroup "`get` expressions without quasiquoters"
       get (key #name . bang . key #userExists) result @?= "Alice"
       get (key #name . intoMaybe . key #userMissing) result @?= Nothing
   ]
+
+  -- TODO: test missing key doesn't compile
