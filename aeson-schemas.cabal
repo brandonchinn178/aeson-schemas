@@ -4,7 +4,7 @@ cabal-version: >= 1.10
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 55f49b269f210d93d4cef42286e3557e19de738cdf169b2fe3f01db29bb265ca
+-- hash: 91cc427a1718441384bffbb0b088b7462960c62715bae0940f80457a3e20fc40
 
 name:           aeson-schemas
 version:        1.3.2
@@ -155,6 +155,7 @@ benchmark aeson-schemas-bench
       Benchmarks.Data.Schemas
       Benchmarks.Data.Schemas.TH
       Benchmarks.FromJSON
+      Benchmarks.Get
       Benchmarks.SchemaQQ
       Benchmarks.Show
       Benchmarks.ToJSON
@@ -165,13 +166,16 @@ benchmark aeson-schemas-bench
   ghc-options: -Wall
   build-depends:
       aeson >=1.1.2.0 && <1.6
+    , aeson-qq
     , aeson-schemas
     , base >=4.9 && <5
     , criterion
     , deepseq
     , first-class-families >=0.3.0.0 && <0.9
     , hashable >=1.2.7.0 && <1.4
+    , hint
     , megaparsec >=6.0.0 && <10
+    , process
     , template-haskell >=2.12.0.0 && <2.17
     , text >=1.2.2.2 && <1.3
     , th-test-utils

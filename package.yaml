@@ -80,6 +80,9 @@ benchmarks:
     main:        Main.hs
     dependencies:
       - aeson-schemas
+      - aeson-qq
       - criterion
       - deepseq
+      - hint
+      - process
       - th-test-utils
