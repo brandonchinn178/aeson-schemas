@@ -68,12 +68,13 @@ Follow these steps to release this project:
     1. Curate `CHANGELOG.md`, creating a new section for this version and
        moving everything previously in `Upcoming` into the new section
        (keeping `Upcoming` as a section)
-    1. Run `stack sdist` to check for any deployment errors
     1. Add comments to new features indicating when it was added (e.g.
        `-- @since v2.0.0`)
     1. Run `stack haddock` and skim through documentation
 
 1. Create PR as usual and merge into `master`
+    1. In the `test_latest` CI job, check the output of the `stack sdist`
+       step for any warnings.
 
 1. Create a release on GitHub on the merge commit
     1. The tag version should be of the format `vX.Y.Z`
@@ -82,6 +83,5 @@ Follow these steps to release this project:
        section for this version
 
 1. Upload the package to Hackage
-    1. `stack sdist`
-    1. Find the tarbell Stack created
+    1. Download the `aeson-schemas-*.tar.gz` file from CI artifacts
     1. Upload tarbell to Hackage

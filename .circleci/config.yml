@@ -192,6 +192,16 @@ jobs:
                 name: Bundle haddock docs
                 command: tar czf .ci/haddock-docs.tar.gz -C "$(find .stack-work/dist -regex '.*/doc/html/[^/]*')" .
 
+      # bundle Haskell files for deployment
+      - when:
+          condition: << parameters.latest >>
+          steps:
+            - run:
+                name: stack sdist
+                command: |
+                  stack sdist
+                  cp "$(find .stack-work/ -name 'aeson-schemas-*.tar.gz')" .ci/
+
       - store_artifacts:
           path: .ci/
 
