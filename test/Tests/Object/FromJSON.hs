@@ -110,10 +110,15 @@ testCases =
       [aesonQQ|
         {
           "foo": [
-            { "bar": 1, "baz": "a" },
-            { "bar": 2, "baz": "b" },
-            { "bar": 3, "baz": "c" },
-            { "bar": 4, "baz": "d" }
+            { "bar": 1 },
+            { "bar": 2 },
+            { "bar": 3 },
+            { "bar": 4 },
+            { "bar": 5 },
+            { "bar": 6 },
+            { "bar": 7 },
+            { "bar": 8 },
+            { "bar": 9 }
           ]
         }
       |]
