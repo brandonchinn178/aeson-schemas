@@ -1,5 +1,9 @@
 ## Upcoming
 
+## 1.3.3
+
+* Fix test failure in newer Stack snapshots
+
 ## 1.3.2
 
 Performance:

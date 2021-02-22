@@ -4,10 +4,10 @@ cabal-version: >= 1.10
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f878fea8c59bc8e0ba2ad6e3624a633b30cde5f6dba00bc63ed4c4777ac808f7
+-- hash: 80faccce54f3481d8cd37abc188cd5c521e19f5f78f181e08be5c8acd2c0a432
 
 name:           aeson-schemas
-version:        1.3.2
+version:        1.3.3
 synopsis:       Easily consume JSON data on-demand with type-safety
 description:    Parse JSON data easily and safely without defining new data types. Useful
                 for deeply nested JSON data, which is difficult to parse using the default
