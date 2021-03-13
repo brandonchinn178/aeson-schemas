@@ -10,6 +10,7 @@ The 'schema' quasiquoter.
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -154,18 +155,18 @@ getSchemaObjectMap = \case
 -- 1. Any explicitly provided keys shadow/overwrite imported keys
 -- 2. Fail if duplicate keys are both explicitly provided
 -- 3. Fail if duplicate keys are both imported
-resolveKeys :: Show a => LookupMap SchemaKeyV (KeySource, a) -> Either String (LookupMap SchemaKeyV a)
+resolveKeys :: forall a. Show a => LookupMap SchemaKeyV (KeySource, a) -> Either String (LookupMap SchemaKeyV a)
 resolveKeys = mapM (uncurry resolveKey) . groupByKeyWith fromSchemaKeyV
   where
+    resolveKey :: SchemaKeyV -> [(KeySource, a)] -> Either String (SchemaKeyV, a)
     resolveKey key sourcesAndVals =
-      let filterSource source = map snd $ filter ((== source) . fst) sourcesAndVals
-          numProvided = length $ filterSource Provided
-          numImported = length $ filterSource Imported
+      let provided = lookupAll Provided sourcesAndVals
+          imported = lookupAll Imported sourcesAndVals
       in if
-        | numProvided > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' specified multiple times"
-        | [val] <- filterSource Provided -> Right (key, val)
-        | numImported > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' declared in multiple imported schemas"
-        | [val] <- filterSource Imported -> Right (key, val)
+        | length provided > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' specified multiple times"
+        | [val] <- provided -> Right (key, val)
+        | length imported > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' declared in multiple imported schemas"
+        | [val] <- imported -> Right (key, val)
         | otherwise -> unreachable $ "resolveKey received: " ++ show (key, sourcesAndVals)
 
 {- SchemaDef conversions -}
@@ -206,3 +207,8 @@ groupByKeyWith f pairs = map (\key -> (key, groups HashMap.! f key)) distinctKey
     distinctKeys = nubBy ((==) `on` f) $ map fst pairs
 
     groups = HashMap.fromListWith (flip (++)) $ map (\(k, v) -> (f k, [v])) pairs
+
+{- Utilities -}
+
+lookupAll :: Eq a => a -> [(a, b)] -> [b]
+lookupAll a = map snd . filter ((== a) . fst)
