@@ -1,7 +1,4 @@
 resolver: lts-17.5
 
-extra-deps:
-  - th-test-utils-1.1.0
-
 ghc-options:
   '$locals': -Werror
