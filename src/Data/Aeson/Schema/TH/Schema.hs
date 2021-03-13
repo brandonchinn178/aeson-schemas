@@ -160,9 +160,8 @@ resolveKeys = mapM (uncurry resolveKey) . groupByKeyWith fromSchemaKeyV
   where
     resolveKey :: SchemaKeyV -> [(KeySource, a)] -> Either String (SchemaKeyV, a)
     resolveKey key sourcesAndVals =
-      let filterSource source = lookupAll source sourcesAndVals
-          provided = filterSource Provided
-          imported = filterSource Imported
+      let provided = lookupAll Provided sourcesAndVals
+          imported = lookupAll Imported sourcesAndVals
       in if
         | length provided > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' specified multiple times"
         | [val] <- provided -> Right (key, val)
