@@ -161,13 +161,13 @@ resolveKeys = mapM (uncurry resolveKey) . groupByKeyWith fromSchemaKeyV
     resolveKey :: SchemaKeyV -> [(KeySource, a)] -> Either String (SchemaKeyV, a)
     resolveKey key sourcesAndVals =
       let filterSource source = map snd $ filter ((== source) . fst) sourcesAndVals
-          numProvided = length $ filterSource Provided
-          numImported = length $ filterSource Imported
+          provided = filterSource Provided
+          imported = filterSource Imported
       in if
-        | numProvided > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' specified multiple times"
-        | [val] <- filterSource Provided -> Right (key, val)
-        | numImported > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' declared in multiple imported schemas"
-        | [val] <- filterSource Imported -> Right (key, val)
+        | length provided > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' specified multiple times"
+        | [val] <- provided -> Right (key, val)
+        | length imported > 1 -> Left $ "Key '" ++ fromSchemaKeyV key ++ "' declared in multiple imported schemas"
+        | [val] <- imported -> Right (key, val)
         | otherwise -> unreachable $ "resolveKey received: " ++ show (key, sourcesAndVals)
 
 {- SchemaDef conversions -}
