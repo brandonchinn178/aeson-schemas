@@ -10,6 +10,7 @@ The 'schema' quasiquoter.
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -154,9 +155,10 @@ getSchemaObjectMap = \case
 -- 1. Any explicitly provided keys shadow/overwrite imported keys
 -- 2. Fail if duplicate keys are both explicitly provided
 -- 3. Fail if duplicate keys are both imported
-resolveKeys :: Show a => LookupMap SchemaKeyV (KeySource, a) -> Either String (LookupMap SchemaKeyV a)
+resolveKeys :: forall a. Show a => LookupMap SchemaKeyV (KeySource, a) -> Either String (LookupMap SchemaKeyV a)
 resolveKeys = mapM (uncurry resolveKey) . groupByKeyWith fromSchemaKeyV
   where
+    resolveKey :: SchemaKeyV -> [(KeySource, a)] -> Either String (SchemaKeyV, a)
     resolveKey key sourcesAndVals =
       let filterSource source = map snd $ filter ((== source) . fst) sourcesAndVals
           numProvided = length $ filterSource Provided
