@@ -79,7 +79,7 @@ orbs:
                 stack build "${STACK_ARGS[@]}" --only-dependencies
 
                 if [[ -n "${INSTALL_LINTERS}" ]]; then
-                    STACK_YAML=stack-ghc-8.8.yaml stack build -j1 hlint stylish-haskell
+                    stack build -j1 hlint stylish-haskell
                 fi
 
                 if [[ -n "${INSTALL_HPC_LCOV}" ]]; then
