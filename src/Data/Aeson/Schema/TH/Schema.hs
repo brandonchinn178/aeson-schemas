@@ -160,7 +160,7 @@ resolveKeys = mapM (uncurry resolveKey) . groupByKeyWith fromSchemaKeyV
   where
     resolveKey :: SchemaKeyV -> [(KeySource, a)] -> Either String (SchemaKeyV, a)
     resolveKey key sourcesAndVals =
-      let filterSource source = map snd $ filter ((== source) . fst) sourcesAndVals
+      let filterSource source = lookupAll source sourcesAndVals
           provided = filterSource Provided
           imported = filterSource Imported
       in if
@@ -208,3 +208,8 @@ groupByKeyWith f pairs = map (\key -> (key, groups HashMap.! f key)) distinctKey
     distinctKeys = nubBy ((==) `on` f) $ map fst pairs
 
     groups = HashMap.fromListWith (flip (++)) $ map (\(k, v) -> (f k, [v])) pairs
+
+{- Utilities -}
+
+lookupAll :: Eq a => a -> [(a, b)] -> [b]
+lookupAll a = map snd . filter ((== a) . fst)
