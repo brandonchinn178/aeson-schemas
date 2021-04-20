@@ -145,7 +145,7 @@ jobs:
                   STATUS=0
                   scripts/hlint.sh || STATUS=1
                   scripts/fourmolu.sh
-                  git diff --exit-code '*.hs' || STATUS=1
+                  git diff --exit-code -- '*.hs' || STATUS=1
                   exit "${STATUS}"
 
       # test
