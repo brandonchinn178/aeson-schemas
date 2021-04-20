@@ -79,7 +79,7 @@ orbs:
                 stack build "${STACK_ARGS[@]}" --only-dependencies
 
                 if [[ -n "${INSTALL_LINTERS}" ]]; then
-                    stack build -j1 hlint fourmolu
+                    stack install -j1 hlint fourmolu
                 fi
 
                 if [[ -n "${INSTALL_HPC_LCOV}" ]]; then
@@ -139,6 +139,8 @@ jobs:
             - run:
                 name: Lint
                 command: |
+                  export PATH=~/.local/bin:$PATH
+
                   set +e
                   STATUS=0
                   scripts/hlint.sh || STATUS=1
