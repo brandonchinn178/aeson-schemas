@@ -27,10 +27,6 @@ Internal definitions for declaring JSON schemas.
 module Data.Aeson.Schema.Internal where
 
 import Control.Applicative (Alternative (..), optional)
-
-#if !MIN_VERSION_base(4,13,0)
-import Control.Monad.Fail (MonadFail)
-#endif
 import Data.Aeson (FromJSON (..), ToJSON (..), Value (..))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Parser)
@@ -79,6 +75,10 @@ import Data.Aeson.Schema.Type (
 import Data.Aeson.Schema.Utils.All (All (..))
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.Sum (SumType (..))
+
+#if !MIN_VERSION_base(4,13,0)
+import Control.Monad.Fail (MonadFail)
+#endif
 
 {- Schema-validated JSON object -}
 
