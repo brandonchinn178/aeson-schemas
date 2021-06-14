@@ -11,6 +11,7 @@ module Tests.SchemaQQ.TH where
 import Control.DeepSeq (deepseq)
 import Data.Aeson (FromJSON, ToJSON)
 import Foreign.C (CBool (..))
+import Language.Haskell.TH (appTypeE)
 import Language.Haskell.TH.Quote (QuasiQuoter (..))
 import Language.Haskell.TH.TestUtils (
   MockedMode (..),
@@ -80,7 +81,8 @@ qState =
 schemaRep :: QuasiQuoter
 schemaRep = mkExpQQ $ \s ->
   let schemaType = quoteType schema s
-   in [|runTestQ qState (quoteType schema s) `deepseq` showSchema @ $schemaType|]
+      showSchemaQ = appTypeE [|showSchema|] schemaType
+   in [|runTestQ qState (quoteType schema s) `deepseq` $showSchemaQ|]
 
 schemaErr :: QuasiQuoter
 schemaErr = mkExpQQ $ \s -> [|runTestQErr qState (quoteType schema s)|]
