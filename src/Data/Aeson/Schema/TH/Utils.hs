@@ -214,6 +214,9 @@ stripKinds ty =
     UnboxedTupleT _ -> ty
     UnboxedSumT _ -> ty
     ArrowT -> ty
+#if MIN_VERSION_template_haskell(2,17,0)
+    MulArrowT -> ty
+#endif
     EqualityT -> ty
     ListT -> ty
     PromotedTupleT _ -> ty
