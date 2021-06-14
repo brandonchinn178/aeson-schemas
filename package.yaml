@@ -40,7 +40,7 @@ dependencies:
 - first-class-families >= 0.3.0.0 && < 0.9
 - hashable >= 1.2.7.0 && < 1.4
 - megaparsec >= 6.0.0 && < 10
-- template-haskell >= 2.12.0.0 && < 2.17
+- template-haskell >= 2.12.0.0 && < 2.18
 - text >= 1.2.2.2 && < 1.3
 - unordered-containers >= 0.2.8.0 && < 0.3
 

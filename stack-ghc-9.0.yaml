@@ -1,0 +1,5 @@
+resolver: nightly-2021-06-10
+compiler: ghc-9.0.1
+
+ghc-options:
+  '$locals': -Werror
