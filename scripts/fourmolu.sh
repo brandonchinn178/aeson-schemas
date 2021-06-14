@@ -13,5 +13,9 @@ if [[ "${#ARGS[@]}" == 0 ]]; then
     done < <(git ls-files -- '*.hs')
 fi
 
-stack build fourmolu
-stack exec -- fourmolu --mode=inplace "${ARGS[@]}"
+FOURMOLU=~/.local/bin/fourmolu
+if [[ ! -f "$FOURMOLU" ]]; then
+    stack install --stack-yaml stack-linters.yaml fourmolu
+fi
+
+"$FOURMOLU" --mode=inplace "${ARGS[@]}"
