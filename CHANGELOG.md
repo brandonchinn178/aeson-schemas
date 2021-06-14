@@ -1,5 +1,9 @@
 ## Upcoming
 
+## 1.3.4
+
+* Support `template-haskell-2.17.0.0` for GHC 9
+
 ## 1.3.3
 
 * Fix test failure in newer Stack snapshots
