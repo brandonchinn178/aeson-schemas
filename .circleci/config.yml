@@ -80,6 +80,7 @@ orbs:
 
                 if [[ -n "${INSTALL_LINTERS}" ]]; then
                     stack install -j1 hlint fourmolu
+                    echo 'export PATH=~/.local/bin:$PATH' >> "${BASH_ENV}"
                 fi
 
                 if [[ -n "${INSTALL_HPC_LCOV}" ]]; then
@@ -139,8 +140,6 @@ jobs:
             - run:
                 name: Lint
                 command: |
-                  export PATH=~/.local/bin:$PATH
-
                   set +e
                   STATUS=0
                   scripts/hlint.sh || STATUS=1
