@@ -79,7 +79,7 @@ orbs:
                 stack build "${STACK_ARGS[@]}" --only-dependencies
 
                 if [[ -n "${INSTALL_LINTERS}" ]]; then
-                    stack install -j1 hlint fourmolu
+                    stack install -j1 --stack-yaml=stack-linters.yaml hlint fourmolu
                     echo 'export PATH=~/.local/bin:$PATH' >> "${BASH_ENV}"
                 fi
 

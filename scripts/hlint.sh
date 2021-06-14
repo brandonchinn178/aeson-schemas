@@ -11,5 +11,9 @@ if [[ "${#ARGS}" == 0 ]]; then
     ARGS+=(.)
 fi
 
-stack build hlint
-stack exec -- hlint "${ARGS[@]}"
+HLINT=~/.local/bin/hlint
+if [[ ! -f "$HLINT" ]]; then
+    stack install --stack-yaml stack-linters.yaml hlint
+fi
+
+"$HLINT" "${ARGS[@]}"
