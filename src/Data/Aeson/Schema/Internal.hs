@@ -26,7 +26,7 @@ Internal definitions for declaring JSON schemas.
 -}
 module Data.Aeson.Schema.Internal where
 
-import Control.Applicative (Alternative (..))
+import Control.Applicative (Alternative (..), optional)
 
 #if !MIN_VERSION_base(4,13,0)
 import Control.Monad.Fail (MonadFail)
@@ -183,9 +183,7 @@ instance (HasSchemaResult inner, Show (SchemaResult inner), ToJSON (SchemaResult
     value -> (Just <$> parseValue @inner path value)
 
 instance (HasSchemaResult inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => HasSchemaResult ( 'SchemaTry inner) where
-  parseValue path = wrapTry . parseValue @inner path
-    where
-      wrapTry parser = (Just <$> parser) <|> pure Nothing
+  parseValue path = optional . parseValue @inner path
 
 instance (HasSchemaResult inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => HasSchemaResult ( 'SchemaList inner) where
   parseValue path = \case
