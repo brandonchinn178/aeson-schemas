@@ -183,6 +183,8 @@ schemaTypeVToTypeQ = \case
 -}
 type TypeWithoutKinds = Type
 
+{- FOURMOLU_DISABLE -}
+
 -- | Recursively strip all kind signatures and applications.
 stripKinds :: Type -> TypeWithoutKinds
 stripKinds ty =
@@ -226,6 +228,8 @@ stripKinds ty =
     ConstraintT -> ty
     LitT _ -> ty
     WildCardT -> ty
+
+{- FOURMOLU_ENABLE -}
 
 typeToList :: TypeWithoutKinds -> Maybe [TypeWithoutKinds]
 typeToList = \case
