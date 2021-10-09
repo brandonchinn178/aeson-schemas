@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveLift #-}
@@ -31,14 +32,15 @@ module Data.Aeson.Schema.Key (
 ) where
 
 import qualified Data.Aeson as Aeson
-import qualified Data.HashMap.Strict as HashMap
 import Data.Hashable (Hashable)
+import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (..))
-import qualified Data.Text as Text
+import Data.String (fromString)
 import GHC.Generics (Generic)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Language.Haskell.TH.Syntax (Lift)
 
+import qualified Data.Aeson.Schema.Utils.Compat as Compat
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
 
 -- | A key in a JSON object schema.
@@ -66,7 +68,7 @@ showSchemaKeyV (PhantomKey key) = "[" ++ key ++ "]"
 getContext :: SchemaKeyV -> Aeson.Object -> Aeson.Value
 getContext = \case
   -- `innerSchema` should parse `val1`
-  NormalKey key -> HashMap.lookupDefault Aeson.Null (Text.pack key)
+  NormalKey key -> fromMaybe Aeson.Null . Compat.lookup (fromString key)
   -- `innerSchema` should parse the same object that `key` is in
   PhantomKey _ -> Aeson.Object
 
@@ -76,7 +78,7 @@ getContext = \case
 toContext :: SchemaKeyV -> Aeson.Value -> Aeson.Object
 toContext = \case
   -- `val` should be inserted with key `key`
-  NormalKey key -> HashMap.singleton (Text.pack key)
+  NormalKey key -> Compat.singleton (fromString key)
   -- If `val` is an object, it should be merged with the outer JSON object
   PhantomKey _ -> \case
     Aeson.Object o -> o

@@ -6,11 +6,11 @@ module Tests.Object where
 
 import Data.Aeson (Value (..))
 import Data.Aeson.QQ (aesonQQ)
-import qualified Data.HashMap.Lazy as HashMap
 import Test.Tasty
 import Test.Tasty.HUnit
 
 import Data.Aeson.Schema (Object, schema, toMap)
+import qualified Data.Aeson.Schema.Utils.Compat as Compat
 import TestUtils (parseValue)
 import qualified Tests.Object.Eq
 import qualified Tests.Object.FromJSON
@@ -29,7 +29,7 @@ test =
         let o :: Object [schema| { a: Bool } |]
             o = parseValue [aesonQQ| { "a": true } |]
          in toMap o
-              @?= HashMap.fromList
+              @?= Compat.fromList
                 [ ("a", Bool True)
                 ]
     ]

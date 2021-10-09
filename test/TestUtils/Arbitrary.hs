@@ -25,7 +25,6 @@ module TestUtils.Arbitrary (
 import Control.Monad (forM)
 import Data.Aeson (ToJSON (..), Value (..), encode)
 import qualified Data.Aeson as Aeson
-import qualified Data.HashMap.Strict as HashMap
 import Data.List (nub)
 import Data.Proxy (Proxy (..))
 import Data.Text (Text)
@@ -58,6 +57,7 @@ import Data.Aeson.Schema.Type (
   toSchemaObjectV,
  )
 import Data.Aeson.Schema.Utils.All (All (..))
+import qualified Data.Aeson.Schema.Utils.Compat as Compat
 import Data.Aeson.Schema.Utils.NameLike (NameLike (..), fromName)
 
 data ArbitraryObject where
@@ -232,7 +232,7 @@ instance All ArbitrarySchema schemas => ArbitrarySchema ( 'SchemaUnion schemas) 
       genSchemaElem _ = genSchema @schema
 
 instance All ArbitraryObjectPair pairs => ArbitrarySchema ( 'SchemaObject (pairs :: [(SchemaKey, SchemaType)])) where
-  genSchema = Object . HashMap.unions <$> genSchemaPairs
+  genSchema = Object . Compat.unions <$> genSchemaPairs
     where
       genSchemaPairs :: Gen [Aeson.Object]
       genSchemaPairs = sequence $ mapAll @ArbitraryObjectPair @pairs genSchemaPair

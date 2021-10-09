@@ -31,12 +31,10 @@ import Data.Aeson (FromJSON (..), ToJSON (..), Value (..))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Parser)
 import Data.Dynamic (Dynamic, fromDynamic, toDyn)
-import Data.HashMap.Strict (HashMap, (!))
-import qualified Data.HashMap.Strict as HashMap
 import Data.List (intersperse)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (..))
-import Data.Text (Text)
+import Data.String (fromString)
 import qualified Data.Text as Text
 import Data.Typeable (Typeable)
 import Fcf (type (<=<), type (=<<))
@@ -73,6 +71,8 @@ import Data.Aeson.Schema.Type (
   toSchemaV,
  )
 import Data.Aeson.Schema.Utils.All (All (..))
+import Data.Aeson.Schema.Utils.Compat (Key, KeyMap)
+import qualified Data.Aeson.Schema.Utils.Compat as Compat
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.Sum (SumType (..))
 
@@ -88,7 +88,7 @@ import Control.Monad.Fail (MonadFail)
 
  > obj = decode "{\"a\": 1}" :: Maybe (Object [schema| { a: Int } |])
 -}
-newtype Object (schema :: Schema) = UnsafeObject (HashMap Text Dynamic)
+newtype Object (schema :: Schema) = UnsafeObject (KeyMap Dynamic)
 
 instance IsSchema schema => Show (Object schema) where
   showsPrec _ = showValue @(ToSchemaObject schema)
@@ -102,7 +102,7 @@ instance IsSchema schema => FromJSON (Object schema) where
 instance IsSchema schema => ToJSON (Object schema) where
   toJSON = toValue @(ToSchemaObject schema)
 
-{- | Convert an 'Object' into a 'HashMap', losing the type information in the schema.
+{- | Convert an 'Object' into a 'Aeson.Object', losing the type information in the schema.
 
  @since 1.3.0
 -}
@@ -161,8 +161,8 @@ type family SchemaResultList (xs :: [SchemaType]) where
 
 -- | A type-class for types that can be parsed from JSON for an associated schema type.
 class IsSchemaType schema => HasSchemaResult (schema :: SchemaType) where
-  parseValue :: [Text] -> Value -> Parser (SchemaResult schema)
-  default parseValue :: FromJSON (SchemaResult schema) => [Text] -> Value -> Parser (SchemaResult schema)
+  parseValue :: [Key] -> Value -> Parser (SchemaResult schema)
+  default parseValue :: FromJSON (SchemaResult schema) => [Key] -> Value -> Parser (SchemaResult schema)
   parseValue path value = parseJSON value <|> parseFail @schema path value
 
   toValue :: SchemaResult schema -> Value
@@ -203,7 +203,7 @@ instance
   parseValue path value = parseSumType @schemas path value <|> parseFail @( 'SchemaUnion schemas) path value
 
 class ParseSumType xs where
-  parseSumType :: [Text] -> Value -> Parser (SumType (SchemaResultList xs))
+  parseSumType :: [Key] -> Value -> Parser (SumType (SchemaResultList xs))
 
 instance ParseSumType '[] where
   parseSumType _ _ = empty
@@ -216,10 +216,10 @@ instance (HasSchemaResult schema, ParseSumType schemas) => ParseSumType (schema 
 
 instance (All HasSchemaResultPair pairs, IsSchemaObjectMap pairs) => HasSchemaResult ( 'SchemaObject pairs) where
   parseValue path = \case
-    Aeson.Object o -> UnsafeObject . HashMap.fromList <$> parseValueMap o
+    Aeson.Object o -> UnsafeObject . Compat.fromList <$> parseValueMap o
     value -> parseFail @( 'SchemaObject pairs) path value
     where
-      parseValueMap :: Aeson.Object -> Parser [(Text, Dynamic)]
+      parseValueMap :: Aeson.Object -> Parser [(Key, Dynamic)]
       parseValueMap o = sequence $ mapAll @HasSchemaResultPair @pairs $ \proxy -> parseValuePair proxy path o
 
   toValue = Aeson.Object . toValueMap
@@ -237,10 +237,10 @@ instance (All HasSchemaResultPair pairs, IsSchemaObjectMap pairs) => HasSchemaRe
       concatShowS = foldr (.) id
 
 toValueMap :: forall pairs. All HasSchemaResultPair pairs => Object ( 'Schema pairs) -> Aeson.Object
-toValueMap o = HashMap.unions $ mapAll @HasSchemaResultPair @pairs (\proxy -> toValuePair proxy o)
+toValueMap o = Compat.unions $ mapAll @HasSchemaResultPair @pairs (\proxy -> toValuePair proxy o)
 
 class HasSchemaResultPair (a :: (SchemaKey, SchemaType)) where
-  parseValuePair :: Proxy a -> [Text] -> Aeson.Object -> Parser (Text, Dynamic)
+  parseValuePair :: Proxy a -> [Key] -> Aeson.Object -> Parser (Key, Dynamic)
   toValuePair :: Proxy a -> Object schema -> Aeson.Object
   showValuePair :: Proxy a -> Object schema -> (String, ShowS)
 
@@ -256,7 +256,7 @@ instance
     return (key, toDyn inner)
     where
       schemaKey = toSchemaKeyV $ Proxy @key
-      key = Text.pack $ fromSchemaKeyV schemaKey
+      key = fromString $ fromSchemaKeyV schemaKey
 
   toValuePair _ o = toContext schemaKey (toValue @inner val)
     where
@@ -273,14 +273,14 @@ instance IsSchema schema => HasSchemaResult ( 'SchemaInclude ( 'Right schema)) w
   showValue = showValue @(ToSchemaObject schema)
 
 -- | A helper for creating fail messages when parsing a schema.
-parseFail :: forall (schema :: SchemaType) m a. (MonadFail m, HasSchemaResult schema) => [Text] -> Value -> m a
+parseFail :: forall (schema :: SchemaType) m a. (MonadFail m, HasSchemaResult schema) => [Key] -> Value -> m a
 parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
   where
     msg =
       if null path
         then "Could not parse schema " ++ schema'
         else "Could not parse path '" ++ path' ++ "' with schema " ++ schema'
-    path' = Text.unpack . Text.intercalate "." $ reverse path
+    path' = Text.unpack . Text.intercalate "." . map Compat.keyToText $ reverse path
     schema' = "`" ++ showSchemaType @schema ++ "`"
     ellipses n s = if length s > n then take n s ++ "..." else s
 
@@ -348,6 +348,6 @@ unsafeGetKey ::
   SchemaResult endSchema
 unsafeGetKey keyProxy (UnsafeObject object) =
   fromMaybe (unreachable $ "Could not load key: " ++ key) $
-    fromDynamic (object ! Text.pack key)
+    fromDynamic =<< Compat.lookup (fromString key) object
   where
     key = symbolVal keyProxy

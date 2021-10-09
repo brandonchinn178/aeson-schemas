@@ -2,6 +2,9 @@ resolver: nightly-2021-10-07
 
 extra-deps:
 - aeson-2.0.0.0
+- # https://github.com/sol/aeson-qq/pull/19
+  github: sol/aeson-qq
+  commit: 9061030a5e71c7061da2d1012d31866de4f9d2ed
 
 ghc-options:
   '$locals': -Werror
