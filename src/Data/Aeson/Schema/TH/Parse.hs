@@ -218,16 +218,17 @@ jsonKey' =
         , noneOf $ [' ', '\\', '"'] ++ schemaChars ++ getChars
         ]
   where
-#if MIN_VERSION_megaparsec(7,0,0)
-    anySingle' = anySingle
-#else
-    anySingle' = anyChar
-#endif
-
     -- characters that cause ambiguity when parsing 'get' expressions
     getChars = "!?[](),.@"
     -- characters that should not indicate the start of a key when parsing 'schema' definitions
     schemaChars = ":{}#"
+
+anySingle' :: Parser Char
+#if MIN_VERSION_megaparsec(7,0,0)
+anySingle' = anySingle
+#else
+anySingle' = anyChar
+#endif
 
 {- Parsing utilities -}
 

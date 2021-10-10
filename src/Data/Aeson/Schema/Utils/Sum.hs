@@ -63,7 +63,7 @@ data SumType (types :: [Type]) where
 
 deriving instance (Show x, Show (SumType xs)) => Show (SumType (x ': xs))
 instance Show (SumType '[]) where
-  show = \case
+  show = \case {}
 
 deriving instance (Eq x, Eq (SumType xs)) => Eq (SumType (x ': xs))
 instance Eq (SumType '[]) where
@@ -85,7 +85,7 @@ instance (ToJSON x, ToJSON (SumType xs)) => ToJSON (SumType (x ': xs)) where
     There xs -> toJSON xs
 
 instance ToJSON (SumType '[]) where
-  toJSON = \case
+  toJSON = \case {}
 
 {- Extracting sum type branches -}
 
