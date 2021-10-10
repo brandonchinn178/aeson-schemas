@@ -5,13 +5,6 @@
 
 packages:
 - completed:
-    hackage: aeson-1.4.5.0@sha256:451b48781e6f85102675778b54cd8f0e0cafa5bdf950c2989223cc22f9baa20e,6964
-    pantry-tree:
-      size: 40193
-      sha256: 2a66131492bcf981138f4723ea5c71058ce5b37b0f1b50db020321c1cee1545b
-  original:
-    hackage: aeson-1.4.5.0
-- completed:
     hackage: time-compat-1.9.2.2@sha256:ccf268e6ec91a6d9a79392697634c670c095a34a60d1ccfa1be1c84f20bb24c5,4254
     pantry-tree:
       size: 3602

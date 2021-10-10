@@ -50,6 +50,9 @@ orbs:
           install_hpc_lcov:
             type: boolean
             default: false
+          install_benchmark_deps:
+            type: boolean
+            default: false
 
         steps:
           - run:
@@ -71,7 +74,11 @@ orbs:
           - run:
               name: Build external dependencies
               command: |
-                STACK_ARGS=(--test --bench)
+                STACK_ARGS=(--test)
+
+                if [[ -n "${INSTALL_BENCH_DEPS}" ]]; then
+                  STACK_ARGS+=(--bench)
+                fi
 
                 # break up parallelism to avoid OOM
                 stack build "${STACK_ARGS[@]}" haskell-src-exts
@@ -89,6 +96,7 @@ orbs:
               environment:
                 INSTALL_LINTERS: <<# parameters.install_linters >>1<</ parameters.install_linters >>
                 INSTALL_HPC_LCOV: <<# parameters.install_hpc_lcov >>1<</ parameters.install_hpc_lcov >>
+                INSTALL_BENCH_DEPS: <<# parameters.install_benchmark_deps >>1<</ parameters.install_benchmark_deps >>
 
 jobs:
   run_build_and_test:
@@ -212,7 +220,8 @@ jobs:
 
     steps:
       - helpers/setup
-      - helpers/build_stack_deps
+      - helpers/build_stack_deps:
+          install_benchmark_deps: true
       - run:
           name: Run benchmarks
           # Note: We need to use --fast here because CI runs out of memory when optimizing the code.
