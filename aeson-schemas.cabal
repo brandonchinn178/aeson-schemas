@@ -3,8 +3,6 @@ cabal-version: >= 1.10
 -- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
---
--- hash: 6919ea4d076938975ab40572743acfb13428103184c253ecd3889d31fc04b56c
 
 name:           aeson-schemas
 version:        1.3.5
