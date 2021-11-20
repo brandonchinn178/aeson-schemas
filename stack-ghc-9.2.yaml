@@ -1,4 +1,4 @@
-resolver: nightly-2021-11-12
+resolver: nightly-2021-11-19
 compiler: ghc-9.2.1
 
 extra-deps:
@@ -6,17 +6,12 @@ extra-deps:
 - attoparsec-0.14.2
 - base-compat-0.12.1
 - base-compat-batteries-0.12.1
-- th-test-utils-1.1.1
-# https://github.com/simonmar/happy/issues/215
-- happy-1.20.0
+- hint-0.9.0.5
 # https://github.com/DanBurton/haskell-src-meta/pull/23
 - github: DanBurton/haskell-src-meta
   commit: 3f521f9f14d0bd135d352dc8fae19151b6077f77
   subdirs:
     - haskell-src-meta
-# https://github.com/haskell-hint/hint/pull/139
-- github: haskell-hint/hint
-  commit: 068c1960bbb92477172c10c23c3033e3b3d172d1
 
 ghc-options:
   '$locals': -Werror
