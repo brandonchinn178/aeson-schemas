@@ -1,5 +1,9 @@
 ## Upcoming
 
+## 1.3.5.1
+
+* Fix benchmarks for `aeson-2`
+
 ## 1.3.5
 
 * Support `aeson-2.0.0.0`
