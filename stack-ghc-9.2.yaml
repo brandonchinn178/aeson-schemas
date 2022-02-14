@@ -1,17 +1,9 @@
-resolver: nightly-2021-11-19
+resolver: nightly-2022-02-14
 compiler: ghc-9.2.1
 
 extra-deps:
-- aeson-2.0.2.0
-- attoparsec-0.14.2
 - base-compat-0.12.1
 - base-compat-batteries-0.12.1
-- hint-0.9.0.5
-# https://github.com/DanBurton/haskell-src-meta/pull/23
-- github: DanBurton/haskell-src-meta
-  commit: 3f521f9f14d0bd135d352dc8fae19151b6077f77
-  subdirs:
-    - haskell-src-meta
 
 ghc-options:
   '$locals': -Werror

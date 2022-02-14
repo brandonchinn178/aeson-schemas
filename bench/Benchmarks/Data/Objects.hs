@@ -12,10 +12,8 @@ module Benchmarks.Data.Objects where
 
 import Data.Aeson (ToJSON (..), Value)
 import Data.Dynamic (Dynamic, Typeable, toDyn)
-import qualified Data.HashMap.Strict as HashMap
 import Data.Proxy (Proxy (..))
-import Data.Text (Text)
-import qualified Data.Text as Text
+import Data.String (fromString)
 
 import Data.Aeson.Schema.Internal (Object (..), SchemaResult)
 import Data.Aeson.Schema.Key (IsSchemaKey, SchemaKey, fromSchemaKey)
@@ -26,6 +24,7 @@ import Data.Aeson.Schema.Type (
   ToSchemaObject,
  )
 import Data.Aeson.Schema.Utils.All (All (..))
+import qualified Data.Aeson.Schema.Utils.Compat as Compat
 
 type MockSchema schema =
   ( MockSchemaResult (ToSchemaObject schema)
@@ -52,10 +51,10 @@ instance
   ) =>
   MockSchemaResult ( 'SchemaObject pairs)
   where
-  schemaResult _ = UnsafeObject $ HashMap.fromList $ mapAll @MockSchemaResultPair @pairs schemaResultPair
+  schemaResult _ = UnsafeObject $ Compat.fromList $ mapAll @MockSchemaResultPair @pairs schemaResultPair
 
 class MockSchemaResultPair (pair :: (SchemaKey, SchemaType)) where
-  schemaResultPair :: Proxy pair -> (Text, Dynamic)
+  schemaResultPair :: Proxy pair -> (Compat.Key, Dynamic)
 
 instance (IsSchemaKey key, MockSchemaResult inner) => MockSchemaResultPair '(key, inner) where
-  schemaResultPair _ = (Text.pack $ fromSchemaKey @key, toDyn $ schemaResult $ Proxy @inner)
+  schemaResultPair _ = (fromString $ fromSchemaKey @key, toDyn $ schemaResult $ Proxy @inner)
