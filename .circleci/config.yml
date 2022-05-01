@@ -168,16 +168,26 @@ jobs:
             fi
 
             stack build "${STACK_ARGS[@]}" --ta '-p "!/Compile-time errors/"'
+            if [[ -n "${CI_LATEST}" ]]; then
+              hpc-lcov -o lcov-test.info
+            fi
 
             if [[ -n "${CI_LATEST}" ]]; then
               stack build "${STACK_ARGS[@]}" --ta '-p "Compile-time errors"'
+              hpc-lcov -o lcov-compile-errors.info
             fi
       - when:
           condition: << parameters.latest >>
           steps:
             - run:
-                name: Convert coverage output
-                command: hpc-lcov
+                name: Combine lcov output
+                command: |
+                  yum install -y epel-release && yum install -y lcov
+                  LCOV_ARGS=()
+                  for LCOV_FILE in lcov-*.info; do
+                    LCOV_ARGS+=(-a "${LCOV_FILE}")
+                  done
+                  lcov "${LCOV_ARGS[@]}" > lcov.info
             - codecov/upload:
                 file: lcov.info
       - when:
