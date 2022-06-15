@@ -35,7 +35,7 @@ when:
       - -Wnoncanonical-monadfail-instances
 
 dependencies:
-- aeson >= 1.1.2.0 && < 2.1
+- aeson >= 1.1.2.0 && < 3
 - base >= 4.9 && < 5
 - first-class-families >= 0.3.0.0 && < 0.9
 - hashable >= 1.2.7.0 && < 1.5
