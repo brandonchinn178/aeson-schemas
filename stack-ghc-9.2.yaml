@@ -1,9 +1,4 @@
-resolver: nightly-2022-02-14
-compiler: ghc-9.2.1
-
-extra-deps:
-- base-compat-0.12.1
-- base-compat-batteries-0.12.1
+resolver: nightly-2022-06-15
 
 ghc-options:
   '$locals': -Werror
