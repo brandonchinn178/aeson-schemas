@@ -3,24 +3,10 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages:
-- completed:
-    hackage: time-compat-1.9.2.2@sha256:ccf268e6ec91a6d9a79392697634c670c095a34a60d1ccfa1be1c84f20bb24c5,4254
-    pantry-tree:
-      size: 3602
-      sha256: f16cc56a43fa6047ad46b23770d5a16b9c400fd8d019e9b010b766a13e8eb588
-  original:
-    hackage: time-compat-1.9.2.2
-- completed:
-    hackage: th-test-utils-1.1.0@sha256:9031e177727b96703e30c2b8d0c376a96270137b9bc82a822e2c55d4f36d7a74,2258
-    pantry-tree:
-      size: 616
-      sha256: bf617740d3f066b28b14dd6657efd7f8b249d8c9f1493c8a7688a051baab362c
-  original:
-    hackage: th-test-utils-1.1.0
+packages: []
 snapshots:
 - completed:
-    size: 534126
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/31.yaml
-    sha256: 637fb77049b25560622a224845b7acfe81a09fdb6a96a3c75997a10b651667f6
-  original: lts-16.31
+    size: 590100
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/28.yaml
+    sha256: 428ec8d5ce932190d3cbe266b9eb3c175cd81e984babf876b64019e2cbe4ea68
+  original: lts-18.28
