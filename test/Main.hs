@@ -4,6 +4,7 @@ import qualified Tests.EnumTH
 import qualified Tests.GetQQ
 import qualified Tests.MkGetter
 import qualified Tests.Object
+import qualified Tests.Quickstart
 import qualified Tests.SchemaQQ
 import qualified Tests.SumType
 import qualified Tests.UnwrapQQ
@@ -20,4 +21,5 @@ main =
       , Tests.MkGetter.test
       , Tests.EnumTH.test
       , Tests.SumType.test
+      , Tests.Quickstart.test
       ]

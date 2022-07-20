@@ -17,6 +17,7 @@ description: |
 extra-source-files:
   - README.md
   - CHANGELOG.md
+  - examples/*.json
   - test/**/*.golden
   - test/wont-compile/*.hs
 
@@ -63,14 +64,17 @@ tests:
       - aeson-schemas
       - aeson-qq
       - deepseq
+      - filepath
       - hint
       - interpolate
+      - process
       - QuickCheck
       - raw-strings-qq
       - tasty
       - tasty-hunit
       - tasty-golden
       - tasty-quickcheck
+      - temporary
       - th-orphans
       - th-test-utils
 
