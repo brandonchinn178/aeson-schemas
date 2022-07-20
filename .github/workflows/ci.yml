@@ -1,0 +1,115 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_call:
+
+jobs:
+  build_and_test:
+    strategy:
+      matrix:
+        stack_yaml:
+          - stack-ghc-8.10.yaml
+          - stack-ghc-9.0.yaml
+          - stack-ghc-9.2.yaml
+        include:
+          - stack_yaml: stack.yaml
+            latest: true
+
+    name: build_and_test (${{ matrix.stack_yaml }})
+    runs-on: ubuntu-latest
+    env:
+      STACK_YAML: ${{ matrix.stack_yaml }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v3
+        with:
+          path: ~/.stack
+          key: ${{ runner.os }}-stack-cache-${{ hashFiles(matrix.stack_yaml, 'package.yaml') }}
+
+      - name: Build + Test
+        run: stack test --haddock --no-haddock-deps --coverage
+
+      - name: Check that files are unmodified
+        run: git diff --exit-code
+
+      - if: ${{ matrix.latest }}
+        name: Convert coverage output
+        run: stack install hpc-lcov && hpc-lcov
+      - if: ${{ matrix.latest }}
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
+
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      FOURMOLU_VERSION: '0.7.0.1'
+      HLINT_VERSION: '3.4.1'
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install fourmolu
+        run: |
+          curl -fsSL \
+            "https://github.com/fourmolu/fourmolu/releases/download/v${FOURMOLU_VERSION}/fourmolu-${FOURMOLU_VERSION}-linux-x86_64" \
+            -o /usr/local/bin/fourmolu
+          chmod +x /usr/local/bin/fourmolu
+      - name: Run fourmolu
+        run: fourmolu -m check $(git ls-files '*.hs')
+
+      - name: Install hlint
+        run: |
+          tmpdir=$(mktemp -d)
+          curl -fsSL \
+            "https://github.com/ndmitchell/hlint/releases/download/v${HLINT_VERSION}/hlint-${HLINT_VERSION}-x86_64-linux.tar.gz" \
+            -o "${tmpdir}/hlint.tar.gz"
+          tar xzf "${tmpdir}/hlint.tar.gz" -C "${tmpdir}"
+          mv "${tmpdir}/hlint-${HLINT_VERSION}/hlint" /usr/local/bin/hlint
+          chmod +x /usr/local/bin/hlint
+          rm -rf "${tmpdir}"
+      - name: Run hlint
+        run: hlint .
+
+      - name: Install black
+        run: pip install black==22.6.0
+      - name: Run black
+        run: black --check --diff $(git ls-files '*.py')
+
+      - name: Install pyright
+        run: npm install -g pyright@1.1.258
+      - name: Run pyright
+        run: pyright
+
+  benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v3
+        with:
+          path: ~/.stack
+          key: ${{ runner.os }}-benchmarks-${{ hashFiles('stack.yaml', 'package.yaml') }}
+      - name: Run benchmarks
+        run: stack bench --ba '--output=/tmp/benchmark-results.html'
+      - uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: /tmp/benchmark-results.html
+
+  check_sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v3
+        with:
+          path: ~/.stack
+          key: ${{ runner.os }}-check_sdist-${{ hashFiles('stack.yaml', 'package.yaml') }}
+      - name: Create sdist bundle
+        run: stack sdist --test-tarball --tar-dir .
+      - uses: actions/upload-artifact@v3
+        with:
+          name: aeson-schemas-sdist
+          path: aeson-schemas-*.tar.gz
