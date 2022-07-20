@@ -37,7 +37,7 @@ stack test
 
 # Git etiquette
 
-See [`CONTRIBUTING`](https://github.com/LeapYear/.github/blob/master/CONTRIBUTING)
+See [`CONTRIBUTING`](https://github.com/LeapYear/.github/blob/main/CONTRIBUTING)
 
 # Documentation
 
@@ -69,7 +69,7 @@ Follow these steps to release this project:
        `-- @since v2.0.0`)
     1. Run `stack haddock` and skim through documentation
 
-1. Create PR as usual and merge into `master`
+1. Create PR as usual and merge into `main`
     1. In the `test_latest` CI job, check the output of the `stack sdist`
        step for any warnings.
 
