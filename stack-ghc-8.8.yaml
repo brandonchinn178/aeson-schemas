@@ -1,8 +1,0 @@
-resolver: lts-16.31
-
-extra-deps:
-  - time-compat-1.9.2.2
-  - th-test-utils-1.1.0
-
-ghc-options:
-  '$locals': -Werror
