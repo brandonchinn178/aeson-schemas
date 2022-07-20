@@ -14,9 +14,6 @@ module Data.Aeson.Schema.TH.Parse where
 
 import Control.Monad (MonadPlus, void)
 
-#if !MIN_VERSION_base(4,13,0)
-import Control.Monad.Fail (MonadFail)
-#endif
 import Data.Functor (($>))
 import Data.List (intercalate)
 import Data.List.NonEmpty (NonEmpty)

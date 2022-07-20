@@ -191,22 +191,16 @@ stripKinds ty =
   case ty of
     -- cases that strip + recurse
     SigT ty1 _ -> stripKinds ty1
-#if MIN_VERSION_template_haskell(2,15,0)
     AppKindT ty1 _ -> stripKinds ty1
-#endif
 
     -- cases that recurse
     ForallT tyVars ctx ty1 -> ForallT tyVars ctx (stripKinds ty1)
-#if MIN_VERSION_template_haskell(2,16,0)
     ForallVisT tyVars ty1 -> ForallVisT tyVars (stripKinds ty1)
-#endif
     AppT ty1 ty2 -> AppT (stripKinds ty1) (stripKinds ty2)
     InfixT ty1 name ty2 -> InfixT (stripKinds ty1) name (stripKinds ty2)
     UInfixT ty1 name ty2 -> UInfixT (stripKinds ty1) name (stripKinds ty2)
     ParensT ty1 -> ParensT (stripKinds ty1)
-#if MIN_VERSION_template_haskell(2,15,0)
     ImplicitParamT str ty1 -> ImplicitParamT str (stripKinds ty1)
-#endif
 
     -- base cases
     VarT _ -> ty
