@@ -69,14 +69,14 @@ lookupSchema nameLike = do
         TyConI (TySynD _ _ (stripKinds -> ty))
           -- `type MySchema = 'Schema '[ ... ]`
           | isPromotedSchema ty ->
-            return ty
+              return ty
           -- `type MySchema = Object ('Schema '[ ... ])`
           | Just inner <- unwrapObject ty
-            , isPromotedSchema inner ->
-            return inner
+          , isPromotedSchema inner ->
+              return inner
           -- `type MySchema = Object OtherSchema`
           | Just (ConT schemaName') <- unwrapObject ty ->
-            reifySchemaType schemaName'
+              reifySchemaType schemaName'
         _ -> fail $ "'" ++ show schemaName ++ "' is not a Schema"
 
     -- If the given type is of the format `Object a`, return `a`.
@@ -131,13 +131,13 @@ loadSchema ReifiedSchema{reifiedSchemaType} =
         | name == 'SchemaTry -> SchemaTry <$> parseSchemaType inner
         | name == 'SchemaList -> SchemaList <$> parseSchemaType inner
         | name == 'SchemaUnion -> do
-          schemas <- typeToList inner
-          SchemaUnion <$> mapM parseSchemaType schemas
+            schemas <- typeToList inner
+            SchemaUnion <$> mapM parseSchemaType schemas
         | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectMap inner
       AppT (PromotedT name) (AppT (PromotedT right) (ConT inner))
         | name == 'SchemaInclude
-          , right == 'Right ->
-          return $ SchemaInclude $ Left $ NameTH inner
+        , right == 'Right ->
+            return $ SchemaInclude $ Left $ NameTH inner
       _ -> empty
 
 -- | Resolve SchemaInclude, if present. (Not recursive)

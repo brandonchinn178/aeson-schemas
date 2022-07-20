@@ -1,5 +1,5 @@
-resolver: nightly-2021-10-07
+resolver: nightly-2022-07-19
 packages: []
 extra-deps:
-  - hlint-3.3.4
-  - fourmolu-0.4.0.0
+  - hlint-3.4.1
+  - fourmolu-0.7.0.1

@@ -83,7 +83,8 @@ mkGetter :: String -> String -> Name -> String -> DecsQ
 mkGetter unwrapName funcName startSchemaName ops = do
   getterExp@GetterExp{..} <- parseGetterExp ops
   unless (isNothing start) $
-    fail $ "Getter expression should start with '.': " ++ ops
+    fail $
+      "Getter expression should start with '.': " ++ ops
 
   startSchema <- lookupSchema (NameTH startSchemaName) >>= loadSchema
 
