@@ -1,37 +1,37 @@
-## Upcoming
+# Unreleased
 
 * Drop support for GHC < 8.10
 * Drop support for megaparsec < 7
 
-## 1.3.5.1
+# v1.3.5.1
 
 * Fix benchmarks for `aeson-2`
 
-## 1.3.5
+# v1.3.5
 
 * Support `aeson-2.0.0.0`
 
-## 1.3.4
+# v1.3.4
 
 * Support `template-haskell-2.17.0.0` for GHC 9
 
-## 1.3.3
+# v1.3.3
 
 * Fix test failure in newer Stack snapshots
 
-## 1.3.2
+# v1.3.2
 
 Performance:
 
 * Optimized including other schemas in a schema, which previously caused a huge slowdown, and possibly even out-of-memory errors.
 
-## 1.3.1
+# v1.3.1
 
 Bug fixes:
 
 * Update extra-source-files with files needed for testing
 
-## 1.3.0
+# v1.3.0
 
 Breaking changes:
 
@@ -69,33 +69,33 @@ Miscellaneous changes:
 
 * The `Show` instance for objects added some whitespace, from `{"foo": 0}` to `{ "foo": 0 }`
 
-## 1.2.0
+# v1.2.0
 
 New features:
 
 * Add support for phantom keys
 * Add support for `Try` schemas
 
-## 1.1.0
+# v1.1.0
 
 New features:
 
 * Added support for unions
 * Added `ToJSON` instance for enums generated with `mkEnum`
 
-## 1.0.3
+# v1.0.3
 
 Support GHC 8.8
 
-## 1.0.2
+# v1.0.2
 
 Bundle test data files in release tarball
 
-## 1.0.1
+# v1.0.1
 
 Add support with `first-class-families-0.6.0.0`
 
-## 1.0.0
+# v1.0.0
 
 Initial release:
 

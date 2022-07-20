@@ -74,6 +74,16 @@ jobs:
       - name: Run hlint
         run: hlint .
 
+      - name: Install black
+        run: pip install black==22.6.0
+      - name: Run black
+        run: black --check --diff $(git ls-files '*.py')
+
+      - name: Install pyright
+        run: npm install -g pyright@1.1.258
+      - name: Run pyright
+        run: pyright
+
   benchmarks:
     runs-on: ubuntu-latest
     steps:

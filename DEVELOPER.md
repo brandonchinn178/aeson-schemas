@@ -47,7 +47,7 @@ All code should be fully documented, whether it's adding comments for future
 developers or adding Haddock docs for functionality exposed in Haddock.
 
 Changes that affect users should be mentioned in `CHANGELOG.md`. When doing so,
-add an entry under under the `Upcoming` header containing:
+add an entry under under the `Unreleased` header containing:
 * A description of the change
 * The type of change (breaking, bugfix, etc.)
 * If applicable,
@@ -65,8 +65,8 @@ Follow these steps to release this project:
     1. Bump version in `package.yaml`
         * All version bumps should follow [PvP](https://pvp.haskell.org/)
     1. Curate `CHANGELOG.md`, creating a new section for this version and
-       moving everything previously in `Upcoming` into the new section
-       (keeping `Upcoming` as a section)
+       moving everything previously in `Unreleased` into the new section
+       (keeping `Unreleased` as a section)
     1. Add comments to new features indicating when it was added (e.g.
        `-- @since v2.0.0`)
     1. Run `stack haddock` and skim through documentation
@@ -75,12 +75,9 @@ Follow these steps to release this project:
     1. In the `check_sdist` CI job, check the output of the `stack sdist`
        step for any warnings.
 
-1. Create a release on GitHub on the merge commit
-    1. The tag version should be of the format `vX.Y.Z`
-    1. The release title should be the same as the tag version
-    1. The release body should contain everything in `CHANGELOG.md` in the
-       section for this version
+1. Ensure your Hackage token is set in Settings > Secrets > Actions as `HACKAGE_TOKEN_<github_username>` (replace any non alphanumeric characters in username with `_`).
+    * Generate a token from `https://hackage.haskell.org/user/<hackage_username>/manage`
 
-1. Upload the package to Hackage
-    1. Download the `aeson-schemas-*.tar.gz` file from CI artifacts
-    1. Upload tarbell to Hackage
+1. Go to the GitHub Actions page, click on the "Release" workflow, and click "Run workflow" on the main branch
+
+1. Publish the candidate: https://hackage.haskell.org/package/aeson-schemas/candidates
