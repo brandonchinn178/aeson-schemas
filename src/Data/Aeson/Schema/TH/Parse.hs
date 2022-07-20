@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -25,11 +24,6 @@ import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void String
-
-#if !MIN_VERSION_megaparsec(7,0,0)
-errorBundlePretty :: (Ord t, ShowToken t, ShowErrorComponent e) => ParseError t e -> String
-errorBundlePretty = parseErrorPretty
-#endif
 
 runParserFail :: MonadFail m => Parser a -> String -> m a
 runParserFail parser s = either (fail . errorBundlePretty) return $ runParser parser s s
@@ -211,7 +205,7 @@ jsonKey' =
   fmap NonEmpty.toList $
     some $
       choice
-        [ try $ char '\\' *> anySingle'
+        [ try $ char '\\' *> anySingle
         , noneOf $ [' ', '\\', '"'] ++ schemaChars ++ getChars
         ]
   where
@@ -219,13 +213,6 @@ jsonKey' =
     getChars = "!?[](),.@"
     -- characters that should not indicate the start of a key when parsing 'schema' definitions
     schemaChars = ":{}#"
-
-anySingle' :: Parser Char
-#if MIN_VERSION_megaparsec(7,0,0)
-anySingle' = anySingle
-#else
-anySingle' = anyChar
-#endif
 
 {- Parsing utilities -}
 

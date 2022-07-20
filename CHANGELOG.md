@@ -1,6 +1,7 @@
 ## Upcoming
 
 * Drop support for GHC < 8.10
+* Drop support for megaparsec < 7
 
 ## 1.3.5.1
 
