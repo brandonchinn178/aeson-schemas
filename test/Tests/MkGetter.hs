@@ -31,8 +31,8 @@ mkGetter "User" "getUsers" ''MySchema ".users[]"
 
 test :: TestTree
 test =
-  runMkGetterQ
-    `deepseq` testGroup
+  runMkGetterQ `deepseq`
+    testGroup
       "`mkGetter` helper"
       [ testCase "Type synonym is generated" $
           showSchemaResult @User @?= [r|Object (SchemaObject { "name": Text })|]

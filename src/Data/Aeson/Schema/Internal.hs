@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -75,10 +74,6 @@ import Data.Aeson.Schema.Utils.Compat (Key, KeyMap)
 import qualified Data.Aeson.Schema.Utils.Compat as Compat
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.Sum (SumType (..))
-
-#if !MIN_VERSION_base(4,13,0)
-import Control.Monad.Fail (MonadFail)
-#endif
 
 {- Schema-validated JSON object -}
 

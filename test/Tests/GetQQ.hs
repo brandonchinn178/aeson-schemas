@@ -217,7 +217,8 @@ testFromJustErrors =
   testGroup
     "fromJust errors"
     [ testCase "Plain fromJust" $
-        assertError "Called 'fromJust' on null expression" $ [runGet| ! |] (Nothing :: Maybe Int)
+        assertError "Called 'fromJust' on null expression" $
+          [runGet| ! |] (Nothing :: Maybe Int)
     , testCase "With start" $ do
         let o = $(parseObject "{ foo: Maybe Bool }") [aesonQQ| { "foo": null } |]
         assertError

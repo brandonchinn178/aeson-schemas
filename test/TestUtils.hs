@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -25,9 +24,6 @@ module TestUtils (
 import Data.Aeson (FromJSON (..), Value, eitherDecode)
 import Data.Aeson.Types (parseEither)
 
-#if !MIN_VERSION_megaparsec(7,0,0)
-import Data.Char (isDigit, isSpace)
-#endif
 import Data.Proxy (Proxy (..))
 import Data.String (fromString)
 import qualified Data.Text as Text
@@ -100,7 +96,7 @@ testParseError :: String -> FilePath -> String -> TestTree
 testParseError name fp s = goldenTest name getExpected getActual cmp update
   where
     goldenFile = "test/goldens/" ++ fp
-    getExpected = sanitize <$> Text.readFile goldenFile
+    getExpected = Text.readFile goldenFile
     getActual = return $ Text.pack s
     cmp expected actual =
       return $
@@ -108,24 +104,3 @@ testParseError name fp s = goldenTest name getExpected getActual cmp update
           then Nothing
           else Just $ "Test output was different from '" ++ goldenFile ++ "'. It was:\n" ++ Text.unpack actual
     update = Text.writeFile goldenFile
-
-#if MIN_VERSION_megaparsec(7,0,0)
-    sanitize = id
-#else
-    -- megaparsec before version 7.0.0 doesn't display the offending lines, so we need to strip
-    -- out those lines from the golden before comparing them.
-    --
-    -- e.g.
-    --
-    --    { "a:b": Int } :1:6:
-    -- >   |
-    -- > 1 |  { "a:b": Int }
-    -- >   |      ^
-    --   unexpected ':'
-    --   expecting '"' or '\'
-    sanitize = Text.unlines . filter (not . isOffendingLine) . Text.lines
-
-    isOffendingLine line = case Text.splitOn "|" line of
-      [prefix, _] -> Text.all (\c -> isDigit c || isSpace c) prefix
-      _ -> False
-#endif

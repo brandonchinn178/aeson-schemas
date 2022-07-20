@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -105,10 +104,10 @@ forAllArbitraryObjects = [|forAllArbitraryObjects' $arbitraryObject|]
 forAllArbitraryObjects' :: Gen ArbitraryObject -> (ArbitraryObject -> Property) -> Property
 forAllArbitraryObjects' genArbitraryObject runTest =
   forAll @_ @Property genArbitraryObject $ \o@(ArbitraryObject _ _ schemaType) ->
-    tabulate' "Key types" (map getKeyType $ getKeys schemaType) $
-      tabulate' "Schema types" (getSchemaTypes schemaType) $
-        tabulate' "Object sizes" (map show $ getObjectSizes schemaType) $
-          tabulate' "Object depth" [show $ getObjectDepth schemaType] $
+    tabulate "Key types" (map getKeyType $ getKeys schemaType) $
+      tabulate "Schema types" (getSchemaTypes schemaType) $
+        tabulate "Object sizes" (map show $ getObjectSizes schemaType) $
+          tabulate "Object depth" [show $ getObjectDepth schemaType] $
             runTest o
 
 {- Run time helpers -}
@@ -180,14 +179,6 @@ getObjectDepth = getObjectDepth' . toSchemaObjectV
       SchemaUnion schemas -> maximum $ map getObjectDepth' schemas
       SchemaObject pairs -> 1 + maximum (map (getObjectDepth' . snd) pairs)
       SchemaInclude _ -> error "ArbitraryObject unexpectedly generated a schema that includes another schema"
-
-tabulate' :: String -> [String] -> Property -> Property
-
-#if MIN_VERSION_QuickCheck(2,12,0)
-tabulate' = tabulate
-#else
-tabulate' _ _ = id
-#endif
 
 {- Generating schemas -}
 

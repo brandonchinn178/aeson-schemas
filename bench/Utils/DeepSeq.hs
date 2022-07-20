@@ -3,12 +3,8 @@
 
 module Utils.DeepSeq () where
 
-import Control.DeepSeq (NFData (..))
-
-#if MIN_VERSION_template_haskell(2,16,0)
-import Control.DeepSeq (rwhnf)
+import Control.DeepSeq (NFData (..), rwhnf)
 import GHC.ForeignPtr (ForeignPtr)
-#endif
 import Language.Haskell.TH.Syntax
 
 instance NFData AnnTarget
@@ -66,9 +62,7 @@ instance NFData flag => NFData (TyVarBndr flag)
 instance NFData TyVarBndr
 #endif
 
-#if MIN_VERSION_template_haskell(2,16,0)
 instance NFData Bytes
 
 instance NFData (ForeignPtr a) where
   rnf = rwhnf
-#endif

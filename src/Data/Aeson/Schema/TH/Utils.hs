@@ -69,14 +69,14 @@ lookupSchema nameLike = do
         TyConI (TySynD _ _ (stripKinds -> ty))
           -- `type MySchema = 'Schema '[ ... ]`
           | isPromotedSchema ty ->
-            return ty
+              return ty
           -- `type MySchema = Object ('Schema '[ ... ])`
           | Just inner <- unwrapObject ty
-            , isPromotedSchema inner ->
-            return inner
+          , isPromotedSchema inner ->
+              return inner
           -- `type MySchema = Object OtherSchema`
           | Just (ConT schemaName') <- unwrapObject ty ->
-            reifySchemaType schemaName'
+              reifySchemaType schemaName'
         _ -> fail $ "'" ++ show schemaName ++ "' is not a Schema"
 
     -- If the given type is of the format `Object a`, return `a`.
@@ -131,13 +131,13 @@ loadSchema ReifiedSchema{reifiedSchemaType} =
         | name == 'SchemaTry -> SchemaTry <$> parseSchemaType inner
         | name == 'SchemaList -> SchemaList <$> parseSchemaType inner
         | name == 'SchemaUnion -> do
-          schemas <- typeToList inner
-          SchemaUnion <$> mapM parseSchemaType schemas
+            schemas <- typeToList inner
+            SchemaUnion <$> mapM parseSchemaType schemas
         | name == 'SchemaObject -> SchemaObject <$> parseSchemaObjectMap inner
       AppT (PromotedT name) (AppT (PromotedT right) (ConT inner))
         | name == 'SchemaInclude
-          , right == 'Right ->
-          return $ SchemaInclude $ Left $ NameTH inner
+        , right == 'Right ->
+            return $ SchemaInclude $ Left $ NameTH inner
       _ -> empty
 
 -- | Resolve SchemaInclude, if present. (Not recursive)
@@ -191,22 +191,16 @@ stripKinds ty =
   case ty of
     -- cases that strip + recurse
     SigT ty1 _ -> stripKinds ty1
-#if MIN_VERSION_template_haskell(2,15,0)
     AppKindT ty1 _ -> stripKinds ty1
-#endif
 
     -- cases that recurse
     ForallT tyVars ctx ty1 -> ForallT tyVars ctx (stripKinds ty1)
-#if MIN_VERSION_template_haskell(2,16,0)
     ForallVisT tyVars ty1 -> ForallVisT tyVars (stripKinds ty1)
-#endif
     AppT ty1 ty2 -> AppT (stripKinds ty1) (stripKinds ty2)
     InfixT ty1 name ty2 -> InfixT (stripKinds ty1) name (stripKinds ty2)
     UInfixT ty1 name ty2 -> UInfixT (stripKinds ty1) name (stripKinds ty2)
     ParensT ty1 -> ParensT (stripKinds ty1)
-#if MIN_VERSION_template_haskell(2,15,0)
     ImplicitParamT str ty1 -> ImplicitParamT str (stripKinds ty1)
-#endif
 
     -- base cases
     VarT _ -> ty

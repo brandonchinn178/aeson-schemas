@@ -140,7 +140,8 @@ getSchemaObjectMap = \case
     case schemaKey of
       PhantomKey _ ->
         unless (isValidPhantomSchema schemaType) $
-          fail $ "Invalid schema for '" ++ fromSchemaKeyV schemaKey ++ "': " ++ showSchemaTypeV schemaType
+          fail $
+            "Invalid schema for '" ++ fromSchemaKeyV schemaKey ++ "': " ++ showSchemaTypeV schemaType
       _ -> return ()
 
     return ([(schemaKey, schemaType)], Provided)
