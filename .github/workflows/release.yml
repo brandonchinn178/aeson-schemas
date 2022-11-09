@@ -11,7 +11,7 @@ jobs:
       - ci
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: main
 
@@ -20,23 +20,34 @@ jobs:
           name: aeson-schemas-sdist
           path: ./sdist/
 
-      - name: Load package version
-        run: scripts/GetVersion.hs
-        id: version_info
+      - uses: brandonchinn178/haskell-actions/parse-cabal-file@parse-cabal-file
+        id: cabal_file
+        with:
+          cabal_file: aeson-schemas.cabal
+      - name: Set version label
+        run: echo 'VERSION=v${{ steps.cabal_file.outputs.version }}' >> "${GITHUB_ENV}"
 
       - name: Load Hackage token secret name
-        run: |
-          import re
-          username = "${{ github.actor }}"
-          secret_name = "HACKAGE_TOKEN_" + re.sub(r"\W+", "_", username).upper()
-          print(f"::set-output name=secret_name::{secret_name}")
-        shell: python
         id: hackage_token_secret
+        run: |
+          USERNAME="$(echo "${GITHUB_ACTOR}" | tr '[:lower:]' '[:upper:]' | tr '-' '_')"
+          echo "name=HACKAGE_TOKEN_${USERNAME}" >> "${GITHUB_OUTPUT}"
+      - name: Get CHANGELOG section
+        run: |
+          sed '/^# Unreleased/,/^$/d' CHANGELOG.md > /tmp/changelog-without-unreleased
+          if [[ "$(head -n 1 /tmp/changelog-without-unreleased)" != "# ${VERSION}" ]]; then
+            echo "CHANGELOG doesn't look updated" >&2
+            exit 1
+          fi
+          sed '1 d; /^# v/,$ d' /tmp/changelog-without-unreleased > /tmp/changelog-body
+      - uses: brandonchinn178/haskell-actions/hackage-upload@hackage-upload
+        with:
+          archive: sdist/aeson-schemas-*.tar.gz
+          token: ${{ secrets[steps.hackage_token_secret.outputs.name] }}
 
-      - name: Make release
-        run: scripts/make-release.sh
-        env:
-          gh_token: ${{ secrets.GITHUB_TOKEN }}
-          hackage_token: ${{ secrets[steps.hackage_token_secret.outputs.secret_name] }}
-          version: ${{ steps.version_info.outputs.version }}
-          sdistdir: ./sdist/
+      - uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.VERSION }}
+          body_path: /tmp/changelog-body
+          draft: true
+          target_commitish: ${{ github.sha }}

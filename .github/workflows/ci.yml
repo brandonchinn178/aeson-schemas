@@ -24,7 +24,7 @@ jobs:
       STACK_YAML: ${{ matrix.stack_yaml }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
           path: ~/.stack
@@ -50,7 +50,7 @@ jobs:
       FOURMOLU_VERSION: '0.7.0.1'
       HLINT_VERSION: '3.4.1'
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install fourmolu
         run: |
@@ -74,20 +74,10 @@ jobs:
       - name: Run hlint
         run: hlint .
 
-      - name: Install black
-        run: pip install black==22.6.0
-      - name: Run black
-        run: black --check --diff $(git ls-files '*.py')
-
-      - name: Install pyright
-        run: npm install -g pyright@1.1.258
-      - name: Run pyright
-        run: pyright
-
   benchmarks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
           path: ~/.stack
@@ -102,13 +92,18 @@ jobs:
   check_sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
           path: ~/.stack
           key: ${{ runner.os }}-check_sdist-${{ hashFiles('stack.yaml', 'package.yaml') }}
+
+      - name: Strip unreleased section from CHANGELOG
+        run: sed -i -n '/^# Unreleased/d; /^#/,$p' CHANGELOG.md
+
       - name: Create sdist bundle
         run: stack sdist --test-tarball --tar-dir .
+
       - uses: actions/upload-artifact@v3
         with:
           name: aeson-schemas-sdist

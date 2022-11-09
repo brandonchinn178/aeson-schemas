@@ -1,5 +1,7 @@
 # Unreleased
 
+# v1.4.0.0
+
 * Drop support for GHC < 8.10
 * Drop support for megaparsec < 7
 

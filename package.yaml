@@ -1,5 +1,5 @@
 name: aeson-schemas
-version: 1.3.5.1
+version: 1.4.0.0
 verbatim:
   cabal-version: '>= 1.10'
 license: BSD3
