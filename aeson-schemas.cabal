@@ -125,8 +125,8 @@ test-suite aeson-schemas-test
     , aeson-schemas
     , base
     , deepseq
+    , directory
     , filepath
-    , hint
     , interpolate
     , process
     , raw-strings-qq

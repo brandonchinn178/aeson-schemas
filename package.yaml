@@ -65,8 +65,8 @@ tests:
       - aeson-qq
       - base
       - deepseq
+      - directory
       - filepath
-      - hint
       - interpolate
       - process
       - QuickCheck

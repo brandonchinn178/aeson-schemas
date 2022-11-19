@@ -14,3 +14,6 @@ o = fromJust $ decode "{ \"foo\": true }"
 
 result :: _
 result = [get| o.missing |]
+
+main :: IO ()
+main = pure ()
