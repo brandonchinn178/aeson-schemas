@@ -14,12 +14,13 @@ jobs:
           - stack-ghc-8.10.yaml
           - stack-ghc-9.0.yaml
           - stack-ghc-9.2.yaml
+          - stack-ghc-9.4.yaml
         include:
           - stack_yaml: stack.yaml
             latest: true
 
     name: build_and_test (${{ matrix.stack_yaml }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       STACK_YAML: ${{ matrix.stack_yaml }}
 
