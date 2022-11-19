@@ -35,16 +35,6 @@ when:
     ghc-options:
       - -Wnoncanonical-monadfail-instances
 
-dependencies:
-- aeson >= 1.1.2.0 && < 3
-- base >= 4.14 && < 5
-- first-class-families >= 0.3.0.0 && < 0.9
-- hashable >= 1.2.7.0 && < 1.5
-- megaparsec >= 7 && < 10
-- template-haskell >= 2.16 && < 2.19
-- text >= 1.2.2.2 && < 1.3
-- unordered-containers >= 0.2.8.0 && < 0.3
-
 library:
   source-dirs: src
   other-modules:
@@ -55,14 +45,25 @@ library:
     - Data.Aeson.Schema.TH.Schema
     - Data.Aeson.Schema.TH.Unwrap
     - Data.Aeson.Schema.TH.Utils
+  dependencies:
+    - aeson >= 1.1.2.0 && < 3
+    - base >= 4.14 && < 5
+    - first-class-families >= 0.3.0.0 && < 0.9
+    - hashable >= 1.2.7.0 && < 1.5
+    - megaparsec >= 7 && < 10
+    - template-haskell >= 2.16 && < 2.19
+    - text >= 1.2.2.2 && < 1.3
+    - unordered-containers >= 0.2.8.0 && < 0.3
 
 tests:
   aeson-schemas-test:
     source-dirs:  test
     main:         Main.hs
     dependencies:
+      - aeson
       - aeson-schemas
       - aeson-qq
+      - base
       - deepseq
       - filepath
       - hint
@@ -74,7 +75,9 @@ tests:
       - tasty-hunit
       - tasty-golden
       - tasty-quickcheck
+      - template-haskell
       - temporary
+      - text
       - th-orphans
       - th-test-utils
 
@@ -83,7 +86,10 @@ benchmarks:
     source-dirs: bench
     main:        Main.hs
     dependencies:
+      - aeson
       - aeson-schemas
+      - base
       - criterion
       - deepseq
+      - template-haskell
       - th-test-utils
