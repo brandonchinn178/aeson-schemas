@@ -29,7 +29,7 @@ import System.Exit (ExitCode (..))
 import System.FilePath (takeDirectory, (</>))
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (readProcessWithExitCode)
-import TestUtils (parseObject, testGoldenIO, testParseError)
+import TestUtils (parseObject, testIntegration, testParseError)
 import Tests.GetQQ.TH
 
 mkEnum "Greeting" ["HELLO", "GOODBYE"]
@@ -396,18 +396,18 @@ testCompileTimeErrors :: TestTree
 testCompileTimeErrors =
   testGroup
     "Compile-time errors"
-    [ testGoldenIO "Key not in schema" "getqq_missing_key.golden" $
-        getCompileError "GetMissingKey.hs"
+    [ testIntegration "Key not in schema" "getqq_missing_key.golden" $ \ghcExe ->
+        getCompileError ghcExe "GetMissingKey.hs"
     ]
   where
     testDir = "test/wont-compile/"
-    getCompileError file =
+    getCompileError ghcExe file =
       withSystemTempDirectory "aeson-schemas-integration-tests" $ \tmpdir -> do
         let fp = tmpdir </> testDir </> file
         createDirectoryIfMissing True (takeDirectory fp)
         copyFile (testDir </> file) fp
         withCurrentDirectory tmpdir $
-          readProcessWithExitCode "ghc" [fp] "" >>= \case
+          readProcessWithExitCode ghcExe [fp] "" >>= \case
             (ExitFailure{}, _, stderr) ->
               return . Text.unpack . Text.replace (Text.pack tmpdir) "" . Text.pack $ stderr
             (ExitSuccess, stdout, stderr) ->
