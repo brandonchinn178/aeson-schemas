@@ -1,4 +1,8 @@
 resolver: lts-20.0
 
+flags:
+  aeson-schemas:
+    run-integration-tests: true
+
 ghc-options:
   '$locals': -Werror

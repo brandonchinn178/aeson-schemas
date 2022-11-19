@@ -35,6 +35,11 @@ when:
     ghc-options:
       - -Wnoncanonical-monadfail-instances
 
+flags:
+  run-integration-tests:
+    manual: true
+    default: false
+
 library:
   source-dirs: src
   other-modules:
@@ -80,6 +85,9 @@ tests:
       - text
       - th-orphans
       - th-test-utils
+    when:
+      - condition: flag(run-integration-tests)
+        cpp-options: -DRUN_INTEGRATION_TESTS
 
 benchmarks:
   aeson-schemas-bench:

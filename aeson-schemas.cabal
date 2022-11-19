@@ -54,6 +54,10 @@ source-repository head
   type: git
   location: https://github.com/LeapYear/aeson-schemas
 
+flag run-integration-tests
+  manual: True
+  default: False
+
 library
   exposed-modules:
       Data.Aeson.Schema
@@ -146,6 +150,8 @@ test-suite aeson-schemas-test
     ghc-options: -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
   if impl(ghc < 8.8)
     ghc-options: -Wnoncanonical-monadfail-instances
+  if flag(run-integration-tests)
+    cpp-options: -DRUN_INTEGRATION_TESTS
 
 benchmark aeson-schemas-bench
   type: exitcode-stdio-1.0
