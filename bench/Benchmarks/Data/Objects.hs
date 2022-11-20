@@ -41,7 +41,7 @@ schemaValue = toJSON $ schemaObject @schema
 class Typeable (SchemaResult schema) => MockSchemaResult (schema :: SchemaType) where
   schemaResult :: Proxy schema -> SchemaResult schema
 
-instance MockSchemaResult ( 'SchemaScalar Int) where
+instance MockSchemaResult ('SchemaScalar Int) where
   schemaResult _ = 42
 
 instance
@@ -49,7 +49,7 @@ instance
   , IsSchemaObjectMap pairs
   , Typeable pairs
   ) =>
-  MockSchemaResult ( 'SchemaObject pairs)
+  MockSchemaResult ('SchemaObject pairs)
   where
   schemaResult _ = UnsafeObject $ Compat.fromList $ mapAll @MockSchemaResultPair @pairs schemaResultPair
 

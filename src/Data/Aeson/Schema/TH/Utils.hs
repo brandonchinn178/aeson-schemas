@@ -150,7 +150,7 @@ resolveSchemaType = \case
 {- Splicing schema into TH -}
 
 schemaVToTypeQ :: SchemaV -> TypeQ
-schemaVToTypeQ = appT [t| 'Schema|] . schemaObjectMapVToTypeQ . fromSchemaV
+schemaVToTypeQ = appT [t|'Schema|] . schemaObjectMapVToTypeQ . fromSchemaV
 
 schemaObjectMapVToTypeQ :: SchemaObjectMapV -> TypeQ
 schemaObjectMapVToTypeQ = promotedListT . map schemaObjectPairVToTypeQ
@@ -160,18 +160,18 @@ schemaObjectMapVToTypeQ = promotedListT . map schemaObjectPairVToTypeQ
 
     schemaKeyVToTypeQ :: SchemaKeyV -> TypeQ
     schemaKeyVToTypeQ = \case
-      NormalKey key -> [t| 'NormalKey $(litT $ strTyLit key)|]
-      PhantomKey key -> [t| 'PhantomKey $(litT $ strTyLit key)|]
+      NormalKey key -> [t|'NormalKey $(litT $ strTyLit key)|]
+      PhantomKey key -> [t|'PhantomKey $(litT $ strTyLit key)|]
 
 schemaTypeVToTypeQ :: SchemaTypeV -> TypeQ
 schemaTypeVToTypeQ = \case
-  SchemaScalar name -> [t| 'SchemaScalar $(resolveName name >>= conT)|]
-  SchemaMaybe inner -> [t| 'SchemaMaybe $(schemaTypeVToTypeQ inner)|]
-  SchemaTry inner -> [t| 'SchemaTry $(schemaTypeVToTypeQ inner)|]
-  SchemaList inner -> [t| 'SchemaList $(schemaTypeVToTypeQ inner)|]
-  SchemaUnion schemas -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas)|]
-  SchemaObject pairs -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs)|]
-  SchemaInclude (Left name) -> [t| 'SchemaInclude ( 'Right $(conT . reifiedSchemaName =<< lookupSchema name))|]
+  SchemaScalar name -> [t|'SchemaScalar $(resolveName name >>= conT)|]
+  SchemaMaybe inner -> [t|'SchemaMaybe $(schemaTypeVToTypeQ inner)|]
+  SchemaTry inner -> [t|'SchemaTry $(schemaTypeVToTypeQ inner)|]
+  SchemaList inner -> [t|'SchemaList $(schemaTypeVToTypeQ inner)|]
+  SchemaUnion schemas -> [t|'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas)|]
+  SchemaObject pairs -> [t|'SchemaObject $(schemaObjectMapVToTypeQ pairs)|]
+  SchemaInclude (Left name) -> [t|'SchemaInclude ('Right $(conT . reifiedSchemaName =<< lookupSchema name))|]
   SchemaInclude (Right _) -> unreachable "Found 'SchemaInclude Right' when converting to TypeQ"
 
 {- TH utilities -}

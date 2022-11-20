@@ -101,7 +101,7 @@ instance IsSchema schema => ToJSON (Object schema) where
 
  @since 1.3.0
 -}
-toMap :: IsSchema ( 'Schema schema) => Object ( 'Schema schema) -> Aeson.Object
+toMap :: IsSchema ('Schema schema) => Object ('Schema schema) -> Aeson.Object
 toMap = toValueMap
 
 {- Type-level schema definitions -}
@@ -142,13 +142,13 @@ showSchemaType = showSchemaTypeV schemaType
 
 -- | A type family mapping SchemaType to the corresponding Haskell type.
 type family SchemaResult (schema :: SchemaType) where
-  SchemaResult ( 'SchemaScalar inner) = inner
-  SchemaResult ( 'SchemaMaybe inner) = Maybe (SchemaResult inner)
-  SchemaResult ( 'SchemaTry inner) = Maybe (SchemaResult inner)
-  SchemaResult ( 'SchemaList inner) = [SchemaResult inner]
-  SchemaResult ( 'SchemaUnion schemas) = SumType (SchemaResultList schemas)
-  SchemaResult ( 'SchemaObject inner) = Object ( 'Schema inner)
-  SchemaResult ( 'SchemaInclude ( 'Right schema)) = SchemaResult (ToSchemaObject schema)
+  SchemaResult ('SchemaScalar inner) = inner
+  SchemaResult ('SchemaMaybe inner) = Maybe (SchemaResult inner)
+  SchemaResult ('SchemaTry inner) = Maybe (SchemaResult inner)
+  SchemaResult ('SchemaList inner) = [SchemaResult inner]
+  SchemaResult ('SchemaUnion schemas) = SumType (SchemaResultList schemas)
+  SchemaResult ('SchemaObject inner) = Object ('Schema inner)
+  SchemaResult ('SchemaInclude ('Right schema)) = SchemaResult (ToSchemaObject schema)
 
 type family SchemaResultList (xs :: [SchemaType]) where
   SchemaResultList '[] = '[]
@@ -170,32 +170,32 @@ class IsSchemaType schema => HasSchemaResult (schema :: SchemaType) where
   default showValue :: Show (SchemaResult schema) => SchemaResult schema -> ShowS
   showValue = shows
 
-instance (Show inner, Typeable inner, FromJSON inner, ToJSON inner) => HasSchemaResult ( 'SchemaScalar inner)
+instance (Show inner, Typeable inner, FromJSON inner, ToJSON inner) => HasSchemaResult ('SchemaScalar inner)
 
-instance (HasSchemaResult inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => HasSchemaResult ( 'SchemaMaybe inner) where
+instance (HasSchemaResult inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => HasSchemaResult ('SchemaMaybe inner) where
   parseValue path = \case
     Null -> return Nothing
     value -> (Just <$> parseValue @inner path value)
 
-instance (HasSchemaResult inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => HasSchemaResult ( 'SchemaTry inner) where
+instance (HasSchemaResult inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => HasSchemaResult ('SchemaTry inner) where
   parseValue path = optional . parseValue @inner path
 
-instance (HasSchemaResult inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => HasSchemaResult ( 'SchemaList inner) where
+instance (HasSchemaResult inner, Show (SchemaResult inner), ToJSON (SchemaResult inner)) => HasSchemaResult ('SchemaList inner) where
   parseValue path = \case
     Array a -> traverse (parseValue @inner path) (toList a)
-    value -> parseFail @( 'SchemaList inner) path value
+    value -> parseFail @('SchemaList inner) path value
 
 instance
   ( All HasSchemaResult schemas
   , All IsSchemaType schemas
-  , Show (SchemaResult ( 'SchemaUnion schemas))
-  , FromJSON (SchemaResult ( 'SchemaUnion schemas))
-  , ToJSON (SchemaResult ( 'SchemaUnion schemas))
+  , Show (SchemaResult ('SchemaUnion schemas))
+  , FromJSON (SchemaResult ('SchemaUnion schemas))
+  , ToJSON (SchemaResult ('SchemaUnion schemas))
   , ParseSumType schemas
   ) =>
-  HasSchemaResult ( 'SchemaUnion (schemas :: [SchemaType]))
+  HasSchemaResult ('SchemaUnion (schemas :: [SchemaType]))
   where
-  parseValue path value = parseSumType @schemas path value <|> parseFail @( 'SchemaUnion schemas) path value
+  parseValue path value = parseSumType @schemas path value <|> parseFail @('SchemaUnion schemas) path value
 
 class ParseSumType xs where
   parseSumType :: [Key] -> Value -> Parser (SumType (SchemaResultList xs))
@@ -209,10 +209,10 @@ instance (HasSchemaResult schema, ParseSumType schemas) => ParseSumType (schema 
       parseHere = Here <$> parseValue @schema path value
       parseThere = There <$> parseSumType @schemas path value
 
-instance (All HasSchemaResultPair pairs, IsSchemaObjectMap pairs) => HasSchemaResult ( 'SchemaObject pairs) where
+instance (All HasSchemaResultPair pairs, IsSchemaObjectMap pairs) => HasSchemaResult ('SchemaObject pairs) where
   parseValue path = \case
     Aeson.Object o -> UnsafeObject . Compat.fromList <$> parseValueMap o
-    value -> parseFail @( 'SchemaObject pairs) path value
+    value -> parseFail @('SchemaObject pairs) path value
     where
       parseValueMap :: Aeson.Object -> Parser [(Key, Dynamic)]
       parseValueMap o = sequence $ mapAll @HasSchemaResultPair @pairs $ \proxy -> parseValuePair proxy path o
@@ -231,7 +231,7 @@ instance (All HasSchemaResultPair pairs, IsSchemaObjectMap pairs) => HasSchemaRe
       concatShowS :: [ShowS] -> ShowS
       concatShowS = foldr (.) id
 
-toValueMap :: forall pairs. All HasSchemaResultPair pairs => Object ( 'Schema pairs) -> Aeson.Object
+toValueMap :: forall pairs. All HasSchemaResultPair pairs => Object ('Schema pairs) -> Aeson.Object
 toValueMap o = Compat.unions $ mapAll @HasSchemaResultPair @pairs (\proxy -> toValuePair proxy o)
 
 class HasSchemaResultPair (a :: (SchemaKey, SchemaType)) where
@@ -262,7 +262,7 @@ instance
     where
       val = unsafeGetKey @inner (Proxy @(FromSchemaKey key)) o
 
-instance IsSchema schema => HasSchemaResult ( 'SchemaInclude ( 'Right schema)) where
+instance IsSchema schema => HasSchemaResult ('SchemaInclude ('Right schema)) where
   parseValue = parseValue @(ToSchemaObject schema)
   toValue = toValue @(ToSchemaObject schema)
   showValue = showValue @(ToSchemaObject schema)
@@ -282,15 +282,15 @@ parseFail path value = fail $ msg ++ ": " ++ ellipses 200 (show value)
 {- Lookups within SchemaObject -}
 
 data UnSchemaKey :: SchemaKey -> Fcf.Exp Symbol
-type instance Fcf.Eval (UnSchemaKey ( 'NormalKey key)) = Fcf.Eval (Fcf.Pure key)
-type instance Fcf.Eval (UnSchemaKey ( 'PhantomKey key)) = Fcf.Eval (Fcf.Pure key)
+type instance Fcf.Eval (UnSchemaKey ('NormalKey key)) = Fcf.Eval (Fcf.Pure key)
+type instance Fcf.Eval (UnSchemaKey ('PhantomKey key)) = Fcf.Eval (Fcf.Pure key)
 
 -- first-class-families-0.3.0.1 doesn't support partially applying Lookup
 type Lookup a = Fcf.Map Fcf.Snd <=< Fcf.Find (Fcf.TyEq a <=< Fcf.Fst)
 
 -- | The type-level function that return the schema of the given key in a 'SchemaObject'.
 type family LookupSchema (key :: Symbol) (schema :: Schema) :: SchemaType where
-  LookupSchema key ( 'Schema schema) =
+  LookupSchema key ('Schema schema) =
     Fcf.Eval
       ( Fcf.FromMaybe
           ( TypeError
