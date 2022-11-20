@@ -5,7 +5,7 @@ cabal-version: >= 1.10
 -- see: https://github.com/sol/hpack
 
 name:           aeson-schemas
-version:        1.4.0.0
+version:        1.4.0.1
 synopsis:       Easily consume JSON data on-demand with type-safety
 description:    Parse JSON data easily and safely without defining new data types. Useful
                 for deeply nested JSON data, which is difficult to parse using the default
@@ -36,10 +36,13 @@ extra-source-files:
     test/goldens/fromjson_scalar_invalid.golden
     test/goldens/fromjson_union_invalid.golden
     test/goldens/getqq_empty_expression.golden
-    test/goldens/getqq_missing_key.golden
     test/goldens/getqq_no_operators.golden
     test/goldens/getqq_ops_after_list.golden
     test/goldens/getqq_ops_after_tuple.golden
+    test/goldens/integration/ghc-8.10/getqq_missing_key.golden
+    test/goldens/integration/ghc-9.0/getqq_missing_key.golden
+    test/goldens/integration/ghc-9.2/getqq_missing_key.golden
+    test/goldens/integration/ghc-9.4/getqq_missing_key.golden
     test/goldens/README_Quickstart.golden
     test/goldens/schemaqq_key_with_invalid_character.golden
     test/goldens/schemaqq_key_with_trailing_escape.golden
@@ -51,6 +54,10 @@ extra-source-files:
 source-repository head
   type: git
   location: https://github.com/LeapYear/aeson-schemas
+
+flag run-integration-tests
+  manual: True
+  default: False
 
 library
   exposed-modules:
@@ -81,8 +88,8 @@ library
     , first-class-families >=0.3.0.0 && <0.9
     , hashable >=1.2.7.0 && <1.5
     , megaparsec >=7 && <10
-    , template-haskell >=2.16 && <2.19
-    , text >=1.2.2.2 && <1.3
+    , template-haskell >=2.16 && <2.20
+    , text >=1.2.2.2 && <2.1
     , unordered-containers >=0.2.8.0 && <0.3
   default-language: Haskell2010
   if impl(ghc >= 8.0)
@@ -120,34 +127,32 @@ test-suite aeson-schemas-test
   ghc-options: -Wall
   build-depends:
       QuickCheck
-    , aeson >=1.1.2.0 && <3
+    , aeson
     , aeson-qq
     , aeson-schemas
-    , base >=4.14 && <5
+    , base
     , deepseq
+    , directory
     , filepath
-    , first-class-families >=0.3.0.0 && <0.9
-    , hashable >=1.2.7.0 && <1.5
-    , hint
     , interpolate
-    , megaparsec >=7 && <10
     , process
     , raw-strings-qq
     , tasty
     , tasty-golden
     , tasty-hunit
     , tasty-quickcheck
-    , template-haskell >=2.16 && <2.19
+    , template-haskell
     , temporary
-    , text >=1.2.2.2 && <1.3
+    , text
     , th-orphans
     , th-test-utils
-    , unordered-containers >=0.2.8.0 && <0.3
   default-language: Haskell2010
   if impl(ghc >= 8.0)
     ghc-options: -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
   if impl(ghc < 8.8)
     ghc-options: -Wnoncanonical-monadfail-instances
+  if flag(run-integration-tests)
+    cpp-options: -DRUN_INTEGRATION_TESTS
 
 benchmark aeson-schemas-bench
   type: exitcode-stdio-1.0
@@ -166,18 +171,13 @@ benchmark aeson-schemas-bench
       bench
   ghc-options: -Wall
   build-depends:
-      aeson >=1.1.2.0 && <3
+      aeson
     , aeson-schemas
-    , base >=4.14 && <5
+    , base
     , criterion
     , deepseq
-    , first-class-families >=0.3.0.0 && <0.9
-    , hashable >=1.2.7.0 && <1.5
-    , megaparsec >=7 && <10
-    , template-haskell >=2.16 && <2.19
-    , text >=1.2.2.2 && <1.3
+    , template-haskell
     , th-test-utils
-    , unordered-containers >=0.2.8.0 && <0.3
   default-language: Haskell2010
   if impl(ghc >= 8.0)
     ghc-options: -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances

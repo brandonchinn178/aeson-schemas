@@ -1,8 +1,12 @@
-resolver: lts-19.11
+resolver: lts-19.33
 
 extra-deps:
   # https://github.com/haskell-hint/hint/issues/149
   - hint-0.9.0.5
+
+flags:
+  aeson-schemas:
+    run-integration-tests: true
 
 ghc-options:
   '$locals': -Werror

@@ -150,7 +150,7 @@ resolveSchemaType = \case
 {- Splicing schema into TH -}
 
 schemaVToTypeQ :: SchemaV -> TypeQ
-schemaVToTypeQ = appT [t| 'Schema|] . schemaObjectMapVToTypeQ . fromSchemaV
+schemaVToTypeQ = appT [t|'Schema|] . schemaObjectMapVToTypeQ . fromSchemaV
 
 schemaObjectMapVToTypeQ :: SchemaObjectMapV -> TypeQ
 schemaObjectMapVToTypeQ = promotedListT . map schemaObjectPairVToTypeQ
@@ -160,18 +160,18 @@ schemaObjectMapVToTypeQ = promotedListT . map schemaObjectPairVToTypeQ
 
     schemaKeyVToTypeQ :: SchemaKeyV -> TypeQ
     schemaKeyVToTypeQ = \case
-      NormalKey key -> [t| 'NormalKey $(litT $ strTyLit key)|]
-      PhantomKey key -> [t| 'PhantomKey $(litT $ strTyLit key)|]
+      NormalKey key -> [t|'NormalKey $(litT $ strTyLit key)|]
+      PhantomKey key -> [t|'PhantomKey $(litT $ strTyLit key)|]
 
 schemaTypeVToTypeQ :: SchemaTypeV -> TypeQ
 schemaTypeVToTypeQ = \case
-  SchemaScalar name -> [t| 'SchemaScalar $(resolveName name >>= conT)|]
-  SchemaMaybe inner -> [t| 'SchemaMaybe $(schemaTypeVToTypeQ inner)|]
-  SchemaTry inner -> [t| 'SchemaTry $(schemaTypeVToTypeQ inner)|]
-  SchemaList inner -> [t| 'SchemaList $(schemaTypeVToTypeQ inner)|]
-  SchemaUnion schemas -> [t| 'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas)|]
-  SchemaObject pairs -> [t| 'SchemaObject $(schemaObjectMapVToTypeQ pairs)|]
-  SchemaInclude (Left name) -> [t| 'SchemaInclude ( 'Right $(conT . reifiedSchemaName =<< lookupSchema name))|]
+  SchemaScalar name -> [t|'SchemaScalar $(resolveName name >>= conT)|]
+  SchemaMaybe inner -> [t|'SchemaMaybe $(schemaTypeVToTypeQ inner)|]
+  SchemaTry inner -> [t|'SchemaTry $(schemaTypeVToTypeQ inner)|]
+  SchemaList inner -> [t|'SchemaList $(schemaTypeVToTypeQ inner)|]
+  SchemaUnion schemas -> [t|'SchemaUnion $(promotedListT $ map schemaTypeVToTypeQ schemas)|]
+  SchemaObject pairs -> [t|'SchemaObject $(schemaObjectMapVToTypeQ pairs)|]
+  SchemaInclude (Left name) -> [t|'SchemaInclude ('Right $(conT . reifiedSchemaName =<< lookupSchema name))|]
   SchemaInclude (Right _) -> unreachable "Found 'SchemaInclude Right' when converting to TypeQ"
 
 {- TH utilities -}
@@ -199,6 +199,10 @@ stripKinds ty =
     AppT ty1 ty2 -> AppT (stripKinds ty1) (stripKinds ty2)
     InfixT ty1 name ty2 -> InfixT (stripKinds ty1) name (stripKinds ty2)
     UInfixT ty1 name ty2 -> UInfixT (stripKinds ty1) name (stripKinds ty2)
+#if MIN_VERSION_template_haskell(2,19,0)
+    PromotedInfixT ty1 name ty2 -> PromotedInfixT (stripKinds ty1) name (stripKinds ty2)
+    PromotedUInfixT ty1 name ty2 -> PromotedUInfixT (stripKinds ty1) name (stripKinds ty2)
+#endif
     ParensT ty1 -> ParensT (stripKinds ty1)
     ImplicitParamT str ty1 -> ImplicitParamT str (stripKinds ty1)
 

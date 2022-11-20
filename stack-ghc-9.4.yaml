@@ -1,4 +1,8 @@
-resolver: lts-18.28
+resolver: nightly-2022-11-19
+
+extra-deps:
+  - hint-0.9.0.6
+  - th-test-utils-1.2.1
 
 flags:
   aeson-schemas:

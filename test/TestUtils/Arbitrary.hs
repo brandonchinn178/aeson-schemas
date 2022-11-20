@@ -118,14 +118,14 @@ deriving instance Lift SchemaTypeV
 
 genSchema' ::
   forall schema.
-  ( ArbitrarySchema ( 'SchemaObject schema)
-  , IsSchema ( 'Schema schema)
+  ( ArbitrarySchema ('SchemaObject schema)
+  , IsSchema ('Schema schema)
   ) =>
-  Proxy (Object ( 'Schema schema)) ->
+  Proxy (Object ('Schema schema)) ->
   SchemaV ->
   Gen ArbitraryObject
 genSchema' proxy schemaV = do
-  v <- genSchema @( 'SchemaObject schema)
+  v <- genSchema @('SchemaObject schema)
   return $ ArbitraryObject proxy v schemaV
 
 getKeyType :: SchemaKeyV -> String
@@ -185,20 +185,20 @@ getObjectDepth = getObjectDepth' . toSchemaObjectV
 class ArbitrarySchema (schema :: SchemaType) where
   genSchema :: Gen Value
 
-instance {-# OVERLAPS #-} ArbitrarySchema ( 'SchemaScalar Text) where
+instance {-# OVERLAPS #-} ArbitrarySchema ('SchemaScalar Text) where
   genSchema = toJSON <$> arbitrary @String
 
-instance (Arbitrary inner, ToJSON inner, Typeable inner) => ArbitrarySchema ( 'SchemaScalar inner) where
+instance (Arbitrary inner, ToJSON inner, Typeable inner) => ArbitrarySchema ('SchemaScalar inner) where
   genSchema = toJSON <$> arbitrary @inner
 
-instance ArbitrarySchema inner => ArbitrarySchema ( 'SchemaMaybe inner) where
+instance ArbitrarySchema inner => ArbitrarySchema ('SchemaMaybe inner) where
   genSchema =
     frequency
       [ (3, genSchema @inner)
       , (1, pure Null)
       ]
 
-instance ArbitrarySchema inner => ArbitrarySchema ( 'SchemaTry inner) where
+instance ArbitrarySchema inner => ArbitrarySchema ('SchemaTry inner) where
   genSchema =
     frequency
       [ (3, genSchema @inner)
@@ -213,16 +213,16 @@ instance ArbitrarySchema inner => ArbitrarySchema ( 'SchemaTry inner) where
           , String . Text.pack <$> arbitrary
           ]
 
-instance ArbitrarySchema inner => ArbitrarySchema ( 'SchemaList inner) where
+instance ArbitrarySchema inner => ArbitrarySchema ('SchemaList inner) where
   genSchema = Array . fromList <$> listOf (genSchema @inner)
 
-instance All ArbitrarySchema schemas => ArbitrarySchema ( 'SchemaUnion schemas) where
+instance All ArbitrarySchema schemas => ArbitrarySchema ('SchemaUnion schemas) where
   genSchema = oneof $ mapAll @ArbitrarySchema @schemas genSchemaElem
     where
       genSchemaElem :: forall schema. ArbitrarySchema schema => Proxy schema -> Gen Value
       genSchemaElem _ = genSchema @schema
 
-instance All ArbitraryObjectPair pairs => ArbitrarySchema ( 'SchemaObject (pairs :: [(SchemaKey, SchemaType)])) where
+instance All ArbitraryObjectPair pairs => ArbitrarySchema ('SchemaObject (pairs :: [(SchemaKey, SchemaType)])) where
   genSchema = Object . Compat.unions <$> genSchemaPairs
     where
       genSchemaPairs :: Gen [Aeson.Object]
@@ -253,10 +253,10 @@ instance
 -- we generate 'Null', because Try on a non-object schema will always be an invalid parse.
 instance
   {-# OVERLAPS #-}
-  (KnownSymbol key, ArbitrarySchema ( 'SchemaTry inner)) =>
+  (KnownSymbol key, ArbitrarySchema ('SchemaTry inner)) =>
   ArbitraryObjectPair '( 'PhantomKey key, 'SchemaTry inner)
   where
-  genInnerSchema = castNull <$> genSchema @( 'SchemaTry inner)
+  genInnerSchema = castNull <$> genSchema @('SchemaTry inner)
     where
       castNull inner =
         case inner of
@@ -266,10 +266,10 @@ instance
 -- For phantom keys, Union can be used on any schemas, as long as at least one is an object schema.
 instance
   {-# OVERLAPS #-}
-  (KnownSymbol key, FilterObjectSchemas schemas ~ objectSchemas, ArbitrarySchema ( 'SchemaUnion objectSchemas)) =>
+  (KnownSymbol key, FilterObjectSchemas schemas ~ objectSchemas, ArbitrarySchema ('SchemaUnion objectSchemas)) =>
   ArbitraryObjectPair '( 'PhantomKey key, 'SchemaUnion schemas)
   where
-  genInnerSchema = genSchema @( 'SchemaUnion objectSchemas)
+  genInnerSchema = genSchema @('SchemaUnion objectSchemas)
 
 {- Generating schema definitions -}
 
@@ -368,5 +368,5 @@ type family Fst x where
 
 type family FilterObjectSchemas schemas where
   FilterObjectSchemas '[] = '[]
-  FilterObjectSchemas ( 'SchemaObject inner ': xs) = 'SchemaObject inner : FilterObjectSchemas xs
+  FilterObjectSchemas ('SchemaObject inner ': xs) = 'SchemaObject inner : FilterObjectSchemas xs
   FilterObjectSchemas (_ ': xs) = FilterObjectSchemas xs

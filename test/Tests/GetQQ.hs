@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
@@ -17,7 +18,6 @@ import Data.Aeson (FromJSON (..), ToJSON (..), withText)
 import Data.Aeson.QQ (aesonQQ)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import qualified Language.Haskell.Interpreter as Hint
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
@@ -25,7 +25,12 @@ import Test.Tasty.QuickCheck
 import Data.Aeson.Schema (Object, schema)
 import Data.Aeson.Schema.TH (mkEnum)
 import Data.Aeson.Schema.Utils.Sum (SumType (..))
-import TestUtils (parseObject, testGoldenIO, testParseError)
+import System.Directory (copyFile, createDirectoryIfMissing, withCurrentDirectory)
+import System.Exit (ExitCode (..))
+import System.FilePath (takeDirectory, (</>))
+import System.IO.Temp (withSystemTempDirectory)
+import System.Process (readProcessWithExitCode)
+import TestUtils (parseObject, testIntegration, testParseError)
 import Tests.GetQQ.TH
 
 mkEnum "Greeting" ["HELLO", "GOODBYE"]
@@ -390,18 +395,34 @@ testInvalidExpressions =
 
 testCompileTimeErrors :: TestTree
 testCompileTimeErrors =
-  testGroup
-    "Compile-time errors"
-    [ testGoldenIO "Key not in schema" "getqq_missing_key.golden" $
-        getCompileError "GetMissingKey"
+  testGroup "Compile-time errors" . map mkIntegrationTest $
+    [ testIntegration "Key not in schema" "getqq_missing_key.golden" $ \ghcExe ->
+        getCompileError ghcExe "GetMissingKey.hs"
     ]
   where
-    getCompileError name = do
-      let fp = "test/wont-compile/" ++ name ++ ".hs"
-      Hint.runInterpreter (Hint.loadModules [fp]) >>= \case
-        Left (Hint.WontCompile errors) -> return $ unlines $ map Hint.errMsg errors
-        Left e -> fail $ show e
-        Right _ -> fail "Compilation unexpectedly succeeded"
+    testDir = "test/wont-compile/"
+    getCompileError ghcExe file =
+      withSystemTempDirectory "aeson-schemas-integration-tests" $ \tmpdir -> do
+        let fp = tmpdir </> testDir </> file
+        createDirectoryIfMissing True (takeDirectory fp)
+        copyFile (testDir </> file) fp
+        withCurrentDirectory tmpdir $
+          readProcessWithExitCode ghcExe [fp] "" >>= \case
+            (ExitFailure{}, _, stderr) ->
+              return . Text.unpack . Text.replace (Text.pack tmpdir) "" . Text.pack $ stderr
+            (ExitSuccess, stdout, stderr) ->
+              error . unlines $
+                [ "Compilation unexpectedly succeeded"
+                , stdout
+                , stderr
+                ]
+
+mkIntegrationTest :: TestTree -> TestTree
+#ifdef RUN_INTEGRATION_TESTS
+mkIntegrationTest = id
+#else
+mkIntegrationTest _ = testGroup "integration test" []
+#endif
 
 {- Helpers -}
 

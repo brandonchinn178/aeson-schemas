@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -14,3 +15,6 @@ o = fromJust $ decode "{ \"foo\": true }"
 
 result :: _
 result = [get| o.missing |]
+
+main :: IO ()
+main = pure ()
