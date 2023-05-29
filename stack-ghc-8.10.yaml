@@ -1,4 +1,7 @@
-resolver: lts-18.28
+# This snapshot pins the oldest supported GHC version and the lower
+# bounds of all dependent packages.
+
+resolver: lts-17.0
 
 flags:
   aeson-schemas:
