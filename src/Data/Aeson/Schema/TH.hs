@@ -1,4 +1,4 @@
-{- |
+{-|
 Module      :  Data.Aeson.Schema.TH
 Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental

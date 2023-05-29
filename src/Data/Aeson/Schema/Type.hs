@@ -8,7 +8,7 @@
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{- |
+{-|
 Module      :  Data.Aeson.Schema.Type
 Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
@@ -122,13 +122,12 @@ showSchemaTypeV' = \case
 
 {- Type-level schema types -}
 
-{- | The kind of schemas that may be used with Object; e.g.
-
- > data Payload (schema :: Schema) = Payload
- >   { getPayload :: Object schema
- >   , timestamp  :: UTCTime
- >   }
--}
+-- | The kind of schemas that may be used with Object; e.g.
+--
+--  > data Payload (schema :: Schema) = Payload
+--  >   { getPayload :: Object schema
+--  >   , timestamp  :: UTCTime
+--  >   }
 type Schema = Schema' Symbol Type
 
 type SchemaType = SchemaType' Symbol Type

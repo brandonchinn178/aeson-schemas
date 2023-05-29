@@ -6,7 +6,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 
-{- |
+{-|
 Module      :  Data.Aeson.Schema.TH.Schema
 Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
@@ -45,63 +45,62 @@ import Data.Aeson.Schema.Type (
 import Data.Aeson.Schema.Utils.Invariant (unreachable)
 import Data.Aeson.Schema.Utils.NameLike (NameLike (..))
 
-{- | Defines a QuasiQuoter for writing schemas.
-
- Example:
-
- > import Data.Aeson.Schema (schema)
- >
- > type MySchema = [schema|
- >   {
- >     foo: {
- >       a: Int,
- >       // you can add comments like this
- >       nodes: List {
- >         b: Maybe Bool,
- >       },
- >       c: Text,
- >       d: Text,
- >       e: MyType,
- >       f: Maybe List {
- >         name: Text,
- >       },
- >     },
- >   }
- > |]
-
- Syntax:
-
- * @{ key: \<schema\>, ... }@ corresponds to a JSON 'Data.Aeson.Schema.Object' with the given key
-   mapping to the given schema.
-
- * @Bool@, @Int@, @Double@, and @Text@ correspond to the usual Haskell values.
-
- * @Maybe \<schema\>@ and @List \<schema\>@ correspond to @Maybe@ and @[]@, containing values
-   specified by the provided schema (no parentheses needed).
-
- * @Try \<schema\>@ corresponds to @Maybe@, where the value will be @Just@ if the given schema
-   successfully parses the value, or @Nothing@ otherwise. Different from @Maybe \<schema\>@,
-   where parsing @{ "foo": true }@ with @{ foo: Try Int }@ returns @Nothing@, whereas it would
-   be a parse error with @{ foo: Maybe Int }@ (added in v1.2.0)
-
- * Any other uppercase identifier corresponds to the respective type in scope -- requires a
-   FromJSON instance.
-
- Advanced syntax:
-
- * @\<schema1\> | \<schema2\>@ corresponds to a JSON value that matches one of the given schemas.
-   When extracted from an 'Data.Aeson.Schema.Object', it deserializes into a
-   'Data.Aeson.Schema.Utils.Sum.JSONSum' object. (added in v1.1.0)
-
- * @{ [key]: \<schema\> }@ uses the current object to resolve the keys in the given schema. Only
-   object schemas are allowed here. (added in v1.2.0)
-
- * @{ key: #Other, ... }@ maps the given key to the @Other@ schema. The @Other@ schema needs to
-   be defined in another module.
-
- * @{ #Other, ... }@ extends this schema with the @Other@ schema. The @Other@ schema needs to
-   be defined in another module.
--}
+-- | Defines a QuasiQuoter for writing schemas.
+--
+--  Example:
+--
+--  > import Data.Aeson.Schema (schema)
+--  >
+--  > type MySchema = [schema|
+--  >   {
+--  >     foo: {
+--  >       a: Int,
+--  >       // you can add comments like this
+--  >       nodes: List {
+--  >         b: Maybe Bool,
+--  >       },
+--  >       c: Text,
+--  >       d: Text,
+--  >       e: MyType,
+--  >       f: Maybe List {
+--  >         name: Text,
+--  >       },
+--  >     },
+--  >   }
+--  > |]
+--
+--  Syntax:
+--
+--  * @{ key: \<schema\>, ... }@ corresponds to a JSON 'Data.Aeson.Schema.Object' with the given key
+--    mapping to the given schema.
+--
+--  * @Bool@, @Int@, @Double@, and @Text@ correspond to the usual Haskell values.
+--
+--  * @Maybe \<schema\>@ and @List \<schema\>@ correspond to @Maybe@ and @[]@, containing values
+--    specified by the provided schema (no parentheses needed).
+--
+--  * @Try \<schema\>@ corresponds to @Maybe@, where the value will be @Just@ if the given schema
+--    successfully parses the value, or @Nothing@ otherwise. Different from @Maybe \<schema\>@,
+--    where parsing @{ "foo": true }@ with @{ foo: Try Int }@ returns @Nothing@, whereas it would
+--    be a parse error with @{ foo: Maybe Int }@ (added in v1.2.0)
+--
+--  * Any other uppercase identifier corresponds to the respective type in scope -- requires a
+--    FromJSON instance.
+--
+--  Advanced syntax:
+--
+--  * @\<schema1\> | \<schema2\>@ corresponds to a JSON value that matches one of the given schemas.
+--    When extracted from an 'Data.Aeson.Schema.Object', it deserializes into a
+--    'Data.Aeson.Schema.Utils.Sum.JSONSum' object. (added in v1.1.0)
+--
+--  * @{ [key]: \<schema\> }@ uses the current object to resolve the keys in the given schema. Only
+--    object schemas are allowed here. (added in v1.2.0)
+--
+--  * @{ key: #Other, ... }@ maps the given key to the @Other@ schema. The @Other@ schema needs to
+--    be defined in another module.
+--
+--  * @{ #Other, ... }@ extends this schema with the @Other@ schema. The @Other@ schema needs to
+--    be defined in another module.
 schema :: QuasiQuoter
 schema =
   QuasiQuoter
@@ -128,9 +127,8 @@ generateSchemaObjectV schemaDefObjItems = do
 
   either fail return $ resolveKeys schemaObjectMaps
 
-{- | Get the SchemaObjectMapV for the given SchemaDefObjItem, along with where the SchemaObjectMapV
- came from.
--}
+-- | Get the SchemaObjectMapV for the given SchemaDefObjItem, along with where the SchemaObjectMapV
+--  came from.
 getSchemaObjectMap :: SchemaDefObjItem -> Q (SchemaObjectMapV, KeySource)
 getSchemaObjectMap = \case
   SchemaDefObjPair (schemaDefKey, schemaDefType) -> do
@@ -158,12 +156,11 @@ getSchemaObjectMap = \case
       SchemaInclude _ -> True
       _ -> False
 
-{- | Resolve the given keys with the following rules:
-
- 1. Any explicitly provided keys shadow/overwrite imported keys
- 2. Fail if duplicate keys are both explicitly provided
- 3. Fail if duplicate keys are both imported
--}
+-- | Resolve the given keys with the following rules:
+--
+--  1. Any explicitly provided keys shadow/overwrite imported keys
+--  2. Fail if duplicate keys are both explicitly provided
+--  3. Fail if duplicate keys are both imported
 resolveKeys :: forall a. (Show a) => LookupMap SchemaKeyV (KeySource, a) -> Either String (LookupMap SchemaKeyV a)
 resolveKeys = mapM (uncurry resolveKey) . groupByKeyWith fromSchemaKeyV
   where
@@ -203,13 +200,12 @@ type LookupMap k v = [(k, v)]
 distribute :: LookupMap k v -> a -> LookupMap k (a, v)
 distribute lookupMap a = map (fmap (a,)) lookupMap
 
-{- | Find all values with the same key (according to the given function) and group them.
-
- Invariants:
- * [v] has length > 0
- * If the first occurence of k1 is before the first occurence of k2, k1 is before k2
-   in the result
--}
+-- | Find all values with the same key (according to the given function) and group them.
+--
+--  Invariants:
+--  * [v] has length > 0
+--  * If the first occurence of k1 is before the first occurence of k2, k1 is before k2
+--    in the result
 groupByKeyWith :: (Eq a, Hashable a) => (k -> a) -> LookupMap k v -> LookupMap k [v]
 groupByKeyWith f pairs = map (\key -> (key, groups HashMap.! f key)) distinctKeys
   where

@@ -15,7 +15,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{- |
+{-|
 Module      :  Data.Aeson.Schema.Internal
 Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
@@ -77,12 +77,11 @@ import Data.Aeson.Schema.Utils.Sum (SumType (..))
 
 {- Schema-validated JSON object -}
 
-{- | The object containing JSON data and its schema.
-
- Has a 'FromJSON' instance, so you can use the usual @Data.Aeson@ decoding functions.
-
- > obj = decode "{\"a\": 1}" :: Maybe (Object [schema| { a: Int } |])
--}
+-- | The object containing JSON data and its schema.
+--
+--  Has a 'FromJSON' instance, so you can use the usual @Data.Aeson@ decoding functions.
+--
+--  > obj = decode "{\"a\": 1}" :: Maybe (Object [schema| { a: Int } |])
 newtype Object (schema :: Schema) = UnsafeObject (KeyMap Dynamic)
 
 instance (IsSchema schema) => Show (Object schema) where
@@ -97,23 +96,21 @@ instance (IsSchema schema) => FromJSON (Object schema) where
 instance (IsSchema schema) => ToJSON (Object schema) where
   toJSON = toValue @(ToSchemaObject schema)
 
-{- | Convert an 'Object' into a 'Aeson.Object', losing the type information in the schema.
-
- @since 1.3.0
--}
+-- | Convert an 'Object' into a 'Aeson.Object', losing the type information in the schema.
+--
+--  @since 1.3.0
 toMap :: (IsSchema ('Schema schema)) => Object ('Schema schema) -> Aeson.Object
 toMap = toValueMap
 
 {- Type-level schema definitions -}
 
-{- | The constraint for most operations involving @Object schema@. If you're writing functions
- on general Objects, you should use this constraint. e.g.
-
- > logObject :: (MonadLogger m, IsSchema schema) => Object schema -> m ()
- > logObject = logInfoN . Text.pack . show
-
- @since 1.3.0
--}
+-- | The constraint for most operations involving @Object schema@. If you're writing functions
+--  on general Objects, you should use this constraint. e.g.
+--
+--  > logObject :: (MonadLogger m, IsSchema schema) => Object schema -> m ()
+--  > logObject = logInfoN . Text.pack . show
+--
+--  @since 1.3.0
 type IsSchema (schema :: Schema) =
   ( HasSchemaResult (ToSchemaObject schema)
   , All HasSchemaResultPair (FromSchema schema)
@@ -121,13 +118,12 @@ type IsSchema (schema :: Schema) =
   , SchemaResult (ToSchemaObject schema) ~ Object schema
   )
 
-{- | Show the given schema.
-
- Usage:
-
- > type MySchema = [schema| { a: Int } |]
- > showSchema @MySchema
--}
+-- | Show the given schema.
+--
+--  Usage:
+--
+--  > type MySchema = [schema| { a: Int } |]
+--  > showSchema @MySchema
 showSchema :: forall (schema :: Schema). (IsSchema schema) => String
 showSchema = "SchemaObject " ++ showSchemaV schema -- TODO: Remove "SchemaObject" prefix? Or rename to "Schema"?
   where
@@ -304,24 +300,23 @@ type family LookupSchema (key :: Symbol) (schema :: Schema) :: SchemaType where
           =<< Fcf.Map (Fcf.Bimap UnSchemaKey Fcf.Pure) schema
       )
 
-{- | Get a key from the given 'Data.Aeson.Schema.Internal.Object', returned as the type encoded in
- its schema.
-
- > let o = .. :: Object
- >             ( 'SchemaObject
- >                '[ '("foo", 'SchemaInt)
- >                 , '("bar", 'SchemaObject
- >                      '[ '("name", 'SchemaText)
- >                       ]
- >                 , '("baz", 'SchemaMaybe 'SchemaBool)
- >                 ]
- >             )
- >
- > getKey (Proxy @"foo") o                  :: Bool
- > getKey (Proxy @"bar") o                  :: Object ('SchemaObject '[ '("name", 'SchemaText) ])
- > getKey (Proxy @"name") $ getKey @"bar" o :: Text
- > getKey (Proxy @"baz") o                  :: Maybe Bool
--}
+-- | Get a key from the given 'Data.Aeson.Schema.Internal.Object', returned as the type encoded in
+--  its schema.
+--
+--  > let o = .. :: Object
+--  >             ( 'SchemaObject
+--  >                '[ '("foo", 'SchemaInt)
+--  >                 , '("bar", 'SchemaObject
+--  >                      '[ '("name", 'SchemaText)
+--  >                       ]
+--  >                 , '("baz", 'SchemaMaybe 'SchemaBool)
+--  >                 ]
+--  >             )
+--  >
+--  > getKey (Proxy @"foo") o                  :: Bool
+--  > getKey (Proxy @"bar") o                  :: Object ('SchemaObject '[ '("name", 'SchemaText) ])
+--  > getKey (Proxy @"name") $ getKey @"bar" o :: Text
+--  > getKey (Proxy @"baz") o                  :: Maybe Bool
 getKey ::
   forall (key :: Symbol) (schema :: Schema) (endSchema :: SchemaType) result.
   ( endSchema ~ LookupSchema key schema
@@ -330,17 +325,17 @@ getKey ::
   , Typeable result
   , Typeable endSchema
   ) =>
-  Proxy key ->
-  Object schema ->
-  result
+  Proxy key
+  -> Object schema
+  -> result
 getKey = unsafeGetKey @endSchema
 
 unsafeGetKey ::
   forall (endSchema :: SchemaType) (key :: Symbol) (schema :: Schema).
   (KnownSymbol key, Typeable (SchemaResult endSchema)) =>
-  Proxy key ->
-  Object schema ->
-  SchemaResult endSchema
+  Proxy key
+  -> Object schema
+  -> SchemaResult endSchema
 unsafeGetKey keyProxy (UnsafeObject object) =
   fromMaybe (unreachable $ "Could not load key: " ++ key) $
     fromDynamic =<< Compat.lookup (fromString key) object

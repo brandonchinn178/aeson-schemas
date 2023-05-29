@@ -62,10 +62,10 @@ import Data.Aeson.Schema.Utils.NameLike (NameLike (..), fromName)
 data ArbitraryObject where
   ArbitraryObject ::
     (IsSchema schema) =>
-    Proxy (Object schema) ->
-    Value ->
-    SchemaV ->
-    ArbitraryObject
+    Proxy (Object schema)
+    -> Value
+    -> SchemaV
+    -> ArbitraryObject
 
 -- Show the value and schema as something that could be copied/pasted into GHCi.
 instance Show ArbitraryObject where
@@ -76,12 +76,11 @@ instance Show ArbitraryObject where
       , "  [schema| " ++ showSchemaV schemaV ++ " |]"
       ]
 
-{- | A Template Haskell function to generate a splice for QuickCheck tests to generate arbitrary
- objects with arbitrary schemas.
-
- Note that for repeated runs of the test suite, the schemas will be the same, with the actual
- JSON values generated randomly. You need to recompile in order to generate different schemas.
--}
+-- | A Template Haskell function to generate a splice for QuickCheck tests to generate arbitrary
+--  objects with arbitrary schemas.
+--
+--  Note that for repeated runs of the test suite, the schemas will be the same, with the actual
+--  JSON values generated randomly. You need to recompile in order to generate different schemas.
 arbitraryObject :: ExpQ
 arbitraryObject = do
   arbitrarySchemas <- runIO $ genSchemaTypes 20
@@ -92,12 +91,11 @@ arbitraryObject = do
       let schemaType = quoteType schema $ showSchemaV schemaV
        in [|genSchema' (Proxy :: Proxy (Object $schemaType)) schemaV|]
 
-{- |
-Splices to a 'forAll' with 'arbitraryObject', outputting information about the object
-generated, to ensure we get good generation.
-
->>> $(forAllArbitraryObjects) :: Testable prop => ArbitraryObject -> prop
--}
+-- |
+-- Splices to a 'forAll' with 'arbitraryObject', outputting information about the object
+-- generated, to ensure we get good generation.
+--
+-- >>> $(forAllArbitraryObjects) :: Testable prop => ArbitraryObject -> prop
 forAllArbitraryObjects :: ExpQ
 forAllArbitraryObjects = [|forAllArbitraryObjects' $arbitraryObject|]
 
@@ -121,9 +119,9 @@ genSchema' ::
   ( ArbitrarySchema ('SchemaObject schema)
   , IsSchema ('Schema schema)
   ) =>
-  Proxy (Object ('Schema schema)) ->
-  SchemaV ->
-  Gen ArbitraryObject
+  Proxy (Object ('Schema schema))
+  -> SchemaV
+  -> Gen ArbitraryObject
 genSchema' proxy schemaV = do
   v <- genSchema @('SchemaObject schema)
   return $ ArbitraryObject proxy v schemaV
@@ -284,14 +282,13 @@ genSchemaTypes numSchemasToGenerate =
 instance Arbitrary SchemaV where
   arbitrary = Schema <$> sized genSchemaObject
 
-{- | Generate an arbitrary schema.
-
- SchemaType is a recursive definition, so we want to make sure that generating a schema will
- terminate, and also not take too long. The ways we account for that are:
-  * Providing an upper bound on the depth of any object schemas in the current object (n / 2)
-  * Providing an upper bound on the number of keys in the current object (n / 3)
-  * Providing an upper bound on the number of schemas in a union (n / 5)
--}
+-- | Generate an arbitrary schema.
+--
+--  SchemaType is a recursive definition, so we want to make sure that generating a schema will
+--  terminate, and also not take too long. The ways we account for that are:
+--   * Providing an upper bound on the depth of any object schemas in the current object (n / 2)
+--   * Providing an upper bound on the number of keys in the current object (n / 3)
+--   * Providing an upper bound on the number of schemas in a union (n / 5)
 genSchemaObject :: Int -> Gen SchemaObjectMapV
 genSchemaObject n = do
   keys <- genUniqList1 (n `div` 3) genKey
@@ -346,16 +343,14 @@ genSchemaObject n = do
     -- avoid generating big unions by scaling list length
     genSchemaUnion gen = SchemaUnion <$> genUniqList1 (n `div` 5) gen
 
-{- | Generate a valid JSON key
- See Data.Aeson.Schema.TH.Parse.jsonKey'
--}
+-- | Generate a valid JSON key
+--  See Data.Aeson.Schema.TH.Parse.jsonKey'
 genKey :: Gen String
 genKey = listOf1 $ arbitraryPrintableChar `suchThat` (`notElem` " \"\\!?[](),.@:{}#")
 
-{- | Generate a non-empty and unique list of the given generator.
-
- Takes in the max size of the list.
--}
+-- | Generate a non-empty and unique list of the given generator.
+--
+--  Takes in the max size of the list.
 genUniqList1 :: (Eq a) => Int -> Gen a -> Gen [a]
 genUniqList1 n gen = do
   k <- choose (1, max 1 n)

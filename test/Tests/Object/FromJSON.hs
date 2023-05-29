@@ -157,24 +157,24 @@ testCases =
 data FromJSONTestCase where
   CheckValid ::
     (Arbitrary a, Show a, FromJSON (Object schema)) =>
-    -- | Name of test case
-    TestName ->
-    -- | The schema to parse with
-    Proxy (Object schema) ->
-    -- | A function that builds a Value that should satisfy the schema
-    (a -> Value) ->
-    FromJSONTestCase
+    TestName
+    -- ^ Name of test case
+    -> Proxy (Object schema)
+    -- ^ The schema to parse with
+    -> (a -> Value)
+    -- ^ A function that builds a Value that should satisfy the schema
+    -> FromJSONTestCase
   CheckError ::
     (FromJSON (Object schema), Show (Object schema)) =>
-    -- | Name of test case
-    TestName ->
-    -- | Name of golden file
-    String ->
-    -- | The schema to parse with
-    Proxy (Object schema) ->
-    -- | The value that should fail parsing the given schema
-    Value ->
-    FromJSONTestCase
+    TestName
+    -- ^ Name of test case
+    -> String
+    -- ^ Name of golden file
+    -> Proxy (Object schema)
+    -- ^ The schema to parse with
+    -> Value
+    -- ^ The value that should fail parsing the given schema
+    -> FromJSONTestCase
 
 runTestCase :: FromJSONTestCase -> TestTree
 runTestCase = \case

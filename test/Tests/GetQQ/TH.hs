@@ -31,10 +31,9 @@ qState =
     , reifyInfo = []
     }
 
-{- | Run the `get` quasiquoter at both runtime and compile-time, to get coverage.
-
- The `get` Quasiquoter doesn't reify anything, so this should work.
--}
+-- | Run the `get` quasiquoter at both runtime and compile-time, to get coverage.
+--
+--  The `get` Quasiquoter doesn't reify anything, so this should work.
 runGet :: QuasiQuoter
 runGet = mkExpQQ $ \s -> [|runTestQ qState (quoteExp get s) `deepseq` $(quoteExp get s)|]
 
