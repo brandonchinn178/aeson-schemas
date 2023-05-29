@@ -1,5 +1,7 @@
 # Unreleased
 
+# v1.4.1.0
+
 * Add support for GHC 9.6
 
 # v1.4.0.1
