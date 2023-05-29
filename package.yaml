@@ -3,7 +3,7 @@ version: 1.4.0.1
 verbatim:
   cabal-version: '>= 1.10'
 license: BSD3
-license-file: LICENSE
+license-file: LICENSE.md
 author:
   - Brandon Chinn <brandon@leapyear.io>
 maintainer:
