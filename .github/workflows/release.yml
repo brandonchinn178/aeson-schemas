@@ -39,7 +39,7 @@ jobs:
       - uses: brandonchinn178/haskell-actions/hackage-upload@hackage-upload
         with:
           archive: sdist/aeson-schemas-*.tar.gz
-          token: ${{ secrets.HACKAGE_TOKEN_LEAPYEAR }}
+          token: ${{ secrets.HACKAGE_TOKEN_BRANDONCHINN178 }}
 
       - uses: softprops/action-gh-release@v1
         with:

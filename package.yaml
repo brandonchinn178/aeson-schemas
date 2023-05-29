@@ -5,9 +5,9 @@ verbatim:
 license: BSD3
 license-file: LICENSE.md
 author:
-  - Brandon Chinn <brandon@leapyear.io>
+  - Brandon Chinn <brandonchinn178@gmail.com>
 maintainer:
-  - Brandon Chinn <brandon@leapyear.io>
+  - Brandon Chinn <brandonchinn178@gmail.com>
 category: JSON
 synopsis: Easily consume JSON data on-demand with type-safety
 description: |
@@ -21,7 +21,7 @@ extra-source-files:
   - test/**/*.golden
   - test/wont-compile/*.hs
 
-github: LeapYear/aeson-schemas
+github: brandonchinn178/aeson-schemas
 
 ghc-options: -Wall
 when:

@@ -1,6 +1,6 @@
 cabal-version: >= 1.10
 
--- This file has been generated from package.yaml by hpack version 0.35.0.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -11,12 +11,12 @@ description:    Parse JSON data easily and safely without defining new data type
                 for deeply nested JSON data, which is difficult to parse using the default
                 FromJSON instances.
 category:       JSON
-homepage:       https://github.com/LeapYear/aeson-schemas#readme
-bug-reports:    https://github.com/LeapYear/aeson-schemas/issues
-author:         Brandon Chinn <brandon@leapyear.io>
-maintainer:     Brandon Chinn <brandon@leapyear.io>
+homepage:       https://github.com/brandonchinn178/aeson-schemas#readme
+bug-reports:    https://github.com/brandonchinn178/aeson-schemas/issues
+author:         Brandon Chinn <brandonchinn178@gmail.com>
+maintainer:     Brandon Chinn <brandonchinn178@gmail.com>
 license:        BSD3
-license-file:   LICENSE
+license-file:   LICENSE.md
 build-type:     Simple
 extra-source-files:
     README.md
@@ -53,7 +53,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/LeapYear/aeson-schemas
+  location: https://github.com/brandonchinn178/aeson-schemas
 
 flag run-integration-tests
   manual: True

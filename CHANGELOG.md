@@ -53,7 +53,7 @@ New features:
 
 Bug fixes:
 
-* Avoid requiring `TypeApplications` when using `get` quasiquoter ([#16](https://github.com/LeapYear/aeson-schemas/issues/16))
+* Avoid requiring `TypeApplications` when using `get` quasiquoter ([#16](https://github.com/brandonchinn178/aeson-schemas/issues/16))
 * Allow optional quotes around keys, both in getter-expressions and in schema definitions
 * Allow `//` at the beginning of phantom keys (were previously parsed as comments)
 

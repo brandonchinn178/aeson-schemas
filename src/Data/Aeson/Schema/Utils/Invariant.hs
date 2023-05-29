@@ -10,5 +10,5 @@ unreachable msg =
   error $
     unlines
       [ "`aeson-schemas` internal error: " ++ msg
-      , "Please file a bug report at https://github.com/LeapYear/aeson-schemas/issues/"
+      , "Please file a bug report at https://github.com/brandonchinn178/aeson-schemas/issues/"
       ]
