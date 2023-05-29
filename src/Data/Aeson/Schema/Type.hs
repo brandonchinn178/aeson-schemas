@@ -1,11 +1,11 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 {-|

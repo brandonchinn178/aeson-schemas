@@ -56,7 +56,7 @@ library:
     - first-class-families >= 0.3.0.0 && < 0.9
     - hashable >= 1.2.7.0 && < 1.5
     - megaparsec >= 7 && < 10
-    - template-haskell >= 2.16 && < 2.20
+    - template-haskell >= 2.16 && < 2.21
     - text >= 1.2.2.2 && < 2.1
     - unordered-containers >= 0.2.8.0 && < 0.3
 
