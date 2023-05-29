@@ -189,5 +189,5 @@ runTestCase = \case
         Right o -> error $ "Unexpectedly parsed: " ++ show o
         Left e -> e
 
-parse :: FromJSON a => Proxy a -> Value -> Either String a
+parse :: (FromJSON a) => Proxy a -> Value -> Either String a
 parse _ = parseEither parseJSON

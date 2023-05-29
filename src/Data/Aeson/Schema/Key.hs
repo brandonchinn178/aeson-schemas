@@ -89,20 +89,20 @@ toContext = \case
 -- | A type-level SchemaKey
 type SchemaKey = SchemaKey' Symbol
 
-class KnownSymbol (FromSchemaKey key) => IsSchemaKey (key :: SchemaKey) where
+class (KnownSymbol (FromSchemaKey key)) => IsSchemaKey (key :: SchemaKey) where
   type FromSchemaKey key :: Symbol
   toSchemaKeyV :: Proxy key -> SchemaKeyV
 
-instance KnownSymbol key => IsSchemaKey ('NormalKey key) where
+instance (KnownSymbol key) => IsSchemaKey ('NormalKey key) where
   type FromSchemaKey ('NormalKey key) = key
   toSchemaKeyV _ = NormalKey $ symbolVal $ Proxy @key
 
-instance KnownSymbol key => IsSchemaKey ('PhantomKey key) where
+instance (KnownSymbol key) => IsSchemaKey ('PhantomKey key) where
   type FromSchemaKey ('PhantomKey key) = key
   toSchemaKeyV _ = PhantomKey $ symbolVal $ Proxy @key
 
-fromSchemaKey :: forall key. IsSchemaKey key => String
+fromSchemaKey :: forall key. (IsSchemaKey key) => String
 fromSchemaKey = fromSchemaKeyV $ toSchemaKeyV $ Proxy @key
 
-showSchemaKey :: forall key. IsSchemaKey key => String
+showSchemaKey :: forall key. (IsSchemaKey key) => String
 showSchemaKey = showSchemaKeyV $ toSchemaKeyV $ Proxy @key

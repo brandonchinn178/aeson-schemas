@@ -61,7 +61,7 @@ import Data.Aeson.Schema.Utils.NameLike (NameLike (..), fromName)
 
 data ArbitraryObject where
   ArbitraryObject ::
-    IsSchema schema =>
+    (IsSchema schema) =>
     Proxy (Object schema) ->
     Value ->
     SchemaV ->
@@ -191,14 +191,14 @@ instance {-# OVERLAPS #-} ArbitrarySchema ('SchemaScalar Text) where
 instance (Arbitrary inner, ToJSON inner, Typeable inner) => ArbitrarySchema ('SchemaScalar inner) where
   genSchema = toJSON <$> arbitrary @inner
 
-instance ArbitrarySchema inner => ArbitrarySchema ('SchemaMaybe inner) where
+instance (ArbitrarySchema inner) => ArbitrarySchema ('SchemaMaybe inner) where
   genSchema =
     frequency
       [ (3, genSchema @inner)
       , (1, pure Null)
       ]
 
-instance ArbitrarySchema inner => ArbitrarySchema ('SchemaTry inner) where
+instance (ArbitrarySchema inner) => ArbitrarySchema ('SchemaTry inner) where
   genSchema =
     frequency
       [ (3, genSchema @inner)
@@ -213,22 +213,22 @@ instance ArbitrarySchema inner => ArbitrarySchema ('SchemaTry inner) where
           , String . Text.pack <$> arbitrary
           ]
 
-instance ArbitrarySchema inner => ArbitrarySchema ('SchemaList inner) where
+instance (ArbitrarySchema inner) => ArbitrarySchema ('SchemaList inner) where
   genSchema = Array . fromList <$> listOf (genSchema @inner)
 
-instance All ArbitrarySchema schemas => ArbitrarySchema ('SchemaUnion schemas) where
+instance (All ArbitrarySchema schemas) => ArbitrarySchema ('SchemaUnion schemas) where
   genSchema = oneof $ mapAll @ArbitrarySchema @schemas genSchemaElem
     where
-      genSchemaElem :: forall schema. ArbitrarySchema schema => Proxy schema -> Gen Value
+      genSchemaElem :: forall schema. (ArbitrarySchema schema) => Proxy schema -> Gen Value
       genSchemaElem _ = genSchema @schema
 
-instance All ArbitraryObjectPair pairs => ArbitrarySchema ('SchemaObject (pairs :: [(SchemaKey, SchemaType)])) where
+instance (All ArbitraryObjectPair pairs) => ArbitrarySchema ('SchemaObject (pairs :: [(SchemaKey, SchemaType)])) where
   genSchema = Object . Compat.unions <$> genSchemaPairs
     where
       genSchemaPairs :: Gen [Aeson.Object]
       genSchemaPairs = sequence $ mapAll @ArbitraryObjectPair @pairs genSchemaPair
 
-class IsSchemaKey (Fst pair) => ArbitraryObjectPair (pair :: (SchemaKey, SchemaType)) where
+class (IsSchemaKey (Fst pair)) => ArbitraryObjectPair (pair :: (SchemaKey, SchemaType)) where
   genSchemaPair :: Proxy pair -> Gen Aeson.Object
   genSchemaPair _ = toContext schemaKey <$> genInnerSchema @pair
     where
@@ -356,7 +356,7 @@ genKey = listOf1 $ arbitraryPrintableChar `suchThat` (`notElem` " \"\\!?[](),.@:
 
  Takes in the max size of the list.
 -}
-genUniqList1 :: Eq a => Int -> Gen a -> Gen [a]
+genUniqList1 :: (Eq a) => Int -> Gen a -> Gen [a]
 genUniqList1 n gen = do
   k <- choose (1, max 1 n)
   take k . nub <$> infiniteListOf gen

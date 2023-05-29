@@ -90,7 +90,7 @@ instance ToJSON (SumType '[]) where
 {- Extracting sum type branches -}
 
 class FromSumType (n :: Nat) (types :: [Type]) (x :: Type) where
-  fromSumType' :: 'Just x ~ GetIndex n types => proxy1 n -> SumType types -> Maybe x
+  fromSumType' :: ('Just x ~ GetIndex n types) => proxy1 n -> SumType types -> Maybe x
 
 instance {-# OVERLAPPING #-} FromSumType 0 (x ': xs) x where
   fromSumType' _ = \case

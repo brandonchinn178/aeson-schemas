@@ -25,7 +25,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void String
 
-runParserFail :: MonadFail m => Parser a -> String -> m a
+runParserFail :: (MonadFail m) => Parser a -> String -> m a
 runParserFail parser s = either (fail . errorBundlePretty) return $ runParser parser s s
 
 {- SchemaDef -}
@@ -50,7 +50,7 @@ data SchemaDefObjKey
   | SchemaDefObjKeyPhantom String
   deriving (Show)
 
-parseSchemaDef :: MonadFail m => String -> m SchemaDef
+parseSchemaDef :: (MonadFail m) => String -> m SchemaDef
 parseSchemaDef = runParserFail $ do
   space
   def <- parseSchemaDefWithUnions
@@ -101,7 +101,7 @@ data GetterExp = GetterExp
   }
   deriving (Show)
 
-parseGetterExp :: MonadFail m => String -> m GetterExp
+parseGetterExp :: (MonadFail m) => String -> m GetterExp
 parseGetterExp = runParserFail $ do
   space
   start <- optional $ namespacedIdentifier lowerChar
@@ -118,7 +118,7 @@ data UnwrapSchema = UnwrapSchema
   }
   deriving (Show)
 
-parseUnwrapSchema :: MonadFail m => String -> m UnwrapSchema
+parseUnwrapSchema :: (MonadFail m) => String -> m UnwrapSchema
 parseUnwrapSchema = runParserFail $ do
   space
   startSchema <- namespacedIdentifier upperChar
@@ -217,15 +217,15 @@ jsonKey' =
 {- Parsing utilities -}
 
 -- | Same as 'Megaparsec.some', except returns a 'NonEmpty'
-some :: MonadPlus f => f a -> f (NonEmpty a)
+some :: (MonadPlus f) => f a -> f (NonEmpty a)
 some p = NonEmpty.fromList <$> Megaparsec.some p
 
 -- | Same as 'Megaparsec.sepBy1', except returns a 'NonEmpty'
-sepBy1 :: MonadPlus f => f a -> f sep -> f (NonEmpty a)
+sepBy1 :: (MonadPlus f) => f a -> f sep -> f (NonEmpty a)
 sepBy1 p sep = NonEmpty.fromList <$> Megaparsec.sepBy1 p sep
 
 -- | Same as 'Megaparsec.sepEndBy1', except returns a 'NonEmpty'
-sepEndBy1 :: MonadPlus f => f a -> f sep -> f (NonEmpty a)
+sepEndBy1 :: (MonadPlus f) => f a -> f sep -> f (NonEmpty a)
 sepEndBy1 p sep = NonEmpty.fromList <$> Megaparsec.sepEndBy1 p sep
 
 {- | Return a non-empty list containing elements from the given parsers in order.
@@ -236,7 +236,7 @@ sepEndBy1 p sep = NonEmpty.fromList <$> Megaparsec.sepEndBy1 p sep
  An individual parser in the list may not parse anything, but at least one parser must return
  something.
 -}
-someWith :: MonadParsec e s m => [m a] -> m (NonEmpty a)
+someWith :: (MonadParsec e s m) => [m a] -> m (NonEmpty a)
 someWith ps = do
   as <- concatMapM (many . try) ps
   maybe empty return $ NonEmpty.nonEmpty as

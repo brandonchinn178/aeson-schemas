@@ -51,13 +51,13 @@ import qualified Data.Aeson.Schema.Internal as Internal
 class ShowSchemaResult a where
   showSchemaResult :: String
 
-instance IsSchema schema => ShowSchemaResult (Object schema) where
+instance (IsSchema schema) => ShowSchemaResult (Object schema) where
   showSchemaResult = "Object (" ++ Internal.showSchema @schema ++ ")"
 
-instance ShowSchemaResult a => ShowSchemaResult [a] where
+instance (ShowSchemaResult a) => ShowSchemaResult [a] where
   showSchemaResult = "[" ++ showSchemaResult @a ++ "]"
 
-instance {-# OVERLAPPABLE #-} Typeable a => ShowSchemaResult a where
+instance {-# OVERLAPPABLE #-} (Typeable a) => ShowSchemaResult a where
   showSchemaResult = show $ typeRep (Proxy @a)
 
 {- Loading JSON data -}
@@ -65,10 +65,10 @@ instance {-# OVERLAPPABLE #-} Typeable a => ShowSchemaResult a where
 json :: QuasiQuoter
 json = mkExpQQ $ \s -> [|(either error id . eitherDecode . fromString) s|]
 
-parseValue :: FromJSON a => Value -> a
+parseValue :: (FromJSON a) => Value -> a
 parseValue = either error id . parseEither parseJSON
 
-parseProxy :: FromJSON a => Proxy a -> Value -> Either String a
+parseProxy :: (FromJSON a) => Proxy a -> Value -> Either String a
 parseProxy _ = parseEither parseJSON
 
 parseObject :: String -> ExpQ

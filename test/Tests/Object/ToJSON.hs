@@ -26,10 +26,10 @@ test =
 {- Realizing Aeson.Parser -}
 
 -- We're defining two Parsers to be equivalent if they evaluate to the same result.
-instance Eq a => Eq (Aeson.Parser a) where
+instance (Eq a) => Eq (Aeson.Parser a) where
   a == b = runParser a == runParser b
 
-instance Show a => Show (Aeson.Parser a) where
+instance (Show a) => Show (Aeson.Parser a) where
   show = show . runParser
 
 runParser :: Aeson.Parser a -> Aeson.Result a

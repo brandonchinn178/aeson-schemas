@@ -164,7 +164,7 @@ getSchemaObjectMap = \case
  2. Fail if duplicate keys are both explicitly provided
  3. Fail if duplicate keys are both imported
 -}
-resolveKeys :: forall a. Show a => LookupMap SchemaKeyV (KeySource, a) -> Either String (LookupMap SchemaKeyV a)
+resolveKeys :: forall a. (Show a) => LookupMap SchemaKeyV (KeySource, a) -> Either String (LookupMap SchemaKeyV a)
 resolveKeys = mapM (uncurry resolveKey) . groupByKeyWith fromSchemaKeyV
   where
     resolveKey :: SchemaKeyV -> [(KeySource, a)] -> Either String (SchemaKeyV, a)
@@ -220,5 +220,5 @@ groupByKeyWith f pairs = map (\key -> (key, groups HashMap.! f key)) distinctKey
 
 {- Utilities -}
 
-lookupAll :: Eq a => a -> [(a, b)] -> [b]
+lookupAll :: (Eq a) => a -> [(a, b)] -> [b]
 lookupAll a = map snd . filter ((== a) . fst)

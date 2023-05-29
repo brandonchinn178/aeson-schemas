@@ -129,7 +129,7 @@ generateGetterExp GetterExp{..} = applyStart $ resolveGetterOpExps $ mkGetterOpE
 {- Runtime helpers -}
 
 -- | fromJust with helpful error message
-fromJust :: HasCallStack => String -> Maybe a -> a
+fromJust :: (HasCallStack) => String -> Maybe a -> a
 fromJust expr = Maybe.fromMaybe (error errMsg)
   where
     errMsg = "Called 'fromJust' on null expression" ++ if null expr then "" else ": " ++ expr
@@ -172,7 +172,7 @@ resolveGetterOpExps (op NonEmpty.:| ops) =
       let applyVal expr = appE expr (varE val)
       lamE [varP val] $ fromElems $ map (applyVal . resolveGetterOpExps) $ NonEmpty.toList elemOps
 
-showGetterOps :: Foldable t => t GetterOperation -> String
+showGetterOps :: (Foldable t) => t GetterOperation -> String
 showGetterOps = concatMap showGetterOp
   where
     showGetterOp = \case
