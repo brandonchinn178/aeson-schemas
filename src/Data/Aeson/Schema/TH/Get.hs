@@ -128,6 +128,9 @@ generateGetterExp GetterExp{..} = applyStart $ resolveGetterOpExps $ mkGetterOpE
 
 {- Runtime helpers -}
 
+{- HLINT ignore fromJust "Redundant bracket" -}
+-- https://github.com/ndmitchell/hlint/issues/1503
+
 -- | fromJust with helpful error message
 fromJust :: (HasCallStack) => String -> Maybe a -> a
 fromJust expr = Maybe.fromMaybe (error errMsg)
