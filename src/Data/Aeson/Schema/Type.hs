@@ -1,16 +1,16 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{- |
+{-|
 Module      :  Data.Aeson.Schema.Type
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
 Portability :  portable
 
@@ -122,13 +122,12 @@ showSchemaTypeV' = \case
 
 {- Type-level schema types -}
 
-{- | The kind of schemas that may be used with Object; e.g.
-
- > data Payload (schema :: Schema) = Payload
- >   { getPayload :: Object schema
- >   , timestamp  :: UTCTime
- >   }
--}
+-- | The kind of schemas that may be used with Object; e.g.
+--
+--  > data Payload (schema :: Schema) = Payload
+--  >   { getPayload :: Object schema
+--  >   , timestamp  :: UTCTime
+--  >   }
 type Schema = Schema' Symbol Type
 
 type SchemaType = SchemaType' Symbol Type
@@ -141,34 +140,34 @@ type family ToSchemaObject (schema :: Schema) :: SchemaType where
 type family FromSchema (schema :: Schema) :: SchemaObjectMap where
   FromSchema ('Schema schema) = schema
 
-toSchemaV :: forall schema. IsSchemaObjectMap (FromSchema schema) => Proxy schema -> SchemaV
+toSchemaV :: forall schema. (IsSchemaObjectMap (FromSchema schema)) => Proxy schema -> SchemaV
 toSchemaV _ = Schema $ toSchemaTypeMapV $ Proxy @(FromSchema schema)
 
-toSchemaTypeMapV :: forall pairs. IsSchemaObjectMap pairs => Proxy pairs -> SchemaObjectMapV
+toSchemaTypeMapV :: forall pairs. (IsSchemaObjectMap pairs) => Proxy pairs -> SchemaObjectMapV
 toSchemaTypeMapV _ = mapAll @IsSchemaObjectPair @pairs toSchemaTypePairV
 
 class IsSchemaType (schemaType :: SchemaType) where
   toSchemaTypeV :: Proxy schemaType -> SchemaTypeV
 
-instance Typeable inner => IsSchemaType ('SchemaScalar inner) where
+instance (Typeable inner) => IsSchemaType ('SchemaScalar inner) where
   toSchemaTypeV _ = SchemaScalar (NameRef $ tyConName $ typeRepTyCon $ typeRep $ Proxy @inner)
 
-instance IsSchemaType inner => IsSchemaType ('SchemaMaybe inner) where
+instance (IsSchemaType inner) => IsSchemaType ('SchemaMaybe inner) where
   toSchemaTypeV _ = SchemaMaybe (toSchemaTypeV $ Proxy @inner)
 
-instance IsSchemaType inner => IsSchemaType ('SchemaTry inner) where
+instance (IsSchemaType inner) => IsSchemaType ('SchemaTry inner) where
   toSchemaTypeV _ = SchemaTry (toSchemaTypeV $ Proxy @inner)
 
-instance IsSchemaType inner => IsSchemaType ('SchemaList inner) where
+instance (IsSchemaType inner) => IsSchemaType ('SchemaList inner) where
   toSchemaTypeV _ = SchemaList (toSchemaTypeV $ Proxy @inner)
 
-instance All IsSchemaType schemas => IsSchemaType ('SchemaUnion schemas) where
+instance (All IsSchemaType schemas) => IsSchemaType ('SchemaUnion schemas) where
   toSchemaTypeV _ = SchemaUnion (mapAll @IsSchemaType @schemas toSchemaTypeV)
 
-instance IsSchemaObjectMap pairs => IsSchemaType ('SchemaObject pairs) where
+instance (IsSchemaObjectMap pairs) => IsSchemaType ('SchemaObject pairs) where
   toSchemaTypeV _ = SchemaObject (toSchemaTypeMapV $ Proxy @pairs)
 
-instance IsSchemaObjectMap (FromSchema schema) => IsSchemaType ('SchemaInclude ('Right schema)) where
+instance (IsSchemaObjectMap (FromSchema schema)) => IsSchemaType ('SchemaInclude ('Right schema)) where
   toSchemaTypeV _ = toSchemaObjectV $ toSchemaV $ Proxy @schema
 
 type IsSchemaObjectMap (pairs :: SchemaObjectMap) = All IsSchemaObjectPair pairs

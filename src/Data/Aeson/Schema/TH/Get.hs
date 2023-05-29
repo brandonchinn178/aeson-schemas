@@ -3,9 +3,9 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-{- |
+{-|
 Module      :  Data.Aeson.Schema.TH.Get
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
 Portability :  portable
 
@@ -32,59 +32,58 @@ import Data.Aeson.Schema.TH.Parse (
  )
 import Data.Aeson.Schema.Utils.Sum (fromSumType)
 
-{- | Defines a QuasiQuoter for extracting JSON data.
-
- Example:
-
- > let Just result = decode ... :: Maybe (Object MySchema)
- >
- > [get| result.foo.a |]          :: Int
- > [get| result.foo.nodes |]      :: [Object (..)]
- > [get| result.foo.nodes[] |]    :: [Object (..)]
- > [get| result.foo.nodes[].b |]  :: [Maybe Bool]
- > [get| result.foo.nodes[].b! |] :: [Bool] -- runtime error if any values are Nothing
- > [get| result.foo.c |]          :: Text
- > [get| result.foo.(a,c) |]      :: (Int, Text)
- > [get| result.foo.[c,d] |]      :: [Text]
- >
- > let nodes = [get| result.foo.nodes |]
- > flip map nodes $ \node -> fromMaybe ([get| node.num |] == 0) [get| node.b |]
- > map [get| .num |] nodes
-
- Syntax:
-
- * @x.y@ is only valid if @x@ is an 'Data.Aeson.Schema.Object'. Returns the value of the key @y@.
-
- * @.y@ returns a function that takes in an 'Data.Aeson.Schema.Object' and returns the value of
-   the key @y@.
-
- * @x.[y,z.a]@ is only valid if @x@ is an 'Data.Aeson.Schema.Object', and if @y@ and @z.a@ have
-   the same type. Returns the value of the operations @y@ and @z.a@ as a list.
-   MUST be the last operation.
-
- * @x.(y,z.a)@ is only valid if @x@ is an 'Data.Aeson.Schema.Object'. Returns the value of the
-   operations @y@ and @z.a@ as a tuple.
-   MUST be the last operation.
-
- * @x!@ is only valid if @x@ is a 'Maybe'. Unwraps the value of @x@ from a 'Just' value and
-   errors (at runtime!) if @x@ is 'Nothing'.
-
- * @x[]@ is only valid if @x@ is a list. Applies the remaining rules as an 'fmap' over the
-   values in the list, e.g.
-
-     * @x[]@ without anything after is equivalent to @x@
-     * @x[].y@ gets the key @y@ in all the Objects in @x@
-     * @x[]!@ unwraps all 'Just' values in @x@ (and errors if any 'Nothing' values exist in @x@)
-
- * @x?@ follows the same rules as @x[]@ except it's only valid if @x@ is a 'Maybe'.
-
- * @x\@#@ is only valid if @x@ is a 'SumType'. If the sum type contains a value at the given
-   branch (e.g. @x\@0@ for @Here v@), return 'Just' that value, otherwise 'Nothing'. (added in
-   v1.1.0)
-
-   e.g. with the schema @{ a: Int | Bool }@, calling @[get| .a\@0 |]@ will return @Maybe Int@ if
-   the sum type contains an 'Int'.
--}
+-- | Defines a QuasiQuoter for extracting JSON data.
+--
+--  Example:
+--
+--  > let Just result = decode ... :: Maybe (Object MySchema)
+--  >
+--  > [get| result.foo.a |]          :: Int
+--  > [get| result.foo.nodes |]      :: [Object (..)]
+--  > [get| result.foo.nodes[] |]    :: [Object (..)]
+--  > [get| result.foo.nodes[].b |]  :: [Maybe Bool]
+--  > [get| result.foo.nodes[].b! |] :: [Bool] -- runtime error if any values are Nothing
+--  > [get| result.foo.c |]          :: Text
+--  > [get| result.foo.(a,c) |]      :: (Int, Text)
+--  > [get| result.foo.[c,d] |]      :: [Text]
+--  >
+--  > let nodes = [get| result.foo.nodes |]
+--  > flip map nodes $ \node -> fromMaybe ([get| node.num |] == 0) [get| node.b |]
+--  > map [get| .num |] nodes
+--
+--  Syntax:
+--
+--  * @x.y@ is only valid if @x@ is an 'Data.Aeson.Schema.Object'. Returns the value of the key @y@.
+--
+--  * @.y@ returns a function that takes in an 'Data.Aeson.Schema.Object' and returns the value of
+--    the key @y@.
+--
+--  * @x.[y,z.a]@ is only valid if @x@ is an 'Data.Aeson.Schema.Object', and if @y@ and @z.a@ have
+--    the same type. Returns the value of the operations @y@ and @z.a@ as a list.
+--    MUST be the last operation.
+--
+--  * @x.(y,z.a)@ is only valid if @x@ is an 'Data.Aeson.Schema.Object'. Returns the value of the
+--    operations @y@ and @z.a@ as a tuple.
+--    MUST be the last operation.
+--
+--  * @x!@ is only valid if @x@ is a 'Maybe'. Unwraps the value of @x@ from a 'Just' value and
+--    errors (at runtime!) if @x@ is 'Nothing'.
+--
+--  * @x[]@ is only valid if @x@ is a list. Applies the remaining rules as an 'fmap' over the
+--    values in the list, e.g.
+--
+--      * @x[]@ without anything after is equivalent to @x@
+--      * @x[].y@ gets the key @y@ in all the Objects in @x@
+--      * @x[]!@ unwraps all 'Just' values in @x@ (and errors if any 'Nothing' values exist in @x@)
+--
+--  * @x?@ follows the same rules as @x[]@ except it's only valid if @x@ is a 'Maybe'.
+--
+--  * @x\@#@ is only valid if @x@ is a 'SumType'. If the sum type contains a value at the given
+--    branch (e.g. @x\@0@ for @Here v@), return 'Just' that value, otherwise 'Nothing'. (added in
+--    v1.1.0)
+--
+--    e.g. with the schema @{ a: Int | Bool }@, calling @[get| .a\@0 |]@ will return @Maybe Int@ if
+--    the sum type contains an 'Int'.
 get :: QuasiQuoter
 get =
   QuasiQuoter
@@ -128,8 +127,11 @@ generateGetterExp GetterExp{..} = applyStart $ resolveGetterOpExps $ mkGetterOpE
 
 {- Runtime helpers -}
 
+{- HLINT ignore fromJust "Redundant bracket" -}
+-- https://github.com/ndmitchell/hlint/issues/1503
+
 -- | fromJust with helpful error message
-fromJust :: HasCallStack => String -> Maybe a -> a
+fromJust :: (HasCallStack) => String -> Maybe a -> a
 fromJust expr = Maybe.fromMaybe (error errMsg)
   where
     errMsg = "Called 'fromJust' on null expression" ++ if null expr then "" else ": " ++ expr
@@ -172,7 +174,7 @@ resolveGetterOpExps (op NonEmpty.:| ops) =
       let applyVal expr = appE expr (varE val)
       lamE [varP val] $ fromElems $ map (applyVal . resolveGetterOpExps) $ NonEmpty.toList elemOps
 
-showGetterOps :: Foldable t => t GetterOperation -> String
+showGetterOps :: (Foldable t) => t GetterOperation -> String
 showGetterOps = concatMap showGetterOp
   where
     showGetterOp = \case
@@ -188,11 +190,10 @@ showGetterOps = concatMap showGetterOp
 
 {- Utilities -}
 
-{- | Run the given function for each element in the list, providing all elements seen so far.
-
- e.g. for a list [1,2,3], this will return the result of
-
-   [f [] 1, f [1] 2, f [1,2] 3]
--}
+-- | Run the given function for each element in the list, providing all elements seen so far.
+--
+--  e.g. for a list [1,2,3], this will return the result of
+--
+--    [f [] 1, f [1] 2, f [1,2] 3]
 mapWithHistory :: ([a] -> a -> b) -> NonEmpty a -> NonEmpty b
 mapWithHistory f xs = NonEmpty.zipWith f (NonEmpty.inits xs) xs

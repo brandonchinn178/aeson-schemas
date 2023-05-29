@@ -7,9 +7,9 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ViewPatterns #-}
 
-{- |
+{-|
 Module      :  Data.Aeson.Schema.TH.Utils
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
 Portability :  portable
 -}
@@ -51,9 +51,8 @@ data ReifiedSchema = ReifiedSchema
   , reifiedSchemaType :: TypeWithoutKinds
   }
 
-{- | Look up a schema with the given name. Errors if the name doesn't exist or if the name does
- not refer to a schema.
--}
+-- | Look up a schema with the given name. Errors if the name doesn't exist or if the name does
+--  not refer to a schema.
 lookupSchema :: NameLike -> Q ReifiedSchema
 lookupSchema nameLike = do
   name <- lookupSchemaName nameLike
@@ -176,11 +175,10 @@ schemaTypeVToTypeQ = \case
 
 {- TH utilities -}
 
-{- | Same as 'Type' except without any kind signatures or applications at any depth.
-
- Provides no actual guarantees. The caller is responsible for making sure the value
- has been run through 'stripKinds' at one point.
--}
+-- | Same as 'Type' except without any kind signatures or applications at any depth.
+--
+--  Provides no actual guarantees. The caller is responsible for making sure the value
+--  has been run through 'stripKinds' at one point.
 type TypeWithoutKinds = Type
 
 {- FOURMOLU_DISABLE -}

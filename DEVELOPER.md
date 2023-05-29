@@ -18,15 +18,15 @@ The following linters must pass CI in order for your PR to be accepted.
 * HLint
 
     ```bash
-    stack install hlint-3.4.1
+    cabal install hlint-3.5
     hlint .
     ```
 
 * fourmolu
 
     ```bash
-    stack install fourmolu-0.7.0.1
-    fourmolu -i $(git ls-files '*.hs')
+    cabal install fourmolu-0.12.0.0
+    fourmolu -i .
     ```
 
 ## Run tests
@@ -36,10 +36,6 @@ All tests must pass CI in order for your PR to be accepted.
 ```bash
 stack test
 ```
-
-# Git etiquette
-
-See [`CONTRIBUTING`](https://github.com/LeapYear/.github/blob/main/CONTRIBUTING)
 
 # Documentation
 
@@ -75,11 +71,11 @@ Follow these steps to release this project:
     1. In the `check_sdist` CI job, check the output of the `stack sdist`
        step for any warnings.
 
-1. Ensure a Hackage auth token for the `leapyear` Hackage user is set in Settings > Secrets > Actions as `HACKAGE_TOKEN_LEAPYEAR`
-   * Generate a token from `https://hackage.haskell.org/user/leapyear/manage`
+1. Ensure your Hackage token is set in Settings > Secrets > Actions as `HACKAGE_TOKEN_<github_username>` (replace any non alphanumeric characters in username with `_`).
+    * Generate a token from `https://hackage.haskell.org/user/<hackage_username>/manage`
 
 1. Go to the GitHub Actions page, click on the "Release" workflow, and click "Run workflow" on the main branch
 
 1. Publish the candidate: https://hackage.haskell.org/package/aeson-schemas/candidates
 
-1. Publish the GitHub release: https://github.com/LeapYear/aeson-schemas/releases
+1. Publish the GitHub release: https://github.com/brandonchinn178/aeson-schemas/releases

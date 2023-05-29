@@ -1,9 +1,11 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -11,7 +13,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -61,11 +62,11 @@ import Data.Aeson.Schema.Utils.NameLike (NameLike (..), fromName)
 
 data ArbitraryObject where
   ArbitraryObject ::
-    IsSchema schema =>
-    Proxy (Object schema) ->
-    Value ->
-    SchemaV ->
-    ArbitraryObject
+    (IsSchema schema) =>
+    Proxy (Object schema)
+    -> Value
+    -> SchemaV
+    -> ArbitraryObject
 
 -- Show the value and schema as something that could be copied/pasted into GHCi.
 instance Show ArbitraryObject where
@@ -76,12 +77,11 @@ instance Show ArbitraryObject where
       , "  [schema| " ++ showSchemaV schemaV ++ " |]"
       ]
 
-{- | A Template Haskell function to generate a splice for QuickCheck tests to generate arbitrary
- objects with arbitrary schemas.
-
- Note that for repeated runs of the test suite, the schemas will be the same, with the actual
- JSON values generated randomly. You need to recompile in order to generate different schemas.
--}
+-- | A Template Haskell function to generate a splice for QuickCheck tests to generate arbitrary
+--  objects with arbitrary schemas.
+--
+--  Note that for repeated runs of the test suite, the schemas will be the same, with the actual
+--  JSON values generated randomly. You need to recompile in order to generate different schemas.
 arbitraryObject :: ExpQ
 arbitraryObject = do
   arbitrarySchemas <- runIO $ genSchemaTypes 20
@@ -92,12 +92,11 @@ arbitraryObject = do
       let schemaType = quoteType schema $ showSchemaV schemaV
        in [|genSchema' (Proxy :: Proxy (Object $schemaType)) schemaV|]
 
-{- |
-Splices to a 'forAll' with 'arbitraryObject', outputting information about the object
-generated, to ensure we get good generation.
-
->>> $(forAllArbitraryObjects) :: Testable prop => ArbitraryObject -> prop
--}
+-- |
+-- Splices to a 'forAll' with 'arbitraryObject', outputting information about the object
+-- generated, to ensure we get good generation.
+--
+-- >>> $(forAllArbitraryObjects) :: Testable prop => ArbitraryObject -> prop
 forAllArbitraryObjects :: ExpQ
 forAllArbitraryObjects = [|forAllArbitraryObjects' $arbitraryObject|]
 
@@ -121,9 +120,9 @@ genSchema' ::
   ( ArbitrarySchema ('SchemaObject schema)
   , IsSchema ('Schema schema)
   ) =>
-  Proxy (Object ('Schema schema)) ->
-  SchemaV ->
-  Gen ArbitraryObject
+  Proxy (Object ('Schema schema))
+  -> SchemaV
+  -> Gen ArbitraryObject
 genSchema' proxy schemaV = do
   v <- genSchema @('SchemaObject schema)
   return $ ArbitraryObject proxy v schemaV
@@ -191,14 +190,14 @@ instance {-# OVERLAPS #-} ArbitrarySchema ('SchemaScalar Text) where
 instance (Arbitrary inner, ToJSON inner, Typeable inner) => ArbitrarySchema ('SchemaScalar inner) where
   genSchema = toJSON <$> arbitrary @inner
 
-instance ArbitrarySchema inner => ArbitrarySchema ('SchemaMaybe inner) where
+instance (ArbitrarySchema inner) => ArbitrarySchema ('SchemaMaybe inner) where
   genSchema =
     frequency
       [ (3, genSchema @inner)
       , (1, pure Null)
       ]
 
-instance ArbitrarySchema inner => ArbitrarySchema ('SchemaTry inner) where
+instance (ArbitrarySchema inner) => ArbitrarySchema ('SchemaTry inner) where
   genSchema =
     frequency
       [ (3, genSchema @inner)
@@ -213,22 +212,22 @@ instance ArbitrarySchema inner => ArbitrarySchema ('SchemaTry inner) where
           , String . Text.pack <$> arbitrary
           ]
 
-instance ArbitrarySchema inner => ArbitrarySchema ('SchemaList inner) where
+instance (ArbitrarySchema inner) => ArbitrarySchema ('SchemaList inner) where
   genSchema = Array . fromList <$> listOf (genSchema @inner)
 
-instance All ArbitrarySchema schemas => ArbitrarySchema ('SchemaUnion schemas) where
+instance (All ArbitrarySchema schemas) => ArbitrarySchema ('SchemaUnion schemas) where
   genSchema = oneof $ mapAll @ArbitrarySchema @schemas genSchemaElem
     where
-      genSchemaElem :: forall schema. ArbitrarySchema schema => Proxy schema -> Gen Value
+      genSchemaElem :: forall schema. (ArbitrarySchema schema) => Proxy schema -> Gen Value
       genSchemaElem _ = genSchema @schema
 
-instance All ArbitraryObjectPair pairs => ArbitrarySchema ('SchemaObject (pairs :: [(SchemaKey, SchemaType)])) where
+instance (All ArbitraryObjectPair pairs) => ArbitrarySchema ('SchemaObject (pairs :: [(SchemaKey, SchemaType)])) where
   genSchema = Object . Compat.unions <$> genSchemaPairs
     where
       genSchemaPairs :: Gen [Aeson.Object]
       genSchemaPairs = sequence $ mapAll @ArbitraryObjectPair @pairs genSchemaPair
 
-class IsSchemaKey (Fst pair) => ArbitraryObjectPair (pair :: (SchemaKey, SchemaType)) where
+class (IsSchemaKey (Fst pair)) => ArbitraryObjectPair (pair :: (SchemaKey, SchemaType)) where
   genSchemaPair :: Proxy pair -> Gen Aeson.Object
   genSchemaPair _ = toContext schemaKey <$> genInnerSchema @pair
     where
@@ -284,14 +283,13 @@ genSchemaTypes numSchemasToGenerate =
 instance Arbitrary SchemaV where
   arbitrary = Schema <$> sized genSchemaObject
 
-{- | Generate an arbitrary schema.
-
- SchemaType is a recursive definition, so we want to make sure that generating a schema will
- terminate, and also not take too long. The ways we account for that are:
-  * Providing an upper bound on the depth of any object schemas in the current object (n / 2)
-  * Providing an upper bound on the number of keys in the current object (n / 3)
-  * Providing an upper bound on the number of schemas in a union (n / 5)
--}
+-- | Generate an arbitrary schema.
+--
+--  SchemaType is a recursive definition, so we want to make sure that generating a schema will
+--  terminate, and also not take too long. The ways we account for that are:
+--   * Providing an upper bound on the depth of any object schemas in the current object (n / 2)
+--   * Providing an upper bound on the number of keys in the current object (n / 3)
+--   * Providing an upper bound on the number of schemas in a union (n / 5)
 genSchemaObject :: Int -> Gen SchemaObjectMapV
 genSchemaObject n = do
   keys <- genUniqList1 (n `div` 3) genKey
@@ -346,17 +344,15 @@ genSchemaObject n = do
     -- avoid generating big unions by scaling list length
     genSchemaUnion gen = SchemaUnion <$> genUniqList1 (n `div` 5) gen
 
-{- | Generate a valid JSON key
- See Data.Aeson.Schema.TH.Parse.jsonKey'
--}
+-- | Generate a valid JSON key
+--  See Data.Aeson.Schema.TH.Parse.jsonKey'
 genKey :: Gen String
 genKey = listOf1 $ arbitraryPrintableChar `suchThat` (`notElem` " \"\\!?[](),.@:{}#")
 
-{- | Generate a non-empty and unique list of the given generator.
-
- Takes in the max size of the list.
--}
-genUniqList1 :: Eq a => Int -> Gen a -> Gen [a]
+-- | Generate a non-empty and unique list of the given generator.
+--
+--  Takes in the max size of the list.
+genUniqList1 :: (Eq a) => Int -> Gen a -> Gen [a]
 genUniqList1 n gen = do
   k <- choose (1, max 1 n)
   take k . nub <$> infiniteListOf gen

@@ -1,7 +1,7 @@
 # aeson-schemas
 
-[![GitHub Actions](https://img.shields.io/github/workflow/status/LeapYear/aeson-schemas/CI/main)](https://github.com/LeapYear/aeson-schemas/actions?query=branch%3Amain)
-[![codecov](https://codecov.io/gh/LeapYear/aeson-schemas/branch/main/graph/badge.svg)](https://codecov.io/gh/LeapYear/aeson-schemas)
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/brandonchinn178/aeson-schemas/ci.yml?branch=main)](https://github.com/brandonchinn178/aeson-schemas/actions?query=branch%3Amain)
+[![codecov](https://codecov.io/gh/brandonchinn178/aeson-schemas/branch/main/graph/badge.svg)](https://codecov.io/gh/brandonchinn178/aeson-schemas)
 [![Hackage](https://img.shields.io/hackage/v/aeson-schemas)](https://hackage.haskell.org/package/aeson-schemas)
 
 A library that extracts information from JSON input using type-level schemas

@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveLift #-}
@@ -7,11 +8,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeInType #-}
 
-{- |
+{-|
 Module      :  Data.Aeson.Schema.Key
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
 Portability :  portable
 
@@ -61,9 +61,8 @@ showSchemaKeyV :: SchemaKeyV -> String
 showSchemaKeyV (NormalKey key) = show key
 showSchemaKeyV (PhantomKey key) = "[" ++ key ++ "]"
 
-{- | Given schema `{ key: innerSchema }` for JSON data `{ key: val1 }`, get the JSON
- Value that `innerSchema` should parse.
--}
+-- | Given schema `{ key: innerSchema }` for JSON data `{ key: val1 }`, get the JSON
+--  Value that `innerSchema` should parse.
 getContext :: SchemaKeyV -> Aeson.Object -> Aeson.Value
 getContext = \case
   -- `innerSchema` should parse `val1`
@@ -71,9 +70,8 @@ getContext = \case
   -- `innerSchema` should parse the same object that `key` is in
   PhantomKey _ -> Aeson.Object
 
-{- | Given JSON data `val` adhering to `innerSchema`, get the JSON object that should be
- merged with the outer JSON object.
--}
+-- | Given JSON data `val` adhering to `innerSchema`, get the JSON object that should be
+--  merged with the outer JSON object.
 toContext :: SchemaKeyV -> Aeson.Value -> Aeson.Object
 toContext = \case
   -- `val` should be inserted with key `key`
@@ -89,20 +87,20 @@ toContext = \case
 -- | A type-level SchemaKey
 type SchemaKey = SchemaKey' Symbol
 
-class KnownSymbol (FromSchemaKey key) => IsSchemaKey (key :: SchemaKey) where
+class (KnownSymbol (FromSchemaKey key)) => IsSchemaKey (key :: SchemaKey) where
   type FromSchemaKey key :: Symbol
   toSchemaKeyV :: Proxy key -> SchemaKeyV
 
-instance KnownSymbol key => IsSchemaKey ('NormalKey key) where
+instance (KnownSymbol key) => IsSchemaKey ('NormalKey key) where
   type FromSchemaKey ('NormalKey key) = key
   toSchemaKeyV _ = NormalKey $ symbolVal $ Proxy @key
 
-instance KnownSymbol key => IsSchemaKey ('PhantomKey key) where
+instance (KnownSymbol key) => IsSchemaKey ('PhantomKey key) where
   type FromSchemaKey ('PhantomKey key) = key
   toSchemaKeyV _ = PhantomKey $ symbolVal $ Proxy @key
 
-fromSchemaKey :: forall key. IsSchemaKey key => String
+fromSchemaKey :: forall key. (IsSchemaKey key) => String
 fromSchemaKey = fromSchemaKeyV $ toSchemaKeyV $ Proxy @key
 
-showSchemaKey :: forall key. IsSchemaKey key => String
+showSchemaKey :: forall key. (IsSchemaKey key) => String
 showSchemaKey = showSchemaKeyV $ toSchemaKeyV $ Proxy @key

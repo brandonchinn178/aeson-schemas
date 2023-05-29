@@ -393,6 +393,7 @@ testInvalidExpressions =
         [getErr| o.[a,b].foo |]
     ]
 
+{- HLINT ignore testCompileTimeErrors "Evaluate" -}
 testCompileTimeErrors :: TestTree
 testCompileTimeErrors =
   testGroup "Compile-time errors" . map mkIntegrationTest $

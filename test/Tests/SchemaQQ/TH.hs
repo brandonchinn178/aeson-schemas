@@ -73,10 +73,9 @@ qState =
          )
     }
 
-{- | A quasiquoter for generating the string representation of a schema.
-
- Also runs the `schema` quasiquoter at runtime, to get coverage information.
--}
+-- | A quasiquoter for generating the string representation of a schema.
+--
+--  Also runs the `schema` quasiquoter at runtime, to get coverage information.
 schemaRep :: QuasiQuoter
 schemaRep = mkExpQQ $ \s ->
   let schemaType = quoteType schema s

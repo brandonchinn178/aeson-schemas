@@ -44,5 +44,5 @@ benchmarks =
 
 {- Orphans -}
 
-instance IsSchema schema => NFData (Object schema) where
+instance (IsSchema schema) => NFData (Object schema) where
   rnf = rnf . show

@@ -17,10 +17,10 @@ import Data.Aeson.Schema.Utils.Sum (SumType (..), fromSumType)
 
 type SpecialJSON = SumType '[Bool, Int, [String]]
 
-toSpecialJSON :: ToJSON a => a -> SpecialJSON
+toSpecialJSON :: (ToJSON a) => a -> SpecialJSON
 toSpecialJSON = either (error . ("Invalid SpecialJSON: " ++) . show) id . toSpecialJSON'
 
-toSpecialJSON' :: ToJSON a => a -> Either String SpecialJSON
+toSpecialJSON' :: (ToJSON a) => a -> Either String SpecialJSON
 toSpecialJSON' = eitherDecode . encode
 
 {- Tests -}

@@ -1,12 +1,12 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeInType #-}
 
 module Benchmarks.Data.Objects where
 
@@ -32,13 +32,13 @@ type MockSchema schema =
   , ToJSON (Object schema)
   )
 
-schemaObject :: forall schema. MockSchema schema => Object schema
+schemaObject :: forall schema. (MockSchema schema) => Object schema
 schemaObject = schemaResult (Proxy @(ToSchemaObject schema))
 
-schemaValue :: forall schema. MockSchema schema => Value
+schemaValue :: forall schema. (MockSchema schema) => Value
 schemaValue = toJSON $ schemaObject @schema
 
-class Typeable (SchemaResult schema) => MockSchemaResult (schema :: SchemaType) where
+class (Typeable (SchemaResult schema)) => MockSchemaResult (schema :: SchemaType) where
   schemaResult :: Proxy schema -> SchemaResult schema
 
 instance MockSchemaResult ('SchemaScalar Int) where

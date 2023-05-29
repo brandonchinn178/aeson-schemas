@@ -69,9 +69,8 @@ benchmarks =
 
 {- Utilities -}
 
-{- | Apply the given functions the given number of times.
-
- The first parameter must be >= 0.
--}
+-- | Apply the given functions the given number of times.
+--
+--  The first parameter must be >= 0.
 iterateN :: Int -> (a -> a) -> a -> a
 iterateN n f x = iterate f x !! n

@@ -91,10 +91,9 @@ qState =
          )
     }
 
-{- | A quasiquoter for generating the string representation of an unwrapped schema.
-
- Also runs the `unwrap` quasiquoter at runtime, to get coverage information.
--}
+-- | A quasiquoter for generating the string representation of an unwrapped schema.
+--
+--  Also runs the `unwrap` quasiquoter at runtime, to get coverage information.
 unwrapRep :: QuasiQuoter
 unwrapRep = mkExpQQ $ \s ->
   let showSchemaResultQ = appTypeE [|showSchemaResult|] (quoteType unwrap s)

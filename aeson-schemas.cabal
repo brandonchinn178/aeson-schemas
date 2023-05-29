@@ -1,22 +1,22 @@
 cabal-version: >= 1.10
 
--- This file has been generated from package.yaml by hpack version 0.35.0.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
 name:           aeson-schemas
-version:        1.4.0.1
+version:        1.4.1.0
 synopsis:       Easily consume JSON data on-demand with type-safety
 description:    Parse JSON data easily and safely without defining new data types. Useful
                 for deeply nested JSON data, which is difficult to parse using the default
                 FromJSON instances.
 category:       JSON
-homepage:       https://github.com/LeapYear/aeson-schemas#readme
-bug-reports:    https://github.com/LeapYear/aeson-schemas/issues
-author:         Brandon Chinn <brandon@leapyear.io>
-maintainer:     Brandon Chinn <brandon@leapyear.io>
+homepage:       https://github.com/brandonchinn178/aeson-schemas#readme
+bug-reports:    https://github.com/brandonchinn178/aeson-schemas/issues
+author:         Brandon Chinn <brandonchinn178@gmail.com>
+maintainer:     Brandon Chinn <brandonchinn178@gmail.com>
 license:        BSD3
-license-file:   LICENSE
+license-file:   LICENSE.md
 build-type:     Simple
 extra-source-files:
     README.md
@@ -53,7 +53,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/LeapYear/aeson-schemas
+  location: https://github.com/brandonchinn178/aeson-schemas
 
 flag run-integration-tests
   manual: True
@@ -88,7 +88,7 @@ library
     , first-class-families >=0.3.0.0 && <0.9
     , hashable >=1.2.7.0 && <1.5
     , megaparsec >=7 && <10
-    , template-haskell >=2.16 && <2.20
+    , template-haskell >=2.16 && <2.21
     , text >=1.2.2.2 && <2.1
     , unordered-containers >=0.2.8.0 && <0.3
   default-language: Haskell2010

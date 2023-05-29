@@ -13,9 +13,9 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{- |
+{-|
 Module      :  Data.Aeson.Schema.Utils.Sum
-Maintainer  :  Brandon Chinn <brandon@leapyear.io>
+Maintainer  :  Brandon Chinn <brandonchinn178@gmail.com>
 Stability   :  experimental
 Portability :  portable
 
@@ -33,30 +33,29 @@ import Data.Kind (Constraint, Type)
 import Data.Proxy (Proxy (..))
 import GHC.TypeLits (ErrorMessage (..), Nat, TypeError, type (-))
 
-{- | Represents a sum type.
-
- Loads the first type that successfully parses the JSON value.
-
- Example:
-
- @
- data Owl = Owl
- data Cat = Cat
- data Toad = Toad
- type Animal = SumType '[Owl, Cat, Toad]
-
- Here Owl                         :: Animal
- There (Here Cat)                 :: Animal
- There (There (Here Toad))        :: Animal
-
- {\- Fails at compile-time
- Here True                        :: Animal
- Here Cat                         :: Animal
- There (Here Owl)                 :: Animal
- There (There (There (Here Owl))) :: Animal
- -\}
- @
--}
+-- | Represents a sum type.
+--
+--  Loads the first type that successfully parses the JSON value.
+--
+--  Example:
+--
+--  @
+--  data Owl = Owl
+--  data Cat = Cat
+--  data Toad = Toad
+--  type Animal = SumType '[Owl, Cat, Toad]
+--
+--  Here Owl                         :: Animal
+--  There (Here Cat)                 :: Animal
+--  There (There (Here Toad))        :: Animal
+--
+--  {\- Fails at compile-time
+--  Here True                        :: Animal
+--  Here Cat                         :: Animal
+--  There (Here Owl)                 :: Animal
+--  There (There (There (Here Owl))) :: Animal
+--  -\}
+--  @
 data SumType (types :: [Type]) where
   Here :: forall x xs. x -> SumType (x ': xs)
   There :: forall x xs. SumType xs -> SumType (x ': xs)
@@ -90,7 +89,7 @@ instance ToJSON (SumType '[]) where
 {- Extracting sum type branches -}
 
 class FromSumType (n :: Nat) (types :: [Type]) (x :: Type) where
-  fromSumType' :: 'Just x ~ GetIndex n types => proxy1 n -> SumType types -> Maybe x
+  fromSumType' :: ('Just x ~ GetIndex n types) => proxy1 n -> SumType types -> Maybe x
 
 instance {-# OVERLAPPING #-} FromSumType 0 (x ': xs) x where
   fromSumType' _ = \case
@@ -108,30 +107,29 @@ instance
     Here _ -> Nothing
     There xs -> fromSumType' (Proxy @(n - 1)) xs
 
-{- | Extract a value from a 'SumType'
-
- Example:
-
- @
- type Animal = SumType '[Owl, Cat, Toad]
- let someAnimal = ... :: Animal
-
- fromSumType (Proxy :: Proxy 0) someAnimal :: Maybe Owl
- fromSumType (Proxy :: Proxy 1) someAnimal :: Maybe Cat
- fromSumType (Proxy :: Proxy 2) someAnimal :: Maybe Toad
-
- -- Compile-time error
- -- fromSumType (Proxy :: Proxy 3) someAnimal
- @
--}
+-- | Extract a value from a 'SumType'
+--
+--  Example:
+--
+--  @
+--  type Animal = SumType '[Owl, Cat, Toad]
+--  let someAnimal = ... :: Animal
+--
+--  fromSumType (Proxy :: Proxy 0) someAnimal :: Maybe Owl
+--  fromSumType (Proxy :: Proxy 1) someAnimal :: Maybe Cat
+--  fromSumType (Proxy :: Proxy 2) someAnimal :: Maybe Toad
+--
+--  -- Compile-time error
+--  -- fromSumType (Proxy :: Proxy 3) someAnimal
+--  @
 fromSumType ::
   ( IsInRange n types
   , 'Just result ~ GetIndex n types
   , FromSumType n types result
   ) =>
-  proxy n ->
-  SumType types ->
-  Maybe result
+  proxy n
+  -> SumType types
+  -> Maybe result
 fromSumType = fromSumType'
 
 {- Helpers -}

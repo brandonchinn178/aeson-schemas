@@ -11,23 +11,23 @@ jobs:
       - ci
 
     steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: main
-
-      - uses: actions/download-artifact@v3
+      -
+        uses: actions/checkout@v3
+      -
+        uses: actions/download-artifact@v3
         with:
           name: aeson-schemas-sdist
           path: ./sdist/
-
-      - uses: brandonchinn178/haskell-actions/parse-cabal-file@parse-cabal-file
+      -
+        uses: haskell-actions/parse-cabal-file@v1
         id: cabal_file
         with:
           cabal_file: aeson-schemas.cabal
-      - name: Set version label
+      -
+        name: Set version label
         run: echo 'VERSION=v${{ steps.cabal_file.outputs.version }}' >> "${GITHUB_ENV}"
-
-      - name: Get CHANGELOG section
+      -
+        name: Get CHANGELOG section
         run: |
           sed '/^# Unreleased/,/^$/d' CHANGELOG.md > /tmp/changelog-without-unreleased
           if [[ "$(head -n 1 /tmp/changelog-without-unreleased)" != "# ${VERSION}" ]]; then
@@ -35,13 +35,19 @@ jobs:
             exit 1
           fi
           sed '1 d; /^# v/,$ d' /tmp/changelog-without-unreleased > /tmp/changelog-body
-
-      - uses: brandonchinn178/haskell-actions/hackage-upload@hackage-upload
+      -
+        id: hackage_token_secret
+        name: Load Hackage token secret name
+        run: |
+          USERNAME="$(echo "${GITHUB_ACTOR}" | tr '[:lower:]' '[:upper:]' | tr '-' '_')"
+          echo "name=HACKAGE_TOKEN_${USERNAME}" >> "${GITHUB_OUTPUT}"
+      -
+        uses: haskell-actions/hackage-publish@v1
         with:
-          archive: sdist/aeson-schemas-*.tar.gz
-          token: ${{ secrets.HACKAGE_TOKEN_LEAPYEAR }}
-
-      - uses: softprops/action-gh-release@v1
+          hackageToken: ${{ secrets[steps.hackage_token_secret.outputs.name] }}
+          packagesPath: ./sdist/
+      -
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.VERSION }}
           body_path: /tmp/changelog-body
