@@ -46,6 +46,9 @@ jobs:
           - '9.2'
           - '9.4'
           - '9.6'
+        include:
+          - ghc_version: 9.0.1
+            oldest: true
 
     name: ghc_compat_test (${{ matrix.ghc_version }})
     runs-on: ubuntu-latest
@@ -61,9 +64,21 @@ jobs:
           ghc-version: ${{ matrix.ghc_version }}
       -
         name: Configure the build
-        run: |
-          cabal configure --enable-test --test-show-details=streaming
-          cabal build --dry-run
+        run:
+          cabal configure
+            --enable-test
+            --test-options=--color=always
+            --test-show-details=streaming
+      -
+        if: ${{ matrix.oldest }}
+        name: Use oldest dependencies
+        run:
+          cabal configure --enable-append
+            --prefer-oldest
+            --constraint 'aeson-qq >= 0.7.4'
+      -
+        name: Get build plan
+        run: cabal build --dry-run
       -
         name: Get current month to clear cache
         run: echo "CURR_MONTH=$(date +%B)" | tee -a "$GITHUB_ENV"

@@ -46,14 +46,14 @@ library:
     - Data.Aeson.Schema.TH.Unwrap
     - Data.Aeson.Schema.TH.Utils
   dependencies:
-    - aeson >= 1.1.2.0 && < 3
-    - base >= 4.14 && < 5
-    - first-class-families >= 0.3.0.0 && < 0.9
-    - hashable >= 1.2.7.0 && < 1.5
-    - megaparsec >= 7 && < 10
-    - template-haskell >= 2.16 && < 2.21
-    - text >= 1.2.2.2 && < 2.1
-    - unordered-containers >= 0.2.8.0 && < 0.3
+    - aeson < 3
+    - base >= 4.15 && < 5
+    - first-class-families < 0.9
+    - hashable < 1.5
+    - megaparsec < 10
+    - template-haskell < 2.21
+    - text < 2.1
+    - unordered-containers < 0.3
 
 tests:
   aeson-schemas-test:
@@ -74,7 +74,7 @@ tests:
       - tasty
       - tasty-golden
       - tasty-hunit
-      - tasty-quickcheck
+      - tasty-quickcheck >= 0.8.1
       - template-haskell
       - temporary
       - text
