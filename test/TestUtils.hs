@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -114,12 +115,7 @@ testParseError name fp s = goldenTest name getExpected getActual cmp update
 -- | A golden test for integration tests calling GHC.
 testIntegration :: String -> FilePath -> (FilePath -> IO String) -> TestTree
 testIntegration name fp runTest =
-  testGoldenIO name ("integration" </> ("ghc-" ++ ghcVersionShort) </> fp) (runTest ghcExe)
-  where
-    ghcVersionShort =
-      case map Text.unpack . Text.splitOn "." . Text.pack $ ghcVersion of
-        [x, y, _] -> x ++ "." ++ y
-        _ -> error $ "Could not parse GHC version: " ++ ghcVersion
+  testGoldenIO name (ghcGoldenDir </> fp) (runTest ghcExe)
 
 {-# NOINLINE ghcExe #-}
 ghcExe :: FilePath
@@ -129,9 +125,13 @@ ghcExe =
       Just fp -> pure fp
       Nothing -> error "Could not find GHC executable"
 
-{-# NOINLINE ghcVersion #-}
-ghcVersion :: String
-ghcVersion =
-  unsafePerformIO $
-    Text.unpack . Text.strip . Text.pack
-      <$> readProcess ghcExe ["--numeric-version"] ""
+-- | The directory to put GHC version-specific golden files.
+ghcGoldenDir :: FilePath
+ghcGoldenDir = "ghc" </> ghcVersion
+  where
+    ghcVersion =
+      Text.unpack
+        . Text.intercalate "."
+        . take 2
+        . Text.splitOn "."
+        $ __GLASGOW_HASKELL_FULL_VERSION__

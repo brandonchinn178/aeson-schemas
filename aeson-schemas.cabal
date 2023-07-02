@@ -39,10 +39,10 @@ extra-source-files:
     test/goldens/getqq_no_operators.golden
     test/goldens/getqq_ops_after_list.golden
     test/goldens/getqq_ops_after_tuple.golden
-    test/goldens/integration/ghc-9.0/getqq_missing_key.golden
-    test/goldens/integration/ghc-9.2/getqq_missing_key.golden
-    test/goldens/integration/ghc-9.4/getqq_missing_key.golden
-    test/goldens/integration/ghc-9.6/getqq_missing_key.golden
+    test/goldens/ghc/9.0/getqq_missing_key.golden
+    test/goldens/ghc/9.2/getqq_missing_key.golden
+    test/goldens/ghc/9.4/getqq_missing_key.golden
+    test/goldens/ghc/9.6/getqq_missing_key.golden
     test/goldens/README_Quickstart.golden
     test/goldens/schemaqq_key_with_invalid_character.golden
     test/goldens/schemaqq_key_with_trailing_escape.golden
