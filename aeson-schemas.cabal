@@ -124,8 +124,8 @@ test-suite aeson-schemas-test
     , aeson-schemas
     , base
     , deepseq
-    , directory
     , filepath
+    , hint
     , interpolate
     , process
     , raw-strings-qq
@@ -139,6 +139,9 @@ test-suite aeson-schemas-test
     , th-orphans
     , th-test-utils
   default-language: Haskell2010
+  if impl(ghc < 9.2)
+    build-depends:
+        hint <0.9.0.6
 
 benchmark aeson-schemas-bench
   type: exitcode-stdio-1.0

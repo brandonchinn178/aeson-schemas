@@ -61,8 +61,8 @@ tests:
       - aeson-schemas
       - base
       - deepseq
-      - directory
       - filepath
+      - hint
       - interpolate
       - process
       - QuickCheck
@@ -76,6 +76,11 @@ tests:
       - text
       - th-orphans
       - th-test-utils
+    when:
+      # https://github.com/haskell-hint/hint/issues/149
+      - condition: impl(ghc < 9.2)
+        dependencies:
+          - hint < 0.9.0.6
 
 benchmarks:
   aeson-schemas-bench:

@@ -21,7 +21,7 @@ module TestUtils (
   testGolden,
   testGoldenIO,
   testParseError,
-  testIntegration,
+  ghcGoldenDir,
 ) where
 
 import Data.Aeson (FromJSON (..), Value, eitherDecode)
@@ -36,10 +36,7 @@ import qualified Data.Text.Lazy.Encoding as TextL
 import Data.Typeable (Typeable, typeRep)
 import Language.Haskell.TH (ExpQ)
 import Language.Haskell.TH.Quote (QuasiQuoter (..))
-import System.Directory (findExecutable)
 import System.FilePath ((</>))
-import System.IO.Unsafe (unsafePerformIO)
-import System.Process (readProcess)
 import Test.Tasty (TestTree)
 import Test.Tasty.Golden (goldenVsString)
 import Test.Tasty.Golden.Advanced (goldenTest)
@@ -111,19 +108,6 @@ testParseError name fp s = goldenTest name getExpected getActual cmp update
           then Nothing
           else Just $ "Test output was different from '" ++ goldenFile ++ "'. It was:\n" ++ Text.unpack actual
     update = Text.writeFile goldenFile
-
--- | A golden test for integration tests calling GHC.
-testIntegration :: String -> FilePath -> (FilePath -> IO String) -> TestTree
-testIntegration name fp runTest =
-  testGoldenIO name (ghcGoldenDir </> fp) (runTest ghcExe)
-
-{-# NOINLINE ghcExe #-}
-ghcExe :: FilePath
-ghcExe =
-  unsafePerformIO $
-    findExecutable "ghc" >>= \case
-      Just fp -> pure fp
-      Nothing -> error "Could not find GHC executable"
 
 -- | The directory to put GHC version-specific golden files.
 ghcGoldenDir :: FilePath
