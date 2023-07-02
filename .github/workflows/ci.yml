@@ -8,19 +8,7 @@ on:
 
 jobs:
   build_and_test:
-    strategy:
-      matrix:
-        include:
-          -
-            stack_yaml: stack.yaml
-            latest: true
-          -
-            stack_yaml: stack-ghc-8.10.yaml
-
-    name: build_and_test (${{ matrix.stack_yaml }})
     runs-on: ubuntu-latest
-    env:
-      STACK_YAML: ${{ matrix.stack_yaml }}
 
     steps:
       -
@@ -29,7 +17,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.stack
-          key: ${{ runner.os }}-stack-cache-${{ hashFiles(matrix.stack_yaml, 'package.yaml') }}
+          key: ${{ runner.os }}-stack-cache-${{ hashFiles('stack.yaml', 'package.yaml') }}
       -
         name: Build + Test
         run: stack test --haddock --no-haddock-deps --coverage
@@ -37,7 +25,6 @@ jobs:
         name: Check that files are unmodified
         run: git diff --exit-code
       -
-        if: ${{ matrix.latest }}
         name: Convert coverage output
         run: |
           HPC_LCOV_VERSION=1.1.1
@@ -47,7 +34,6 @@ jobs:
           chmod +x /usr/local/bin/hpc-lcov
           hpc-lcov
       -
-        if: ${{ matrix.latest }}
         uses: codecov/codecov-action@v3
         with:
           files: lcov.info
