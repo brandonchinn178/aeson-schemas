@@ -5,4 +5,6 @@ flags:
     run-integration-tests: true
 
 ghc-options:
-  '$locals': -Werror
+  # TODO: Move -Wunused-packages into package.yaml
+  # https://github.com/haskell/cabal/issues/9082
+  '$locals': -Werror -Wunused-packages

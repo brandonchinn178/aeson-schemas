@@ -23,17 +23,12 @@ extra-source-files:
 
 github: brandonchinn178/aeson-schemas
 
-ghc-options: -Wall
-when:
-  - condition: impl(ghc >= 8.0)
-    ghc-options:
-      - -Wcompat
-      - -Wincomplete-record-updates
-      - -Wincomplete-uni-patterns
-      - -Wnoncanonical-monad-instances
-  - condition: impl(ghc < 8.8)
-    ghc-options:
-      - -Wnoncanonical-monadfail-instances
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wnoncanonical-monad-instances
 
 flags:
   run-integration-tests:
@@ -66,8 +61,8 @@ tests:
     main:         Main.hs
     dependencies:
       - aeson
-      - aeson-schemas
       - aeson-qq
+      - aeson-schemas
       - base
       - deepseq
       - directory
@@ -77,8 +72,8 @@ tests:
       - QuickCheck
       - raw-strings-qq
       - tasty
-      - tasty-hunit
       - tasty-golden
+      - tasty-hunit
       - tasty-quickcheck
       - template-haskell
       - temporary

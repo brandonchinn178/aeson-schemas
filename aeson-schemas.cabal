@@ -81,7 +81,7 @@ library
       Data.Aeson.Schema.TH.Utils
   hs-source-dirs:
       src
-  ghc-options: -Wall
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
   build-depends:
       aeson >=1.1.2.0 && <3
     , base >=4.14 && <5
@@ -92,10 +92,6 @@ library
     , text >=1.2.2.2 && <2.1
     , unordered-containers >=0.2.8.0 && <0.3
   default-language: Haskell2010
-  if impl(ghc >= 8.0)
-    ghc-options: -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
-  if impl(ghc < 8.8)
-    ghc-options: -Wnoncanonical-monadfail-instances
 
 test-suite aeson-schemas-test
   type: exitcode-stdio-1.0
@@ -124,7 +120,7 @@ test-suite aeson-schemas-test
       Paths_aeson_schemas
   hs-source-dirs:
       test
-  ghc-options: -Wall
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
   build-depends:
       QuickCheck
     , aeson
@@ -147,10 +143,6 @@ test-suite aeson-schemas-test
     , th-orphans
     , th-test-utils
   default-language: Haskell2010
-  if impl(ghc >= 8.0)
-    ghc-options: -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
-  if impl(ghc < 8.8)
-    ghc-options: -Wnoncanonical-monadfail-instances
   if flag(run-integration-tests)
     cpp-options: -DRUN_INTEGRATION_TESTS
 
@@ -169,7 +161,7 @@ benchmark aeson-schemas-bench
       Paths_aeson_schemas
   hs-source-dirs:
       bench
-  ghc-options: -Wall
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
   build-depends:
       aeson
     , aeson-schemas
@@ -179,7 +171,3 @@ benchmark aeson-schemas-bench
     , template-haskell
     , th-test-utils
   default-language: Haskell2010
-  if impl(ghc >= 8.0)
-    ghc-options: -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
-  if impl(ghc < 8.8)
-    ghc-options: -Wnoncanonical-monadfail-instances
