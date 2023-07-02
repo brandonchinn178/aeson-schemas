@@ -55,10 +55,6 @@ source-repository head
   type: git
   location: https://github.com/brandonchinn178/aeson-schemas
 
-flag run-integration-tests
-  manual: True
-  default: False
-
 library
   exposed-modules:
       Data.Aeson.Schema
@@ -143,8 +139,6 @@ test-suite aeson-schemas-test
     , th-orphans
     , th-test-utils
   default-language: Haskell2010
-  if flag(run-integration-tests)
-    cpp-options: -DRUN_INTEGRATION_TESTS
 
 benchmark aeson-schemas-bench
   type: exitcode-stdio-1.0

@@ -395,7 +395,7 @@ testInvalidExpressions =
 
 testCompileTimeErrors :: TestTree
 testCompileTimeErrors =
-  testGroup "Compile-time errors" . map mkIntegrationTest $
+  testGroup "Compile-time errors" $
     [ testIntegration "Key not in schema" "getqq_missing_key.golden" $ \ghcExe ->
         getCompileError ghcExe "GetMissingKey.hs"
     ]
@@ -416,13 +416,6 @@ testCompileTimeErrors =
                 , stdout
                 , stderr
                 ]
-
-mkIntegrationTest :: TestTree -> TestTree
-#ifdef RUN_INTEGRATION_TESTS
-mkIntegrationTest = id
-#else
-mkIntegrationTest _ = testGroup "integration test" []
-#endif
 
 {- Helpers -}
 
