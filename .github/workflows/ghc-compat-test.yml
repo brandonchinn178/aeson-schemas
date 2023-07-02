@@ -18,7 +18,7 @@ jobs:
       -
         id: setup
         name: Set up GHC ${{ inputs.ghc_version }}
-        uses: haskell-actions/setup@v2
+        uses: brandonchinn178/haskell-actions-setup@ghcup-nightly
         with:
           ghc-version: ${{ inputs.ghc_version }}
       -
@@ -36,6 +36,13 @@ jobs:
           cabal configure --enable-append
             --prefer-oldest
             --constraint 'aeson-qq >= 0.7.4'
+      -
+        if: ${{ inputs.ghc_version == 'latest-nightly' }}
+        name: Add head.hackage
+        run: |
+          curl -fsSL -o /tmp/head.hackage.sh https://gitlab.haskell.org/ghc/head.hackage/-/raw/master/scripts/head.hackage.sh
+          bash /tmp/head.hackage.sh dump-repo >> cabal.project.local
+          cabal update
       -
         name: Get build plan
         run: cabal build --dry-run
