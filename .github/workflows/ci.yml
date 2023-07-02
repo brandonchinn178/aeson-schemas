@@ -51,51 +51,10 @@ jobs:
             oldest: true
 
     name: ghc_compat_test (${{ matrix.ghc_version }})
-    runs-on: ubuntu-latest
-
-    steps:
-      -
-        uses: actions/checkout@v3
-      -
-        id: setup
-        name: Set up GHC ${{ matrix.ghc_version }}
-        uses: haskell-actions/setup@v2
-        with:
-          ghc-version: ${{ matrix.ghc_version }}
-      -
-        name: Configure the build
-        run:
-          cabal configure
-             --ghc-options='-Werror -Wno-unused-packages'
-            --enable-test
-            --test-options=--color=always
-            --test-show-details=streaming
-      -
-        if: ${{ matrix.oldest }}
-        name: Use oldest dependencies
-        run:
-          cabal configure --enable-append
-            --prefer-oldest
-            --constraint 'aeson-qq >= 0.7.4'
-      -
-        name: Get build plan
-        run: cabal build --dry-run
-      -
-        name: Get current month to clear cache
-        run: echo "CURR_MONTH=$(date +%B)" | tee -a "$GITHUB_ENV"
-      -
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.setup.outputs.cabal-store }}
-          key: ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ matrix.ghc_version }}-${{ hashFiles('**/plan.json') }}
-          restore-keys: |
-               ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ matrix.ghc_version }}-
-      -
-        name: Build + Test
-        run: cabal build && cabal exec -- cabal test
-      -
-        name: Check that files are unmodified
-        run: git add -A && git diff --staged --exit-code
+    uses: ./.github/workflows/ghc-compat-test.yml
+    with:
+      ghc_version: ${{ matrix.ghc_version }}
+      oldest: ${{ matrix.oldest || false }}
 
   lint:
     runs-on: ubuntu-latest
