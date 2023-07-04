@@ -256,7 +256,9 @@ testFromJustErrors =
     assertError msg x =
       try @SomeException (x `deepseq` pure ()) >>= \case
         Right _ -> error "Unexpectedly succeeded"
-        Left e -> (head . lines . show) e @?= msg
+        Left e
+          | line : _ <- (lines . show) e -> line @?= msg
+          | otherwise -> error "Exception had no message"
 
 testListExpressions :: TestTree
 testListExpressions =
