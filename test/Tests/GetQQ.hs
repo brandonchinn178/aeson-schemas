@@ -13,11 +13,13 @@
 module Tests.GetQQ where
 
 import Control.DeepSeq (deepseq)
-import Control.Exception (SomeException, try)
+import Control.Exception (SomeException, displayException, try)
 import Data.Aeson (FromJSON (..), ToJSON (..), withText)
 import Data.Aeson.QQ (aesonQQ)
 import Data.Text (Text)
 import qualified Data.Text as Text
+import qualified Language.Haskell.Interpreter as Hint
+import System.FilePath ((</>))
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
@@ -25,12 +27,7 @@ import Test.Tasty.QuickCheck
 import Data.Aeson.Schema (Object, schema)
 import Data.Aeson.Schema.TH (mkEnum)
 import Data.Aeson.Schema.Utils.Sum (SumType (..))
-import System.Directory (copyFile, createDirectoryIfMissing, withCurrentDirectory)
-import System.Exit (ExitCode (..))
-import System.FilePath (takeDirectory, (</>))
-import System.IO.Temp (withSystemTempDirectory)
-import System.Process (readProcessWithExitCode)
-import TestUtils (parseObject, testIntegration, testParseError)
+import TestUtils (ghcGoldenDir, parseObject, testGoldenIO, testParseError)
 import Tests.GetQQ.TH
 
 mkEnum "Greeting" ["HELLO", "GOODBYE"]
@@ -259,7 +256,9 @@ testFromJustErrors =
     assertError msg x =
       try @SomeException (x `deepseq` pure ()) >>= \case
         Right _ -> error "Unexpectedly succeeded"
-        Left e -> (head . lines . show) e @?= msg
+        Left e
+          | line : _ <- (lines . show) e -> line @?= msg
+          | otherwise -> error "Exception had no message"
 
 testListExpressions :: TestTree
 testListExpressions =
@@ -393,37 +392,19 @@ testInvalidExpressions =
         [getErr| o.[a,b].foo |]
     ]
 
-{- HLINT ignore testCompileTimeErrors "Evaluate" -}
 testCompileTimeErrors :: TestTree
 testCompileTimeErrors =
-  testGroup "Compile-time errors" . map mkIntegrationTest $
-    [ testIntegration "Key not in schema" "getqq_missing_key.golden" $ \ghcExe ->
-        getCompileError ghcExe "GetMissingKey.hs"
+  testGroup
+    "Compile-time errors"
+    [ testGoldenIO "Key not in schema" (ghcGoldenDir </> "getqq_missing_key.golden") $
+        getCompileError (testDir </> "GetMissingKey.hs")
     ]
   where
     testDir = "test/wont-compile/"
-    getCompileError ghcExe file =
-      withSystemTempDirectory "aeson-schemas-integration-tests" $ \tmpdir -> do
-        let fp = tmpdir </> testDir </> file
-        createDirectoryIfMissing True (takeDirectory fp)
-        copyFile (testDir </> file) fp
-        withCurrentDirectory tmpdir $
-          readProcessWithExitCode ghcExe [fp] "" >>= \case
-            (ExitFailure{}, _, stderr) ->
-              return . Text.unpack . Text.replace (Text.pack tmpdir) "" . Text.pack $ stderr
-            (ExitSuccess, stdout, stderr) ->
-              error . unlines $
-                [ "Compilation unexpectedly succeeded"
-                , stdout
-                , stderr
-                ]
-
-mkIntegrationTest :: TestTree -> TestTree
-#ifdef RUN_INTEGRATION_TESTS
-mkIntegrationTest = id
-#else
-mkIntegrationTest _ = testGroup "integration test" []
-#endif
+    getCompileError fp =
+      Hint.runInterpreter (Hint.loadModules [fp]) >>= \case
+        Left e -> pure $ displayException e
+        Right _ -> error "Compilation unexpectedly succeeded"
 
 {- Helpers -}
 

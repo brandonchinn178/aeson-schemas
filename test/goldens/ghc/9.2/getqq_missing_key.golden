@@ -1,10 +1,6 @@
-
-/test/wont-compile/GetMissingKey.hs:17:1: error:
+test/wont-compile/GetMissingKey.hs:17:1: error:
     • Key 'missing' does not exist in the following schema:
       '[ '( 'Data.Aeson.Schema.Key.NormalKey "foo",
             'Data.Aeson.Schema.Type.SchemaScalar Bool)]
     • When checking the inferred type
         result :: Data.Aeson.Schema.Internal.SchemaResult (TypeError ...)
-   |
-17 | result = [get| o.missing |]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^

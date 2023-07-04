@@ -1,0 +1,64 @@
+on:
+  workflow_call:
+    inputs:
+      ghc_version:
+        required: true
+        type: string
+      oldest:
+        required: false
+        type: boolean
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      -
+        uses: actions/checkout@v3
+      -
+        id: setup
+        name: Set up GHC ${{ inputs.ghc_version }}
+        uses: brandonchinn178/haskell-actions-setup@ghcup-nightly
+        with:
+          ghc-version: ${{ inputs.ghc_version }}
+      -
+        name: Configure the build
+        run:
+          cabal configure
+             --ghc-options='-Werror -Wno-unused-packages'
+            --enable-test
+            --test-options=--color=always
+            --test-show-details=streaming
+      -
+        if: ${{ inputs.oldest }}
+        name: Use oldest dependencies
+        run:
+          cabal configure --enable-append
+            --prefer-oldest
+            --constraint 'aeson-qq >= 0.7.4'
+      -
+        if: ${{ inputs.ghc_version == 'latest-nightly' }}
+        name: Add head.hackage
+        run: |
+          curl -fsSL -o /tmp/head.hackage.sh https://gitlab.haskell.org/ghc/head.hackage/-/raw/master/scripts/head.hackage.sh
+          bash /tmp/head.hackage.sh dump-repo >> cabal.project.local
+          cabal update
+      -
+        name: Get build plan
+        run: cabal build --dry-run
+      -
+        name: Get current month to clear cache
+        run: echo "CURR_MONTH=$(date +%B)" | tee -a "$GITHUB_ENV"
+      -
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ inputs.ghc_version }}-${{ hashFiles('**/plan.json') }}
+          restore-keys: |
+               ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ inputs.ghc_version }}-
+      -
+        name: Build + Test
+        run: cabal build && cabal exec -- cabal test
+      -
+        name: Check that files are unmodified
+        run: git add -A && git diff --staged --exit-code

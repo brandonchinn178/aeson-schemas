@@ -1,0 +1,14 @@
+name: Test against GHC nightly release
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 0 * * *' # nightly
+
+jobs:
+  test_ghc_nightly:
+    uses: ./.github/workflows/ghc-compat-test.yml
+    with:
+      ghc_version: latest-nightly

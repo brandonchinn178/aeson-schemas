@@ -1,8 +1,1 @@
-resolver: lts-20.23
-
-flags:
-  aeson-schemas:
-    run-integration-tests: true
-
-ghc-options:
-  '$locals': -Werror
+resolver: lts-21.1

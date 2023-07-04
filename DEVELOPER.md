@@ -15,13 +15,6 @@ stack build --haddock
 
 The following linters must pass CI in order for your PR to be accepted.
 
-* HLint
-
-    ```bash
-    cabal install hlint-3.5
-    hlint .
-    ```
-
 * fourmolu
 
     ```bash

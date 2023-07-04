@@ -23,22 +23,13 @@ extra-source-files:
 
 github: brandonchinn178/aeson-schemas
 
-ghc-options: -Wall
-when:
-  - condition: impl(ghc >= 8.0)
-    ghc-options:
-      - -Wcompat
-      - -Wincomplete-record-updates
-      - -Wincomplete-uni-patterns
-      - -Wnoncanonical-monad-instances
-  - condition: impl(ghc < 8.8)
-    ghc-options:
-      - -Wnoncanonical-monadfail-instances
-
-flags:
-  run-integration-tests:
-    manual: true
-    default: false
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wnoncanonical-monad-instances
+  - -Wunused-packages
 
 library:
   source-dirs: src
@@ -51,14 +42,14 @@ library:
     - Data.Aeson.Schema.TH.Unwrap
     - Data.Aeson.Schema.TH.Utils
   dependencies:
-    - aeson >= 1.1.2.0 && < 3
-    - base >= 4.14 && < 5
-    - first-class-families >= 0.3.0.0 && < 0.9
-    - hashable >= 1.2.7.0 && < 1.5
-    - megaparsec >= 7 && < 10
-    - template-haskell >= 2.16 && < 2.21
-    - text >= 1.2.2.2 && < 2.1
-    - unordered-containers >= 0.2.8.0 && < 0.3
+    - aeson < 3
+    - base >= 4.15 && < 5
+    - first-class-families < 0.9
+    - hashable < 1.5
+    - megaparsec < 10
+    - template-haskell < 2.21
+    - text < 2.1
+    - unordered-containers < 0.3
 
 tests:
   aeson-schemas-test:
@@ -66,28 +57,30 @@ tests:
     main:         Main.hs
     dependencies:
       - aeson
-      - aeson-schemas
       - aeson-qq
+      - aeson-schemas
       - base
       - deepseq
-      - directory
       - filepath
+      - hint
       - interpolate
       - process
       - QuickCheck
       - raw-strings-qq
       - tasty
-      - tasty-hunit
       - tasty-golden
-      - tasty-quickcheck
+      - tasty-hunit
+      - tasty-quickcheck >= 0.8.1
       - template-haskell
       - temporary
       - text
       - th-orphans
       - th-test-utils
     when:
-      - condition: flag(run-integration-tests)
-        cpp-options: -DRUN_INTEGRATION_TESTS
+      # https://github.com/haskell-hint/hint/issues/149
+      - condition: impl(ghc < 9.2)
+        dependencies:
+          - hint < 0.9.0.6
 
 benchmarks:
   aeson-schemas-bench:

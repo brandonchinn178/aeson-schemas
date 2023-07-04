@@ -8,19 +8,7 @@ on:
 
 jobs:
   build_and_test:
-    strategy:
-      matrix:
-        include:
-          -
-            stack_yaml: stack.yaml
-            latest: true
-          -
-            stack_yaml: stack-ghc-8.10.yaml
-
-    name: build_and_test (${{ matrix.stack_yaml }})
     runs-on: ubuntu-latest
-    env:
-      STACK_YAML: ${{ matrix.stack_yaml }}
 
     steps:
       -
@@ -29,15 +17,14 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.stack
-          key: ${{ runner.os }}-stack-cache-${{ hashFiles(matrix.stack_yaml, 'package.yaml') }}
+          key: ${{ runner.os }}-stack-cache-${{ hashFiles('stack.yaml', 'package.yaml') }}
       -
         name: Build + Test
-        run: stack test --haddock --no-haddock-deps --coverage
+        run: stack test --ghc-options=-Werror --haddock --no-haddock-deps --coverage
       -
         name: Check that files are unmodified
-        run: git diff --exit-code
+        run: git add -A && git diff --staged --exit-code
       -
-        if: ${{ matrix.latest }}
         name: Convert coverage output
         run: |
           HPC_LCOV_VERSION=1.1.1
@@ -47,7 +34,6 @@ jobs:
           chmod +x /usr/local/bin/hpc-lcov
           hpc-lcov
       -
-        if: ${{ matrix.latest }}
         uses: codecov/codecov-action@v3
         with:
           files: lcov.info
@@ -56,48 +42,24 @@ jobs:
     strategy:
       matrix:
         ghc_version:
-          - '8.10'
           - '9.0'
           - '9.2'
           - '9.4'
           - '9.6'
+        include:
+          - ghc_version: 9.0.1
+            oldest: true
 
     name: ghc_compat_test (${{ matrix.ghc_version }})
-    runs-on: ubuntu-latest
-
-    steps:
-      -
-        uses: actions/checkout@v3
-      -
-        id: setup
-        name: Set up GHC ${{ matrix.ghc_version }}
-        uses: haskell-actions/setup@v2
-        with:
-          ghc-version: ${{ matrix.ghc_version }}
-      -
-        name: Configure the build
-        run: |
-          cabal configure --enable-test --test-show-details=streaming
-          cabal build --dry-run
-      -
-        name: Get current month to clear cache
-        run: echo "CURR_MONTH=$(date +%B)" | tee -a "$GITHUB_ENV"
-      -
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.setup.outputs.cabal-store }}
-          key: ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ matrix.ghc_version }}-${{ hashFiles('**/plan.json') }}
-          restore-keys: |
-               ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ matrix.ghc_version }}-
-      -
-        name: Build + Test
-        run: cabal build && cabal exec -- cabal test
+    uses: ./.github/workflows/ghc-compat-test.yml
+    with:
+      ghc_version: ${{ matrix.ghc_version }}
+      oldest: ${{ matrix.oldest || false }}
 
   lint:
     runs-on: ubuntu-latest
     env:
       FOURMOLU_VERSION: '0.12.0.0'
-      HLINT_VERSION: '3.5'
     steps:
       -
         uses: actions/checkout@v3
@@ -111,20 +73,6 @@ jobs:
       -
         name: Run fourmolu
         run: fourmolu -m check .
-      -
-        name: Install hlint
-        run: |
-          tmpdir=$(mktemp -d)
-          curl -fsSL \
-            "https://github.com/ndmitchell/hlint/releases/download/v${HLINT_VERSION}/hlint-${HLINT_VERSION}-x86_64-linux.tar.gz" \
-            -o "${tmpdir}/hlint.tar.gz"
-          tar xzf "${tmpdir}/hlint.tar.gz" -C "${tmpdir}"
-          mv "${tmpdir}/hlint-${HLINT_VERSION}/hlint" /usr/local/bin/hlint
-          chmod +x /usr/local/bin/hlint
-          rm -rf "${tmpdir}"
-      -
-        name: Run hlint
-        run: hlint .
 
   benchmarks:
     runs-on: ubuntu-latest
@@ -138,7 +86,7 @@ jobs:
           key: ${{ runner.os }}-benchmarks-${{ hashFiles('stack.yaml', 'package.yaml') }}
       -
         name: Run benchmarks
-        run: stack bench --ba '--output=/tmp/benchmark-results.html'
+        run: stack bench --ghc-options=-Werror --ba '--output=/tmp/benchmark-results.html'
       -
         uses: actions/upload-artifact@v3
         with:

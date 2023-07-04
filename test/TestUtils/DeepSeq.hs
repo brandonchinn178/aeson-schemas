@@ -62,6 +62,10 @@ instance NFData flag => NFData (TyVarBndr flag)
 instance NFData TyVarBndr
 #endif
 
+#if MIN_VERSION_template_haskell(2,20,0) && __GLASGOW_HASKELL__ >= 907
+instance NFData BndrVis
+#endif
+
 instance NFData Bytes
 
 instance NFData (ForeignPtr a) where
