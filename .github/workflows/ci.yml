@@ -23,7 +23,7 @@ jobs:
         run: stack test --haddock --no-haddock-deps --coverage
       -
         name: Check that files are unmodified
-        run: git diff --exit-code
+        run: git add -A && git diff --staged --exit-code
       -
         name: Convert coverage output
         run: |
@@ -78,6 +78,9 @@ jobs:
       -
         name: Build + Test
         run: cabal build && cabal exec -- cabal test
+      -
+        name: Check that files are unmodified
+        run: git add -A && git diff --staged --exit-code
 
   lint:
     runs-on: ubuntu-latest
