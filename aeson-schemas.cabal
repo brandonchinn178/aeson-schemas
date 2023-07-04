@@ -81,7 +81,7 @@ library
       Data.Aeson.Schema.TH.Utils
   hs-source-dirs:
       src
-  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances -Wunused-packages
   build-depends:
       aeson <3
     , base >=4.15 && <5
@@ -120,7 +120,7 @@ test-suite aeson-schemas-test
       Paths_aeson_schemas
   hs-source-dirs:
       test
-  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances -Wunused-packages
   build-depends:
       QuickCheck
     , aeson
@@ -161,7 +161,7 @@ benchmark aeson-schemas-bench
       Paths_aeson_schemas
   hs-source-dirs:
       bench
-  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances -Wunused-packages
   build-depends:
       aeson
     , aeson-schemas

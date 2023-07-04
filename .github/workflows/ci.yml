@@ -20,7 +20,7 @@ jobs:
           key: ${{ runner.os }}-stack-cache-${{ hashFiles('stack.yaml', 'package.yaml') }}
       -
         name: Build + Test
-        run: stack test --haddock --no-haddock-deps --coverage
+        run: stack test --ghc-options=-Werror --haddock --no-haddock-deps --coverage
       -
         name: Check that files are unmodified
         run: git add -A && git diff --staged --exit-code
@@ -66,6 +66,7 @@ jobs:
         name: Configure the build
         run:
           cabal configure
+             --ghc-options='-Werror -Wno-unused-packages'
             --enable-test
             --test-options=--color=always
             --test-show-details=streaming
@@ -126,7 +127,7 @@ jobs:
           key: ${{ runner.os }}-benchmarks-${{ hashFiles('stack.yaml', 'package.yaml') }}
       -
         name: Run benchmarks
-        run: stack bench --ba '--output=/tmp/benchmark-results.html'
+        run: stack bench --ghc-options=-Werror --ba '--output=/tmp/benchmark-results.html'
       -
         uses: actions/upload-artifact@v3
         with:
