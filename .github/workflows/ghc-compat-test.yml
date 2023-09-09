@@ -44,6 +44,21 @@ jobs:
           curl -fsSL -o /tmp/head.hackage.sh https://gitlab.haskell.org/ghc/head.hackage/-/raw/master/scripts/head.hackage.sh
           bash /tmp/head.hackage.sh dump-repo >> cabal.project.local
           cabal update
+
+          # https://gitlab.haskell.org/ghc/head.hackage/-/blob/90570e1c4606c1d7d3d41797ec1b32d1b984067b/ci/MakeConstraints.hs#L40-49
+          cabal configure --enable-append \
+            --allow-newer=base \
+            --allow-newer=template-haskell \
+            --allow-newer=ghc \
+            --allow-newer=ghc-prim \
+            --allow-newer=integer-gmp \
+            --allow-newer=ghc-bignum \
+            --allow-newer=time \
+            --allow-newer=binary \
+            --allow-newer=bytestring \
+            --allow-newer=Cabal \
+            --allow-newer=deepseq \
+            --allow-newer=text
       -
         name: Get build plan
         run: cabal build --dry-run
