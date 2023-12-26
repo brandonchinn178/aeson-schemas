@@ -48,7 +48,7 @@ library:
     - hashable < 1.5
     - megaparsec < 10
     - template-haskell < 2.22
-    - text < 2.1
+    - text < 2.2
     - unordered-containers < 0.3
 
 tests:
