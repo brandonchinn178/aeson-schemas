@@ -1,11 +1,11 @@
 cabal-version: >= 1.10
 
--- This file has been generated from package.yaml by hpack version 0.35.2.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
 name:           aeson-schemas
-version:        1.4.1.0
+version:        1.4.2.0
 synopsis:       Easily consume JSON data on-demand with type-safety
 description:    Parse JSON data easily and safely without defining new data types. Useful
                 for deeply nested JSON data, which is difficult to parse using the default
@@ -39,10 +39,9 @@ extra-source-files:
     test/goldens/getqq_no_operators.golden
     test/goldens/getqq_ops_after_list.golden
     test/goldens/getqq_ops_after_tuple.golden
-    test/goldens/ghc/9.0/getqq_missing_key.golden
-    test/goldens/ghc/9.2/getqq_missing_key.golden
     test/goldens/ghc/9.4/getqq_missing_key.golden
     test/goldens/ghc/9.6/getqq_missing_key.golden
+    test/goldens/ghc/9.8/getqq_missing_key.golden
     test/goldens/ghc/9.9/getqq_missing_key.golden
     test/goldens/README_Quickstart.golden
     test/goldens/schemaqq_key_with_invalid_character.golden
@@ -81,12 +80,12 @@ library
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances -Wunused-packages
   build-depends:
       aeson <3
-    , base >=4.15 && <5
+    , base >=4.17 && <5
     , first-class-families <0.9
     , hashable <1.5
     , megaparsec <10
-    , template-haskell <2.21
-    , text <2.1
+    , template-haskell <2.22
+    , text <2.2
     , unordered-containers <0.3
   default-language: Haskell2010
 
@@ -121,7 +120,7 @@ test-suite aeson-schemas-test
   build-depends:
       QuickCheck
     , aeson
-    , aeson-qq
+    , aeson-qq >=0.8.4
     , aeson-schemas
     , base
     , deepseq

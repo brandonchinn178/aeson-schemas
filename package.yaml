@@ -1,5 +1,5 @@
 name: aeson-schemas
-version: 1.4.1.0
+version: 1.4.2.0
 verbatim:
   cabal-version: '>= 1.10'
 license: BSD3
@@ -43,12 +43,12 @@ library:
     - Data.Aeson.Schema.TH.Utils
   dependencies:
     - aeson < 3
-    - base >= 4.15 && < 5
+    - base >= 4.17 && < 5
     - first-class-families < 0.9
     - hashable < 1.5
     - megaparsec < 10
-    - template-haskell < 2.21
-    - text < 2.1
+    - template-haskell < 2.22
+    - text < 2.2
     - unordered-containers < 0.3
 
 tests:
@@ -57,7 +57,7 @@ tests:
     main:         Main.hs
     dependencies:
       - aeson
-      - aeson-qq
+      - aeson-qq >= 0.8.4
       - aeson-schemas
       - base
       - deepseq
