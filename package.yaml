@@ -43,7 +43,7 @@ library:
     - Data.Aeson.Schema.TH.Utils
   dependencies:
     - aeson < 3
-    - base >= 4.15 && < 5
+    - base >= 4.17 && < 5
     - first-class-families < 0.9
     - hashable < 1.5
     - megaparsec < 10
