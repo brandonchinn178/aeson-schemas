@@ -57,7 +57,7 @@ tests:
     main:         Main.hs
     dependencies:
       - aeson
-      - aeson-qq
+      - aeson-qq >= 0.8.4
       - aeson-schemas
       - base
       - deepseq

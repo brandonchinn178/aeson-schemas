@@ -36,7 +36,6 @@ jobs:
         run:
           cabal configure --enable-append
             --prefer-oldest
-            --constraint 'aeson-qq >= 0.7.4'
       -
         if: ${{ inputs.ghc_version == 'latest-nightly' }}
         name: Add head.hackage

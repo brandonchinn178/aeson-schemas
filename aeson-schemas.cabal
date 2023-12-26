@@ -120,7 +120,7 @@ test-suite aeson-schemas-test
   build-depends:
       QuickCheck
     , aeson
-    , aeson-qq
+    , aeson-qq >=0.8.4
     , aeson-schemas
     , base
     , deepseq
