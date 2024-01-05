@@ -28,6 +28,7 @@ jobs:
           cabal configure
              --ghc-options='-Werror -Wno-unused-packages'
             --enable-test
+            --enable-bench
             --test-options=--color=always
             --test-show-details=streaming
       -
