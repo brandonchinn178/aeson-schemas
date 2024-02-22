@@ -9,6 +9,8 @@ and quasiquoters, consuming JSON data in a type-safe manner. Better than
 `aeson` for decoding nested JSON data that would be cumbersome to represent as
 Haskell ADTs.
 
+Not related to [JSON Schema](https://json-schema.org/).
+
 ## Quickstart
 
 ```haskell
