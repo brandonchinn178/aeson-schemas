@@ -13,7 +13,7 @@ packages:
     hackage: th-test-utils-1.2.2
 snapshots:
 - completed:
-    sha256: 87da71cb0ae9ee1ea1bf51a8eb9812f39f779be76abc0a3c926defd8afda05d1
-    size: 719139
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/28.yaml
-  original: lts-22.28
+    sha256: 2413f1dbf803da9cab3b6970d868cf7cd4c013b8776dee3cebd8b8ecbf85514c
+    size: 619614
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2024/12/20.yaml
+  original: nightly-2024-12-20
