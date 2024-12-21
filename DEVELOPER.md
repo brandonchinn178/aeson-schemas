@@ -9,6 +9,9 @@ stack build
 
 # with haddock
 stack build --haddock
+
+# with cabal
+cabal build --ghc-options -Werror
 ```
 
 ## Lint
@@ -28,6 +31,10 @@ All tests must pass CI in order for your PR to be accepted.
 
 ```bash
 stack test
+
+# Note: use the global GHC; integration tests will not work with
+# --with-compiler set differently
+cabal exec -- cabal test
 ```
 
 # Documentation
