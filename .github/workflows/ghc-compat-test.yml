@@ -33,6 +33,28 @@ jobs:
             --test-options=--color=always
             --test-show-details=streaming
       -
+        # TODO: remove when packages are updated
+        name: Allow building deps with GHC 9.12
+        run:
+          cabal configure --enable-append
+            --allow-newer=aeson:ghc-prim
+            --allow-newer=aeson:template-haskell
+            --allow-newer=binary-orphans:base
+            --allow-newer=haskell-src-meta:template-haskell
+            --allow-newer=indexed-traversable-instances:base
+            --allow-newer=indexed-traversable:base
+            --allow-newer=integer-conversion:base
+            --allow-newer=microstache:base
+            --allow-newer=scientific:base
+            --allow-newer=scientific:template-haskell
+            --allow-newer=semialign:base
+            --allow-newer=text:deepseq
+            --allow-newer=these:base
+            --allow-newer=time-compat:base
+            --allow-newer=time-compat:time
+            --allow-newer=unordered-containers:template-haskell
+            --allow-newer=uuid-types:template-haskell
+      -
         if: ${{ inputs.oldest }}
         name: Use oldest dependencies
         run:

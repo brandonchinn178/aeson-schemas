@@ -68,5 +68,9 @@ instance NFData BndrVis
 
 instance NFData Bytes
 
+#if MIN_VERSION_template_haskell(2,22,0)
+instance NFData NamespaceSpecifier
+#endif
+
 instance NFData (ForeignPtr a) where
   rnf = rwhnf

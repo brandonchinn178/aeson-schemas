@@ -39,6 +39,8 @@ extra-source-files:
     test/goldens/getqq_no_operators.golden
     test/goldens/getqq_ops_after_list.golden
     test/goldens/getqq_ops_after_tuple.golden
+    test/goldens/ghc/9.10/getqq_missing_key.golden
+    test/goldens/ghc/9.12/getqq_missing_key.golden
     test/goldens/ghc/9.4/getqq_missing_key.golden
     test/goldens/ghc/9.6/getqq_missing_key.golden
     test/goldens/ghc/9.8/getqq_missing_key.golden
@@ -83,7 +85,7 @@ library
     , first-class-families <0.9
     , hashable <1.6
     , megaparsec <10
-    , template-haskell <2.22
+    , template-haskell <2.24
     , text <2.2
     , unordered-containers <0.3
   default-language: Haskell2010

@@ -13,7 +13,10 @@ module Data.Aeson.Schema.Utils.Compat (
   unions,
 ) where
 
+#if !MIN_VERSION_base(4,20,0)
 import Data.List (foldl')
+#endif
+
 import Data.Text (Text)
 import Prelude hiding (lookup)
 

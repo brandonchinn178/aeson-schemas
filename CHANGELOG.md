@@ -1,5 +1,7 @@
 # Unreleased
 
+* Add support for GHC 9.10 + 9.12
+
 # v1.4.2.1
 
 * Fix benchmarks for GHC 9.8
