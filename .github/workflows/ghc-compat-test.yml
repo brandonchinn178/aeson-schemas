@@ -57,9 +57,12 @@ jobs:
       -
         if: ${{ inputs.oldest }}
         name: Use oldest dependencies
+        # https://github.com/pcapriotti/optparse-applicative/issues/497
         run:
           cabal configure --enable-append
             --prefer-oldest
+            --constraint='prettyprinter-ansi-terminal >= 1.1.2'
+            --constraint='haskell-src-meta >= 0.8.13'
       -
         if: ${{ inputs.ghc_version == 'latest-nightly' }}
         name: Add head.hackage
