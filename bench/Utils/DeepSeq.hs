@@ -51,21 +51,9 @@ instance NFData Type
 instance NFData TypeFamilyHead
 instance NFData TyLit
 instance NFData TySynEqn
-
-#if MIN_VERSION_template_haskell(2,17,0)
 instance NFData Specificity
-#endif
-
-#if MIN_VERSION_template_haskell(2,17,0)
-instance NFData flag => NFData (TyVarBndr flag)
-#else
-instance NFData TyVarBndr
-#endif
-
-#if MIN_VERSION_template_haskell(2,21,0)
+instance (NFData flag) => NFData (TyVarBndr flag)
 instance NFData BndrVis
-#endif
-
 instance NFData Bytes
 
 #if MIN_VERSION_template_haskell(2,22,0)
