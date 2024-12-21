@@ -13,13 +13,14 @@
 module Tests.GetQQ where
 
 import Control.DeepSeq (deepseq)
-import Control.Exception (SomeException, displayException, try)
+import Control.Exception (SomeException, try)
 import Data.Aeson (FromJSON (..), ToJSON (..), withText)
 import Data.Aeson.QQ (aesonQQ)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import qualified Language.Haskell.Interpreter as Hint
+import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
+import System.Process (readProcessWithExitCode)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
@@ -401,10 +402,16 @@ testCompileTimeErrors =
     ]
   where
     testDir = "test/wont-compile/"
-    getCompileError fp =
-      Hint.runInterpreter (Hint.loadModules [fp]) >>= \case
-        Left e -> pure $ displayException e
-        Right _ -> error "Compilation unexpectedly succeeded"
+    getCompileError fp = do
+      (code, stdout, stderr) <- readProcessWithExitCode "ghc" [fp] ""
+      case code of
+        ExitFailure _ -> pure stderr
+        ExitSuccess ->
+          error . unlines $
+            [ "Unexpectedly succeeded:"
+            , stdout
+            , stderr
+            ]
 
 {- Helpers -}
 

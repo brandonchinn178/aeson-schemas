@@ -62,7 +62,6 @@ tests:
       - base
       - deepseq
       - filepath
-      - hint
       - interpolate
       - process
       - QuickCheck

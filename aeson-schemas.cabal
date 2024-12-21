@@ -1,6 +1,6 @@
 cabal-version: >= 1.10
 
--- This file has been generated from package.yaml by hpack version 0.36.0.
+-- This file has been generated from package.yaml by hpack version 0.37.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -125,7 +125,6 @@ test-suite aeson-schemas-test
     , base
     , deepseq
     , filepath
-    , hint
     , interpolate
     , process
     , raw-strings-qq
