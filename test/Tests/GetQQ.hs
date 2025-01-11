@@ -17,6 +17,7 @@ import Data.Aeson (FromJSON (..), ToJSON (..), withText)
 import Data.Aeson.QQ (aesonQQ)
 import Data.Text (Text)
 import qualified Data.Text as Text
+import Data.Version (makeVersion)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.Process (readProcessWithExitCode)
@@ -27,7 +28,7 @@ import Test.Tasty.QuickCheck
 import Data.Aeson.Schema (Object, schema)
 import Data.Aeson.Schema.TH (mkEnum)
 import Data.Aeson.Schema.Utils.Sum (SumType (..))
-import TestUtils (ghcGoldenDir, parseObject, testGoldenIO, testParseError)
+import TestUtils (ghcGoldenDir, ghcVersion, parseObject, testGoldenIO, testParseError)
 import Tests.GetQQ.TH
 
 mkEnum "Greeting" ["HELLO", "GOODBYE"]
@@ -402,7 +403,15 @@ testCompileTimeErrors =
   where
     testDir = "test/wont-compile/"
     getCompileError fp = do
-      (code, stdout, stderr) <- readProcessWithExitCode "ghc" [fp] ""
+      let args =
+            concat
+              [ [fp]
+              , -- https://gitlab.haskell.org/ghc/ghc/-/issues/25602
+                if ghcVersion < makeVersion [9, 10]
+                  then []
+                  else ["-package", "ghc-internal"]
+              ]
+      (code, stdout, stderr) <- readProcessWithExitCode "ghc" args ""
       case code of
         ExitFailure _ -> pure stderr
         ExitSuccess ->
