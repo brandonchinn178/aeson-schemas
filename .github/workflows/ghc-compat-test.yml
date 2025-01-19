@@ -18,10 +18,11 @@ jobs:
       -
         id: setup
         name: Set up GHC ${{ inputs.ghc_version }}
-        uses: brandonchinn178/haskell-actions-setup@3f2715436c49e3e1c7b19450d595348512bbe8eb
+        uses: haskell-actions/setup@v2
         with:
           ghc-version: ${{ inputs.ghc_version }}
-          ghcup-release-channels: https://ghc.gitlab.haskell.org/ghcup-metadata/ghcup-nightlies-0.0.7.yaml
+          cabal-version: '3.10'
+          ghcup-release-channel: https://ghc.gitlab.haskell.org/ghcup-metadata/ghcup-nightlies-0.0.7.yaml
       -
         name: Configure the build
         run:
