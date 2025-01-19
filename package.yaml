@@ -1,5 +1,5 @@
 name: aeson-schemas
-version: 1.4.2.1
+version: 1.4.3.0
 verbatim:
   cabal-version: '>= 1.10'
 license: BSD3
@@ -47,7 +47,7 @@ library:
     - first-class-families < 0.9
     - hashable < 1.6
     - megaparsec < 10
-    - template-haskell < 2.22
+    - template-haskell < 2.24
     - text < 2.2
     - unordered-containers < 0.3
 
@@ -62,7 +62,6 @@ tests:
       - base
       - deepseq
       - filepath
-      - hint
       - interpolate
       - process
       - QuickCheck

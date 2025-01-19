@@ -27,7 +27,7 @@ jobs:
       -
         name: Convert coverage output
         run: |
-          HPC_LCOV_VERSION=1.1.1
+          HPC_LCOV_VERSION=1.2.0
           curl -fsSL \
             "https://github.com/brandonchinn178/hpc-lcov/releases/download/v${HPC_LCOV_VERSION}/hpc-lcov-${HPC_LCOV_VERSION}-linux-x86_64" \
             -o /usr/local/bin/hpc-lcov
@@ -42,11 +42,11 @@ jobs:
     strategy:
       matrix:
         ghc_version:
-          - '9.4'
-          - '9.6'
           - '9.8'
+          - '9.10'
+          - '9.12'
         include:
-          - ghc_version: 9.4.1
+          - ghc_version: 9.8.1
             oldest: true
 
     name: ghc_compat_test (${{ matrix.ghc_version }})

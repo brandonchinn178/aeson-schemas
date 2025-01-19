@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
@@ -197,10 +196,8 @@ stripKinds ty =
     AppT ty1 ty2 -> AppT (stripKinds ty1) (stripKinds ty2)
     InfixT ty1 name ty2 -> InfixT (stripKinds ty1) name (stripKinds ty2)
     UInfixT ty1 name ty2 -> UInfixT (stripKinds ty1) name (stripKinds ty2)
-#if MIN_VERSION_template_haskell(2,19,0)
     PromotedInfixT ty1 name ty2 -> PromotedInfixT (stripKinds ty1) name (stripKinds ty2)
     PromotedUInfixT ty1 name ty2 -> PromotedUInfixT (stripKinds ty1) name (stripKinds ty2)
-#endif
     ParensT ty1 -> ParensT (stripKinds ty1)
     ImplicitParamT str ty1 -> ImplicitParamT str (stripKinds ty1)
 
@@ -212,9 +209,7 @@ stripKinds ty =
     UnboxedTupleT _ -> ty
     UnboxedSumT _ -> ty
     ArrowT -> ty
-#if MIN_VERSION_template_haskell(2,17,0)
     MulArrowT -> ty
-#endif
     EqualityT -> ty
     ListT -> ty
     PromotedTupleT _ -> ty

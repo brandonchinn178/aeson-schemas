@@ -22,6 +22,7 @@ module TestUtils (
   testGoldenIO,
   testParseError,
   ghcGoldenDir,
+  ghcVersion,
 ) where
 
 import Data.Aeson (FromJSON (..), Value, eitherDecode)
@@ -34,6 +35,7 @@ import qualified Data.Text.IO as Text
 import qualified Data.Text.Lazy as TextL
 import qualified Data.Text.Lazy.Encoding as TextL
 import Data.Typeable (Typeable, typeRep)
+import Data.Version (Version, makeVersion, showVersion, versionBranch)
 import Language.Haskell.TH (ExpQ)
 import Language.Haskell.TH.Quote (QuasiQuoter (..))
 import System.FilePath ((</>))
@@ -111,11 +113,9 @@ testParseError name fp s = goldenTest name getExpected getActual cmp update
 
 -- | The directory to put GHC version-specific golden files.
 ghcGoldenDir :: FilePath
-ghcGoldenDir = "ghc" </> ghcVersion
+ghcGoldenDir = "ghc" </> showVersion ghcMinorVersion
   where
-    ghcVersion =
-      Text.unpack
-        . Text.intercalate "."
-        . take 2
-        . Text.splitOn "."
-        $ __GLASGOW_HASKELL_FULL_VERSION__
+    ghcMinorVersion = makeVersion . take 2 . versionBranch $ ghcVersion
+
+ghcVersion :: Version
+ghcVersion = makeVersion . map (read . Text.unpack) $ Text.splitOn "." __GLASGOW_HASKELL_FULL_VERSION__

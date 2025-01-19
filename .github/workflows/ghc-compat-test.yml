@@ -18,10 +18,11 @@ jobs:
       -
         id: setup
         name: Set up GHC ${{ inputs.ghc_version }}
-        uses: brandonchinn178/haskell-actions-setup@3f2715436c49e3e1c7b19450d595348512bbe8eb
+        uses: haskell-actions/setup@v2
         with:
           ghc-version: ${{ inputs.ghc_version }}
-          ghcup-release-channels: https://ghc.gitlab.haskell.org/ghcup-metadata/ghcup-nightlies-0.0.7.yaml
+          cabal-version: '3.10'
+          ghcup-release-channel: https://ghc.gitlab.haskell.org/ghcup-metadata/ghcup-nightlies-0.0.7.yaml
       -
         name: Configure the build
         run:
@@ -32,11 +33,36 @@ jobs:
             --test-options=--color=always
             --test-show-details=streaming
       -
+        # TODO: remove when packages are updated
+        name: Allow building deps with GHC 9.12
+        run:
+          cabal configure --enable-append
+            --allow-newer=aeson:ghc-prim
+            --allow-newer=aeson:template-haskell
+            --allow-newer=binary-orphans:base
+            --allow-newer=haskell-src-meta:template-haskell
+            --allow-newer=indexed-traversable-instances:base
+            --allow-newer=indexed-traversable:base
+            --allow-newer=integer-conversion:base
+            --allow-newer=microstache:base
+            --allow-newer=scientific:base
+            --allow-newer=scientific:template-haskell
+            --allow-newer=semialign:base
+            --allow-newer=text:deepseq
+            --allow-newer=these:base
+            --allow-newer=time-compat:base
+            --allow-newer=time-compat:time
+            --allow-newer=unordered-containers:template-haskell
+            --allow-newer=uuid-types:template-haskell
+      -
         if: ${{ inputs.oldest }}
         name: Use oldest dependencies
+        # https://github.com/pcapriotti/optparse-applicative/issues/497
         run:
           cabal configure --enable-append
             --prefer-oldest
+            --constraint='prettyprinter-ansi-terminal >= 1.1.2'
+            --constraint='haskell-src-meta >= 0.8.13'
       -
         if: ${{ inputs.ghc_version == 'latest-nightly' }}
         name: Add head.hackage
