@@ -18,10 +18,11 @@ jobs:
       -
         id: setup
         name: Set up GHC ${{ inputs.ghc_version }}
-        uses: brandonchinn178/haskell-actions-setup@3f2715436c49e3e1c7b19450d595348512bbe8eb
+        uses: haskell-actions/setup@v2
         with:
           ghc-version: ${{ inputs.ghc_version }}
-          ghcup-release-channels: https://ghc.gitlab.haskell.org/ghcup-metadata/ghcup-nightlies-0.0.7.yaml
+          cabal-version: '3.14'
+          ghcup-release-channel: https://ghc.gitlab.haskell.org/ghcup-metadata/ghcup-nightlies-0.0.7.yaml
       -
         name: Configure the build
         run:
@@ -65,16 +66,17 @@ jobs:
       -
         name: Get current month to clear cache
         run: echo "CURR_MONTH=$(date +%B)" | tee -a "$GITHUB_ENV"
+      # -
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: ${{ steps.setup.outputs.cabal-store }}
+      #     key: ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ inputs.ghc_version }}-${{ hashFiles('**/plan.json') }}
+      #     restore-keys: |
+      #          ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ inputs.ghc_version }}-
       -
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.setup.outputs.cabal-store }}
-          key: ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ inputs.ghc_version }}-${{ hashFiles('**/plan.json') }}
-          restore-keys: |
-               ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ inputs.ghc_version }}-
+        run: cabal build
       -
-        name: Build + Test
-        run: cabal build && cabal exec -- cabal test
+        run: cabal exec -- cabal test
       -
         name: Check that files are unmodified
         run: git add -A && git diff --staged --exit-code
