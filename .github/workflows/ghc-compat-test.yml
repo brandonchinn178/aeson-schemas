@@ -66,16 +66,17 @@ jobs:
       -
         name: Get current month to clear cache
         run: echo "CURR_MONTH=$(date +%B)" | tee -a "$GITHUB_ENV"
+      # -
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: ${{ steps.setup.outputs.cabal-store }}
+      #     key: ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ inputs.ghc_version }}-${{ hashFiles('**/plan.json') }}
+      #     restore-keys: |
+      #          ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ inputs.ghc_version }}-
       -
-        uses: actions/cache@v3
-        with:
-          path: ${{ steps.setup.outputs.cabal-store }}
-          key: ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ inputs.ghc_version }}-${{ hashFiles('**/plan.json') }}
-          restore-keys: |
-               ${{ runner.os }}-cabal-cache-${{ env.CURR_MONTH }}-${{ inputs.ghc_version }}-
+        run: cabal build
       -
-        name: Build + Test
-        run: cabal build && cabal exec -- cabal test
+        run: cabal exec -- cabal test
       -
         name: Check that files are unmodified
         run: git add -A && git diff --staged --exit-code
