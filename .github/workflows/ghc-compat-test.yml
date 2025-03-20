@@ -21,8 +21,12 @@ jobs:
         uses: haskell-actions/setup@v2
         with:
           ghc-version: ${{ inputs.ghc_version }}
-          cabal-version: '3.14'
           ghcup-release-channel: https://ghc.gitlab.haskell.org/ghcup-metadata/ghcup-nightlies-0.0.7.yaml
+      -
+        name: Build cabal-head
+        run: |
+          ghcup install cabal -u https://github.com/haskell/cabal/releases/download/cabal-head/cabal-head-Linux-x86_64.tar.gz head
+          cabal --version
       -
         name: Configure the build
         run:
