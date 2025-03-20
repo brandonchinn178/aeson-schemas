@@ -87,7 +87,7 @@ jobs:
         name: Run benchmarks
         run: stack bench --ghc-options=-Werror --ba '--output=/tmp/benchmark-results.html'
       -
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
           path: /tmp/benchmark-results.html
@@ -110,7 +110,7 @@ jobs:
         name: Create sdist bundle
         run: stack sdist --test-tarball --tar-dir .
       -
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: aeson-schemas-sdist
           path: aeson-schemas-*.tar.gz
