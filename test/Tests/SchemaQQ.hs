@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
@@ -146,7 +147,7 @@ testInvalidSchemas =
     , testCase "Object with a field with an unknown type" $
         [schemaErr| { a: HelloWorld } |] @?= "Unknown type: HelloWorld"
     , testCase "Object extending a non-schema" $
-        [schemaErr| { #Int } |] @?= "'GHC.Types.Int' is not a Schema"
+        [schemaErr| { #Int } |] @?= ghcTypesInt <> " is not a Schema"
     , testCase "Object importing an unknown schema" $
         [schemaErr| { foo: #FooSchema } |] @?= "Unknown schema: FooSchema"
     , testCase "Object extending an unknown schema" $
@@ -195,3 +196,10 @@ assertMatches :: String -> String -> Assertion
 assertMatches a b = strip a @?= strip b
   where
     strip = Text.unpack . Text.strip . Text.pack
+
+ghcTypesInt :: String
+#if __GLASGOW_HASKELL__ < 914
+ghcTypesInt = "'GHC.Types.Int'"
+#else
+ghcTypesInt = "'GHC.Internal.Types.Int'"
+#endif
