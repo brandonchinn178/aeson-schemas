@@ -31,7 +31,7 @@ jobs:
       FOURMOLU_VERSION: '0.12.0.0'
     steps:
       -
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       -
         name: Install fourmolu
         run: |
@@ -47,17 +47,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       -
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       -
-        uses: actions/cache@v3
+        id: setup
+        uses: haskell-actions/setup@v2
         with:
-          path: ~/.stack
-          key: ${{ runner.os }}-benchmarks-${{ hashFiles('stack.yaml', 'package.yaml') }}
+          ghc-version: '9.12'
+      -
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ runner.os }}-benchmarks-${{ hashFiles('aeson-schemas.cabal') }}
       -
         name: Run benchmarks
-        run: stack bench --ghc-options=-Werror --ba '--output=/tmp/benchmark-results.html'
+        run: cabal bench --benchmark-options '--output=/tmp/benchmark-results.html'
       -
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: benchmark-results
           path: /tmp/benchmark-results.html
@@ -66,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       -
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       -
         id: setup
         name: Set up GHC
@@ -78,7 +83,7 @@ jobs:
         name: Create sdist bundle
         run: cabal sdist --output-directory=.
       -
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: aeson-schemas-sdist
           path: aeson-schemas-*.tar.gz

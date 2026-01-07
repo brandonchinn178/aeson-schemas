@@ -33,27 +33,25 @@ jobs:
             --test-options=--color=always
             --test-show-details=streaming
       -
-        # TODO: remove when packages are updated
-        name: Allow building deps with GHC 9.12
+        if: ${{ inputs.ghc_version == '9.14' }}
+        name: Allow building deps with GHC 9.14
         run:
           cabal configure --enable-append
-            --allow-newer=aeson:ghc-prim
-            --allow-newer=aeson:template-haskell
-            --allow-newer=binary-orphans:base
-            --allow-newer=haskell-src-meta:template-haskell
-            --allow-newer=indexed-traversable-instances:base
-            --allow-newer=indexed-traversable:base
-            --allow-newer=integer-conversion:base
-            --allow-newer=microstache:base
-            --allow-newer=scientific:base
-            --allow-newer=scientific:template-haskell
-            --allow-newer=semialign:base
-            --allow-newer=text:deepseq
-            --allow-newer=these:base
-            --allow-newer=time-compat:base
-            --allow-newer=time-compat:time
-            --allow-newer=unordered-containers:template-haskell
-            --allow-newer=uuid-types:template-haskell
+            --allow-newer='aeson:*'
+            --allow-newer='binary-orphans:*'
+            --allow-newer='indexed-traversable:*'
+            --allow-newer='indexed-traversable-instances:*'
+            --allow-newer='microstache:*'
+            --allow-newer='semialign:*'
+            --allow-newer='text-iso8601:*'
+            --allow-newer='th-expand-syns:*'
+            --allow-newer='th-lift:*'
+            --allow-newer='th-orphans:*'
+            --allow-newer='th-test-utils:*'
+            --allow-newer='these:*'
+            --allow-newer='time-compat:*'
+            --allow-newer='time:*'
+            --allow-newer='uuid-types:*'
       -
         if: ${{ inputs.oldest }}
         name: Use oldest dependencies
