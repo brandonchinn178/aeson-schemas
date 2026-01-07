@@ -7,37 +7,6 @@ on:
   workflow_call:
 
 jobs:
-  build_and_test:
-    runs-on: ubuntu-latest
-
-    steps:
-      -
-        uses: actions/checkout@v3
-      -
-        uses: actions/cache@v3
-        with:
-          path: ~/.stack
-          key: ${{ runner.os }}-stack-cache-${{ hashFiles('stack.yaml', 'package.yaml') }}
-      -
-        name: Build + Test
-        run: stack test --ghc-options=-Werror --haddock --no-haddock-deps --coverage
-      -
-        name: Check that files are unmodified
-        run: git add -A && git diff --staged --exit-code
-      -
-        name: Convert coverage output
-        run: |
-          HPC_LCOV_VERSION=1.2.0
-          curl -fsSL \
-            "https://github.com/brandonchinn178/hpc-lcov/releases/download/v${HPC_LCOV_VERSION}/hpc-lcov-${HPC_LCOV_VERSION}-linux-x86_64" \
-            -o /usr/local/bin/hpc-lcov
-          chmod +x /usr/local/bin/hpc-lcov
-          hpc-lcov
-      -
-        uses: codecov/codecov-action@v3
-        with:
-          files: lcov.info
-
   ghc_compat_test:
     strategy:
       matrix:
@@ -98,17 +67,15 @@ jobs:
       -
         uses: actions/checkout@v3
       -
-        uses: actions/cache@v3
-        with:
-          path: ~/.stack
-          key: ${{ runner.os }}-check_sdist-${{ hashFiles('stack.yaml', 'package.yaml') }}
-
+        id: setup
+        name: Set up GHC
+        uses: haskell-actions/setup@v2
       -
         name: Strip unreleased section from CHANGELOG
         run: sed -i -n '/^# Unreleased/d; /^#/,$p' CHANGELOG.md
       -
         name: Create sdist bundle
-        run: stack sdist --test-tarball --tar-dir .
+        run: cabal sdist --output-directory=.
       -
         uses: actions/upload-artifact@v3
         with:

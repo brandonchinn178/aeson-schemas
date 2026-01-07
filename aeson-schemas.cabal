@@ -1,9 +1,5 @@
 cabal-version: >= 1.10
 
--- This file has been generated from package.yaml by hpack version 0.37.0.
---
--- see: https://github.com/sol/hpack
-
 name:           aeson-schemas
 version:        1.4.3.0
 synopsis:       Easily consume JSON data on-demand with type-safety

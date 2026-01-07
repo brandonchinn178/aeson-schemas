@@ -1,4 +1,0 @@
-resolver: nightly-2024-12-20
-
-extra-deps:
-  - th-test-utils-1.2.2
