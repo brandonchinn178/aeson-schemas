@@ -1,9 +1,5 @@
 cabal-version: >= 1.10
 
--- This file has been generated from package.yaml by hpack version 0.37.0.
---
--- see: https://github.com/sol/hpack
-
 name:           aeson-schemas
 version:        1.4.3.0
 synopsis:       Easily consume JSON data on-demand with type-safety
@@ -78,14 +74,14 @@ library
       src
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wnoncanonical-monad-instances -Wunused-packages
   build-depends:
-      aeson <3
-    , base >=4.17 && <5
-    , first-class-families <0.9
-    , hashable <1.6
-    , megaparsec <10
-    , template-haskell <2.24
-    , text <2.2
-    , unordered-containers <0.3
+      base >=4.17 && <5
+    , aeson
+    , first-class-families
+    , hashable
+    , megaparsec
+    , template-haskell
+    , text
+    , unordered-containers
   default-language: Haskell2010
 
 test-suite aeson-schemas-test
